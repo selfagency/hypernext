@@ -1,0 +1,3 @@
+# ultracite
+pnpm exec lint-staged
+# ultracite end
