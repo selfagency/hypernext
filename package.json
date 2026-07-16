@@ -1,0 +1,41 @@
+{
+  "name": "@selfagency/hypernext",
+  "version": "0.1.0",
+  "description": "Multi-Protocol MDX Document Server",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "vitest"
+  },
+  "keywords": [
+    "markdown",
+    "md",
+    "mdx",
+    "html",
+    "http",
+    "gopher",
+    "gemini",
+    "rss",
+    "spartan",
+    "nex",
+    "finger",
+    "atproto",
+    "activitypub",
+    "textcasting"
+  ],
+  "license": "GPL-3.0-or-later",
+  "author": "Daniel Sieradski <daniel@self.agency>",
+  "type": "module",
+  "packageManager": "pnpm@10.33.4",
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.4",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.8",
+    "ultracite": "^7.9.4",
+    "vite": "^8.1.5",
+    "vitepress": "^1.6.4",
+    "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "typescript": "^6.0.3"
+  }
+}
