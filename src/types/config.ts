@@ -276,6 +276,18 @@ export interface AgentConfig {
   wellKnown: AgentWellKnownConfig;
 }
 
+export interface SecurityTxtConfig {
+  acknowledgments?: string;
+  canonical?: string[];
+  contact: string[];
+  csaf?: string;
+  encryption?: string;
+  expires: string;
+  hiring?: string;
+  policy?: string;
+  preferredLanguages?: string;
+}
+
 export interface HypernextConfig {
   agent?: AgentConfig;
   api: ApiConfig;
@@ -295,6 +307,7 @@ export interface HypernextConfig {
     rules: AgentRobotsTxtRule[];
     aiCrawlers: "block" | "allow" | "selective";
   };
+  securityTxt?: SecurityTxtConfig;
   site: SiteConfig;
   storage: StorageConfig;
   syndication: SyndicationConfig;

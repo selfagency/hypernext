@@ -36,6 +36,7 @@ import { addContentSignalHeader } from "../renderers/content-signals.js";
 import { renderHTML } from "../renderers/html.js";
 import { renderLlmsTxt } from "../renderers/llms-txt.js";
 import { renderRobotsTxt } from "../renderers/robots-txt.js";
+import { renderSecurityTxt } from "../renderers/security-txt.js";
 import { renderSitemap } from "../renderers/sitemap.js";
 import { getArchiveDocs, getAuthorDocs, getTaxonomyDocs } from "../router.js";
 import type { HypernextConfig } from "../types/config.js";
@@ -305,6 +306,17 @@ export function createHttpServer(config: HypernextConfig) {
   if (config.robotsTxt?.enabled !== false) {
     fastify.get("/robots.txt", (_request, reply) => {
       reply.type("text/plain").send(renderRobotsTxt(config));
+    });
+  }
+
+  // security.txt (RFC 9116) — served when contact is configured
+  if (config.securityTxt?.contact.length) {
+    const securityTxt = renderSecurityTxt(config.securityTxt);
+    fastify.get("/.well-known/security.txt", (_request, reply) => {
+      reply.type("text/plain").send(securityTxt);
+    });
+    fastify.get("/security.txt", (_request, reply) => {
+      reply.type("text/plain").send(securityTxt);
     });
   }
 

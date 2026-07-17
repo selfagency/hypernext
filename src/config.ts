@@ -121,6 +121,10 @@ robotsTxt:
   aiCrawlers: block
   rules: []
 
+securityTxt:
+  contact: []
+  expires: ""
+
 agent:
   enabled: false
   contentSignals:
