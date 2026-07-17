@@ -69,4 +69,12 @@ export function startAllServers(config: HypernextConfig): void {
   if (protocols.finger.enabled) {
     startFingerServer(config);
   }
+
+  // Graceful shutdown on SIGTERM/SIGINT
+  process.on("SIGTERM", () => {
+    process.exit(0);
+  });
+  process.on("SIGINT", () => {
+    process.exit(0);
+  });
 }

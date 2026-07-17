@@ -11,6 +11,7 @@ import etag from "@fastify/etag";
 import formbody from "@fastify/formbody";
 import helmet from "@fastify/helmet";
 import jwt from "@fastify/jwt";
+import multipart from "@fastify/multipart";
 import { FastifyOtelInstrumentation } from "@fastify/otel";
 import sensible from "@fastify/sensible";
 import staticFiles from "@fastify/static";
@@ -115,6 +116,14 @@ export function createHttpServer(config: HypernextConfig) {
 
   // HTTP caching layer (cache-control headers)
   fastify.register(caching, { privacy: caching.privacy.PUBLIC });
+
+  // Multipart file uploads
+  fastify.register(multipart, {
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10 MB
+      files: 5,
+    },
+  });
 
   // Serve static assets from /assets/
   const assetsDir = path.resolve("assets");
