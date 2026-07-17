@@ -398,7 +398,7 @@ siteName: "My Hypernext Site"
 
 Hypernext includes semantic components resolved at parse-time into IR nodes. HTML rendering automatically applies appropriate Microformats2 classes.
 
-Component Description HTML Rendering (Microformats2) Gemini/Gopher / RSS Rendering `<NavMenu />` Links to main sections `<nav class="h-feed"><ul>...</ul></nav>` Flattened list of `=>` links `<Breadcrumbs />` Hierarchical trail for wikis/libraries `<nav class="breadcrumbs"><a href="/">Home</a> / ...</nav>` Flattened list of parent links `<Search />` Renders a search input form `<form action="/search"><input .../></form>` `=> /search Search the site` `<TagCloud taxonomy="tags" />` Lists all terms in a taxonomy `<div class="tag-cloud"><a href="/tags/foo">foo</a>...` Flattened list of `=> /tags/foo foo` links `<RecentPosts limit={5} />` Lists recent blog posts `<ul class="h-feed"><li class="h-entry">...</li></ul>` List of `=> /blog/{slug}` links `<PostNav />` Previous/Next chronological navigation `<nav class="post-nav"><a href="...">← Older</a>...</nav>` `=> /blog/prev Older` / `=> /blog/next Newer` `<RelatedPosts limit={3} />` Posts sharing taxonomies `<aside class="related"><ul>...</ul></aside>` Flattened list of related links `<TableOfContents />` Builds outlined TOC from downward folder structure `<ul class="toc">...` Nested menu of `1` links `<Include src="/library/header" />` Wiki-style macro to inject another doc's content (Merged into AST) (Merged into AST) `<AuthorBio />` Pulls from global `config.yml` author block `<div class="h-card"><img class="u-photo" />...</div>` Flattened text bio & contact links `<SyndicationLinks />` Outputs `u-syndication` links from SQLite `<a rel="syndication" href="...">Mastodon</a>` Flattened list of syndication links `<Figure src="..." alt="..." caption="..." />` Groups images and captions `<figure><img src="..." /><figcaption>...</figcaption></figure>` `=> {src} {caption}` `<Mermaid graph="..." />` Renders Mermaid diagrams `<pre class="mermaid">` Link to [mermaid.ink](https://mermaid.ink) `<Latex math="..." />` Renders LaTeX equations `katex.renderToString()` Raw math text block `<Enclosure url="..." type="..." length="..." />` Podcasts / Vodcasts `<audio controls src="..."></audio>` or `<video>` RSS: `<enclosure>` tag. Gemini/Gopher: `=> {url} Listen/Watch`
+Component Description HTML Rendering (Microformats2) Gemini/Gopher / RSS Rendering `<NavMenu />` Links to main sections `<nav class="h-feed"><ul>...</ul></nav>` Flattened list of `=>` links `<Breadcrumbs />` Hierarchical trail for wikis/libraries `<nav class="breadcrumbs"><a href="/">Home</a> / ...</nav>` Flattened list of parent links `<Search />` Renders a search input form `<form action="/search"><input .../></form>` `=> /search Search the site` `<TagCloud taxonomy="tags" />` Lists all terms in a taxonomy `<div class="tag-cloud"><a href="/tags/foo">foo</a>...` Flattened list of `=> /tags/foo foo` links `<RecentPosts limit={5} />` Lists recent blog posts `<ul class="h-feed"><li class="h-entry">...</li></ul>` List of `=> /blog/{slug}` links `<PostNav />` Previous/Next chronological navigation `<nav class="post-nav"><a href="...">← Older</a>...</nav>` `=> /blog/prev Older` / `=> /blog/next Newer` `<RelatedPosts limit={3} />` Posts sharing taxonomies `<aside class="related"><ul>...</ul></aside>` Flattened list of related links `<TableOfContents />` Builds outlined TOC from downward folder structure `<ul class="toc">...` Nested menu of `1` links `<Include src="/library/header" />` Wiki-style macro to inject another doc's content (Merged into AST) (Merged into AST) `<AuthorBio />` Pulls from global `config.yml` author block `<div class="h-card"><img class="u-photo" />...</div>` Flattened text bio & contact links `<SyndicationLinks />` Outputs `u-syndication` links from SQLite `<a rel="syndication" href="...">Mastodon</a>` Flattened list of syndication links `<Figure src="..." alt="..." caption="..." />` Groups images and captions `<figure><img src="..." /><figcaption>...</figcaption></figure>` `=> {src} {caption}` `<Mermaid graph="..." />` Renders Mermaid diagrams `<pre class="mermaid">` Link to [mermaid.ink](https://mermaid.ink) `<Latex math="..." />` Renders LaTeX equations `katex.renderToString()` Raw math text block `<Enclosure url="..." type="..." length="..." />` Podcast/media enclosure `<a href="...">Enclosure</a>` Promoted to RSS `<enclosure>`
 
 ---
 
@@ -1000,3 +1000,40 @@ Kept intentionally lean to fit the $5 VPS constraint.
 - [ ] Write Dockerfile and publish to Docker Hub/GHCR.
 - [ ] Build VitePress documentation site.
 - [ ] Canonical URL enforcement across all renderers.
+
+### Phase 7: Comment Moderation, Scheduled Publishing, Archives & Deployment Flexibility (1 week)
+
+- [ ] **Comment moderation & blocklists**
+  - Rename/extend the existing spam-management API (`src/api/moderation.ts`) into a general **comments API**.
+  - Add `comments.blocklist` config keys: `handles`, `domains`, and `ips`.
+  - Enforce the blocklist during inbound Webmention/Pingback/Trackback processing.
+  - Add moderation endpoints: `GET /api/comments`, `POST /api/comments/:id/hide`, `POST /api/comments/:id/unhide`, `POST /api/comments/:id/spam`, `POST /api/comments/:id/ham`, `DELETE /api/comments/:id`.
+  - Add blocklist endpoints: `GET /api/blocklist`, `POST /api/blocklist`, `DELETE /api/blocklist`.
+  - Update the `Comments` resolver to exclude hidden and deleted comments from rendered output.
+  - Protect all moderation endpoints with IndieAuth bearer tokens.
+  - Write unit and E2E tests for blocklist matching and moderation state changes.
+
+- [ ] **Scheduled publishing**
+  - The existing `date` frontmatter already determines the post's canonical publication date; add `publishAt` frontmatter (ISO 8601 date/time) to control when a post becomes publicly visible.
+  - Filter future-dated documents (where `publishAt` or, if absent, `date` is in the future) out of `listDocSlugs`, `getDocBySlug`, RSS, and archive queries until the publish time is reached.
+  - Add a lightweight scheduled re-index trigger (workmatic or interval) to publish posts automatically when their `publishAt` time arrives.
+  - Ensure private/future posts return 404 across HTTP and smolnet protocols.
+  - Write unit and E2E tests for future-date filtering and auto-publication.
+
+- [ ] **Archive routes, templates, and components**
+  - Add `order` frontmatter field for manual sorting of pages within a collection and at the page root.
+  - Add routes: `/blog/archive/:year`, `/blog/archive/:year/:month`, `/blog/:taxonomy/:term`, `/:collection/:taxonomy/:term`.
+  - Add components: `<Archive />`, `<PostList />`.
+  - Add templates: `templates/archive.mdx`, `templates/taxonomy.mdx`, `templates/author.mdx`.
+  - Add database queries for year/month, taxonomy term, author, and manual `order` filtering/sorting.
+  - Render archive pages through the existing IR pipeline so all protocols can serve them.
+  - Write unit and E2E tests for archive routing, taxonomy routing, and component output.
+
+- [ ] **Docker Compose deployment examples**
+  - Create `docker-compose.yml` (local storage + mounted `config.yml`).
+  - Create `docker-compose.s3.yml` (S3 storage + mounted `config.yml`).
+  - Create `docker-compose.env.yml` (local storage + environment variables).
+  - Create `docker-compose.s3.env.yml` (S3 storage + environment variables).
+  - Ensure `config.yml` supports `${VAR}` substitution from `.env` files or the process environment.
+  - Document the compose variants in `docs/deployment.md`.
+  - Add a CI smoke test that validates at least one compose file with `docker compose config`.

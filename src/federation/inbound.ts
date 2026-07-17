@@ -1,0 +1,359 @@
+import crypto from "node:crypto";
+import type { FastifyInstance } from "fastify";
+import { Mention } from "../database/entities/mention.js";
+import { getEm } from "../database/index.js";
+import type { HypernextConfig } from "../types/config.js";
+import { checkAkismet } from "./akismet.js";
+import { resolveCommentConfig } from "./config-resolver.js";
+import { validateSourceUrl } from "./ssrf.js";
+
+const FETCH_TIMEOUT_MS = 5000;
+const MAX_FETCH_SIZE = 1_048_576; // 1MB
+const TRAILING_SLASH_REGEX = /\/+$/;
+const LEADING_SLASH_REGEX = /^\//;
+const URL_HOST_REGEX = /^https?:\/\/([^/]+)/i;
+const P_NAME_REGEX = /class="[^"]*\bp-name\b[^"]*"[^>]*>([^<]+)</i;
+const E_CONTENT_REGEX =
+  /class="[^"]*\be-content\b[^"]*"[^>]*>([\s\S]*?)<\/div>/i;
+const DT_PUBLISHED_REGEX = /class="[^"]*\bdt-published\b[^"]*"[^>]*>([^<]+)</i;
+const U_URL_REGEX = /class="[^"]*\bu-url\b[^"]*"[^>]*href="([^"]+)"/i;
+const U_PHOTO_REGEX = /class="[^"]*\bu-photo\b[^"]*"[^>]*src="([^"]+)"/i;
+const HTML_TAG_REGEX = /<[^>]+>/g;
+const WHITESPACE_REGEX = /\s+/g;
+const REGEX_ESCAPE_REGEX = /[.*+?^${}()|[\]\\]/g;
+
+function hashString(input: string): string {
+  return crypto.createHash("sha256").update(input).digest("hex").slice(0, 16);
+}
+
+function extractTargetSlug(
+  target: string,
+  config: HypernextConfig
+): string | null {
+  const base = config.site.canonicalBase.replace(TRAILING_SLASH_REGEX, "");
+  if (!target.startsWith(base)) {
+    return null;
+  }
+  const path = target.slice(base.length).replace(LEADING_SLASH_REGEX, "");
+  return path || null;
+}
+
+function extractMf2Data(html: string): {
+  authorName: string;
+  authorUrl: string;
+  authorPhoto: string;
+  content: string;
+  publishedAt: number;
+} {
+  // Basic mf2 extraction: look for h-entry elements
+  const result = {
+    authorName: "",
+    authorUrl: "",
+    authorPhoto: "",
+    content: "",
+    publishedAt: Date.now(),
+  };
+
+  // Try to extract p-name (author name) — look for p-name class directly
+  const nameMatch = html.match(P_NAME_REGEX);
+  if (nameMatch) {
+    result.authorName = nameMatch[1].trim();
+  }
+
+  // Try to extract e-content
+  const contentMatch = html.match(E_CONTENT_REGEX);
+  if (contentMatch) {
+    result.content = contentMatch[1]
+      .replace(HTML_TAG_REGEX, "")
+      .replace(WHITESPACE_REGEX, " ")
+      .trim()
+      .slice(0, 500);
+  }
+
+  // Try to extract dt-published
+  const dateMatch = html.match(DT_PUBLISHED_REGEX);
+  if (dateMatch) {
+    const parsed = Date.parse(dateMatch[1].trim());
+    if (!Number.isNaN(parsed)) {
+      result.publishedAt = parsed;
+    }
+  }
+
+  // Try to extract u-url for author URL
+  const urlMatch = html.match(U_URL_REGEX);
+  if (urlMatch) {
+    result.authorUrl = urlMatch[1];
+  }
+
+  // Try to extract u-photo for author photo
+  const photoMatch = html.match(U_PHOTO_REGEX);
+  if (photoMatch) {
+    result.authorPhoto = photoMatch[1];
+  }
+
+  return result;
+}
+
+async function fetchSourceHtml(source: string): Promise<string | null> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    const response = await fetch(source, {
+      signal: controller.signal,
+      headers: { "User-Agent": "Hypernext/1.0" },
+    });
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const buffer = await response.arrayBuffer();
+    if (buffer.byteLength > MAX_FETCH_SIZE) {
+      return null;
+    }
+
+    return new TextDecoder("utf-8").decode(buffer);
+  } catch {
+    return null;
+  }
+}
+
+function verifyLinkInHtml(html: string, target: string): boolean {
+  const escaped = target.replace(REGEX_ESCAPE_REGEX, "\\$&");
+  return new RegExp(escaped, "i").test(html);
+}
+
+function isBlocked(
+  payload: {
+    source: string;
+    ip: string;
+  },
+  authorName: string,
+  blocklist: { domains: string[]; handles: string[]; ips: string[] } | undefined
+): boolean {
+  if (!blocklist) {
+    return false;
+  }
+
+  const sourceDomain = payload.source.match(URL_HOST_REGEX)?.[1] ?? "";
+
+  if (blocklist.domains?.some((d) => sourceDomain.includes(d))) {
+    return true;
+  }
+  if (blocklist.ips?.includes(payload.ip)) {
+    return true;
+  }
+  if (blocklist.handles?.length) {
+    const authorLower = authorName.toLowerCase();
+    if (blocklist.handles.some((h) => authorLower.includes(h.toLowerCase()))) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+export async function processInboundMention(
+  config: HypernextConfig,
+  payload: {
+    source: string;
+    target: string;
+    ip: string;
+    userAgent: string;
+    type: "webmention" | "pingback" | "trackback";
+    excerpt?: string;
+    blogName?: string;
+  }
+): Promise<void> {
+  // 1. Validate target URL resolves to a valid slug
+  const slug = extractTargetSlug(payload.target, config);
+  if (!slug) {
+    return;
+  }
+
+  // 2. Check comment config for this slug
+  const commentConfig = await resolveCommentConfig(config, slug);
+  if (!commentConfig.inbound[payload.type]) {
+    return;
+  }
+
+  // 3. SSRF protection
+  if (!validateSourceUrl(payload.source, commentConfig.allowPrivateSources)) {
+    return;
+  }
+
+  // 4. Fetch source HTML
+  const html = await fetchSourceHtml(payload.source);
+  if (!html) {
+    return;
+  }
+
+  // 5. Verify target link appears in source
+  if (!verifyLinkInHtml(html, payload.target)) {
+    return;
+  }
+
+  // 6. Parse mf2 data
+  const mf2 = extractMf2Data(html);
+
+  // 7. Build content from trackback fields if available
+  const content =
+    payload.type === "trackback" && payload.excerpt
+      ? payload.excerpt
+      : mf2.content || payload.excerpt || "";
+
+  const authorName = mf2.authorName || payload.blogName || "Anonymous";
+
+  // 8. Check blocklist (domain, IP, handle)
+  if (isBlocked(payload, authorName, commentConfig.blocklist)) {
+    return;
+  }
+
+  // 9. Check Akismet
+  const spamStatus = await checkAkismet({
+    apiKey: commentConfig.akismet.apiKey ?? "",
+    endpoint: commentConfig.akismet.endpoint,
+    blog: config.site.canonicalBase,
+    userIp: payload.ip,
+    userAgent: payload.userAgent,
+    referrer: payload.source,
+    permalink: payload.target,
+    commentType: payload.type,
+    commentAuthor: authorName,
+    commentAuthorUrl: mf2.authorUrl,
+    commentContent: content,
+  });
+
+  // 10. Store mention
+  const em = getEm();
+  const id = hashString(`${payload.source}:${slug}`);
+  const existing = await em.findOne(Mention, { id });
+  if (existing) {
+    existing.spamStatus = spamStatus;
+    existing.content = content;
+    existing.authorName = authorName;
+    existing.authorUrl = mf2.authorUrl;
+    existing.authorPhoto = mf2.authorPhoto;
+    existing.seenAt = Date.now();
+    await em.flush();
+    return;
+  }
+
+  em.create(Mention, {
+    id,
+    targetSlug: slug,
+    sourceUrl: payload.source,
+    authorName,
+    authorUrl: mf2.authorUrl || null,
+    authorPhoto: mf2.authorPhoto || null,
+    content,
+    publishedAt: mf2.publishedAt,
+    type: "reply",
+    platform: payload.type,
+    senderIp: payload.ip,
+    spamStatus,
+  });
+  await em.flush();
+}
+
+// ── Fastify Route Registration ──
+
+export function registerInboundRoutes(
+  fastify: FastifyInstance,
+  config: HypernextConfig
+): void {
+  // POST /webmention
+  fastify.post<{
+    Body: { source?: string; target?: string };
+  }>("/webmention", (request, reply) => {
+    const { source, target } = request.body;
+    if (!(source && target)) {
+      reply.code(400).send({ error: "Missing source or target" });
+      return;
+    }
+
+    processInboundMention(config, {
+      source,
+      target,
+      ip: request.ip,
+      userAgent: (request.headers["user-agent"] as string) ?? "",
+      type: "webmention",
+    }).catch((err) => console.error("Webmention worker error:", err));
+
+    reply.code(202).send({ status: "accepted" });
+  });
+
+  // POST /pingback (XML-RPC)
+  fastify.post<{
+    Body: {
+      methodName?: string;
+      params?: Array<{ value?: { string?: string } }>;
+    };
+  }>("/pingback", (request, reply) => {
+    const { methodName, params } = request.body;
+
+    if (methodName !== "pingback.ping" || !params || params.length < 2) {
+      reply.code(400).send({ error: "Invalid pingback request" });
+      return;
+    }
+
+    const source = params[0]?.value?.string;
+    const target = params[1]?.value?.string;
+
+    if (!(source && target)) {
+      reply.code(400).send({ error: "Missing source or target" });
+      return;
+    }
+
+    processInboundMention(config, {
+      source,
+      target,
+      ip: request.ip,
+      userAgent: (request.headers["user-agent"] as string) ?? "",
+      type: "pingback",
+    }).catch((err) => console.error("Pingback worker error:", err));
+
+    // XML-RPC response
+    reply
+      .type("text/xml")
+      .code(200)
+      .send(
+        `<?xml version="1.0"?><methodResponse><params><param><value><string>Thanks!</string></value></param></params></methodResponse>`
+      );
+  });
+
+  // POST /trackback
+  fastify.post<{
+    Params: { slug: string };
+    Body: {
+      url?: string;
+      title?: string;
+      excerpt?: string;
+      blog_name?: string;
+    };
+  }>("/trackback/*", (request, reply) => {
+    const slug = (request.params as { "*": string })["*"];
+    const { url, title, excerpt, blog_name } = request.body;
+
+    if (!url) {
+      reply.code(400).send({ error: "Missing url" });
+      return;
+    }
+
+    const target = `${config.site.canonicalBase}/${slug}`;
+
+    processInboundMention(config, {
+      source: url,
+      target,
+      ip: request.ip,
+      userAgent: (request.headers["user-agent"] as string) ?? "",
+      type: "trackback",
+      title,
+      excerpt,
+      blogName: blog_name,
+    }).catch((err) => console.error("Trackback worker error:", err));
+
+    reply.code(202).send({ status: "accepted" });
+  });
+}
