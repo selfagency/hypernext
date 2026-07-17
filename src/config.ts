@@ -115,6 +115,31 @@ comments:
 mcp:
   enabled: true
   transport: stdio
+
+robotsTxt:
+  enabled: true
+  aiCrawlers: block
+  rules: []
+
+agent:
+  enabled: false
+  contentSignals:
+    enabled: true
+    aiTrain: true
+    search: true
+    aiInput: true
+  markdownNegotiation: true
+  llmsTxt: true
+  sitemap: true
+  linkHeaders: true
+  wellKnown:
+    apiCatalog: true
+    agentSkills: true
+    mcpServerCard: true
+    webBotAuth: true
+    webmcp: true
+  hiddenAgentDirective: true
+  viewTransitions: true
 `;
 
 export function scaffoldDefaults(cwd: string): void {

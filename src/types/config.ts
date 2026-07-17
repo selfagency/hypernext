@@ -242,7 +242,42 @@ export interface RemoteConfig {
   url: string;
 }
 
+export interface AgentRobotsTxtRule {
+  allow?: string[];
+  crawlDelay?: number;
+  disallow?: string[];
+  userAgent: string;
+}
+
+export interface AgentContentSignalsConfig {
+  aiInput: boolean;
+  aiTrain: boolean;
+  enabled: boolean;
+  search: boolean;
+}
+
+export interface AgentWellKnownConfig {
+  agentSkills: boolean;
+  apiCatalog: boolean;
+  mcpServerCard: boolean;
+  webBotAuth: boolean;
+  webmcp: boolean;
+}
+
+export interface AgentConfig {
+  contentSignals: AgentContentSignalsConfig;
+  enabled: boolean;
+  hiddenAgentDirective: boolean;
+  linkHeaders: boolean;
+  llmsTxt: boolean;
+  markdownNegotiation: boolean;
+  sitemap: boolean;
+  viewTransitions: boolean;
+  wellKnown: AgentWellKnownConfig;
+}
+
 export interface HypernextConfig {
+  agent?: AgentConfig;
   api: ApiConfig;
   author: AuthorConfig;
   collections: Record<string, CollectionConfig>;
@@ -255,6 +290,11 @@ export interface HypernextConfig {
   mcp: McpConfig;
   micropub: MicropubConfig;
   protocols: ProtocolsConfig;
+  robotsTxt?: {
+    enabled: boolean;
+    rules: AgentRobotsTxtRule[];
+    aiCrawlers: "block" | "allow" | "selective";
+  };
   site: SiteConfig;
   storage: StorageConfig;
   syndication: SyndicationConfig;

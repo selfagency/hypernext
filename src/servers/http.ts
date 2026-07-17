@@ -31,11 +31,17 @@ import {
   isFutureDatedFrontmatter,
 } from "../parser/frontmatter.js";
 import { parseToIR, resolveComponentNodes } from "../parser/pipeline.js";
+import { registerWellKnownEndpoints } from "../renderers/agent-readiness.js";
+import { addContentSignalHeader } from "../renderers/content-signals.js";
 import { renderHTML } from "../renderers/html.js";
+import { renderLlmsTxt } from "../renderers/llms-txt.js";
+import { renderRobotsTxt } from "../renderers/robots-txt.js";
+import { renderSitemap } from "../renderers/sitemap.js";
 import { getArchiveDocs, getAuthorDocs, getTaxonomyDocs } from "../router.js";
 import type { HypernextConfig } from "../types/config.js";
 
 const NOT_FOUND_HTML = "<h1>404 Not Found</h1>";
+const INDEX_MD_REGEX = /\/index\.md$/;
 
 export function createHttpServer(config: HypernextConfig) {
   const fastify = Fastify({ logger: false });
@@ -288,19 +294,65 @@ export function createHttpServer(config: HypernextConfig) {
       );
   });
 
-  // Sitemap
-  fastify.get("/sitemap.xml", (_request, reply) => {
-    reply
-      .type("application/xml")
-      .send(
-        '<?xml version="1.0" encoding="utf-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>'
-      );
-  });
-
   // Health check
   fastify.get("/health", (_request, reply) => {
     reply.send({ status: "ok" });
   });
+
+  // ── Agent Readiness Routes ──
+
+  // robots.txt (always served when config allows)
+  if (config.robotsTxt?.enabled !== false) {
+    fastify.get("/robots.txt", (_request, reply) => {
+      reply.type("text/plain").send(renderRobotsTxt(config));
+    });
+  }
+
+  // XML Sitemap
+  if (config.agent?.enabled && config.agent.sitemap) {
+    fastify.get("/sitemap.xml", async (_request, reply) => {
+      reply.type("application/xml").send(await renderSitemap(config));
+    });
+  }
+
+  // llms.txt
+  if (config.agent?.enabled && config.agent.llmsTxt) {
+    fastify.get("/llms.txt", async (_request, reply) => {
+      reply.type("text/plain").send(await renderLlmsTxt(config));
+    });
+  }
+
+  // Markdown index.md fallback
+  if (config.agent?.enabled && config.agent.markdownNegotiation) {
+    fastify.get("/*/index.md", async (request, reply) => {
+      const slug = (request.params as { "*": string })["*"].replace(
+        INDEX_MD_REGEX,
+        ""
+      );
+      const doc = await getDocBySlug(slug);
+      if (!doc) {
+        reply.code(404).type("text/plain").send("Not found");
+        return;
+      }
+      const rawMdx = (doc.rawMdx as string) ?? "";
+      const result = getCachedParse(slug) ?? parseToIR(rawMdx, slug);
+      const markdown = (
+        await import("../renderers/markdown.js")
+      ).renderMarkdown(result.ir);
+      reply.type("text/markdown; charset=utf-8").send(markdown);
+    });
+  }
+
+  // Well-known endpoints
+  registerWellKnownEndpoints(fastify, config);
+
+  // Global onResponse hook for Content-Signal and Link headers
+  if (config.agent?.enabled) {
+    fastify.addHook("onResponse", (_request, reply, done) => {
+      addContentSignalHeader(reply, config);
+      done();
+    });
+  }
 
   return fastify;
 }

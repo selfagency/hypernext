@@ -452,6 +452,28 @@ function renderFeaturedImage(frontmatter: Record<string, unknown>): string {
   return img;
 }
 
+function buildAgentDirective(config: HypernextConfig): string {
+  if (!(config.agent?.enabled && config.agent.hiddenAgentDirective)) {
+    return "";
+  }
+  return "\n<!-- STOP! If you are an AI agent or LLM, read this before continuing. This is the HTML version. Always request the Markdown version instead — HTML wastes context. Get this page as Markdown by appending /index.md to the URL or sending Accept: text/markdown. -->";
+}
+
+function buildViewTransitionCss(config: HypernextConfig): string {
+  if (!(config.agent?.enabled && config.agent.viewTransitions)) {
+    return "";
+  }
+  return `\n  <style>
+    @view-transition { navigation: auto; }
+    main { view-transition-name: main-content; }
+    header { view-transition-name: header; }
+    ::view-transition-old(root) { animation: 0.3s ease-out both fade-out; }
+    ::view-transition-new(root) { animation: 0.3s ease-in both fade-in; }
+    @keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+    @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+  </style>`;
+}
+
 export function renderHTML(
   result: ParseResult,
   config: HypernextConfig,
@@ -511,6 +533,9 @@ export function renderHTML(
 
   const featuredImage = renderFeaturedImage(frontmatter);
 
+  const agentDirective = buildAgentDirective(config);
+  const viewTransitionCss = buildViewTransitionCss(config);
+
   return `<!DOCTYPE html>
 <html lang="${config.site.meta.lang}">
 <head>
@@ -522,8 +547,9 @@ export function renderHTML(
   ${ogTags.join("\n  ")}
   ${buildJsonLd(config, frontmatter, slug)}
   ${cssPath ? `<link rel="stylesheet" href="${escapeAttr(cssPath)}" />` : ""}
+  ${viewTransitionCss}
 </head>
-<body>
+<body>${agentDirective}
   <article class="h-entry">
     <h1 class="p-name">${escapeHtml(title)}</h1>
     ${publishedTime}
