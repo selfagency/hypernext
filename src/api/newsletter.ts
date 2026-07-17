@@ -1,101 +1,90 @@
+import rateLimit from "@fastify/rate-limit";
 import type { FastifyInstance } from "fastify";
 import { Subscriber } from "../database/entities/subscriber.js";
 import { getEm } from "../database/index.js";
 import { getOrchestrator } from "../federation/workmatic.js";
-import { createRateLimiter } from "../utils/rate-limit.js";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// Rate limiters for public endpoints
-const subscribeLimiter = createRateLimiter({
-  maxRequests: 5,
-  windowMs: 60_000,
-});
-const verifyLimiter = createRateLimiter({ maxRequests: 10, windowMs: 60_000 });
-const unsubscribeLimiter = createRateLimiter({
-  maxRequests: 5,
-  windowMs: 60_000,
-});
-const contactLimiter = createRateLimiter({ maxRequests: 3, windowMs: 60_000 });
-
 export function registerNewsletterRoutes(fastify: FastifyInstance): void {
+  // Register rate limit plugin globally
+  fastify.register(rateLimit, {
+    global: false,
+    max: 100,
+    timeWindow: "1 minute",
+  });
+
   // ── Public: Subscribe ──
   fastify.post<{
     Body: { email: string; frequency?: string };
-  }>("/api/v1/subscribe", async (request, reply) => {
-    const { email, frequency } = request.body;
+  }>(
+    "/api/v1/subscribe",
+    {
+      config: { rateLimit: { max: 5, timeWindow: "1 minute" } },
+    },
+    async (request, reply) => {
+      const { email, frequency } = request.body;
 
-    const rl = subscribeLimiter.check(request.ip);
-    if (!rl.allowed) {
-      reply
-        .code(429)
-        .send({ error: "Too many requests. Please try again later." });
-      return;
+      if (!(email && EMAIL_REGEX.test(email))) {
+        reply.code(400).send({ error: "Invalid email format." });
+        return;
+      }
+
+      const orch = getOrchestrator();
+      const client = orch.client("email-verification");
+      await client.add(
+        { email, frequency: frequency ?? "instant" },
+        { maxAttempts: 2 }
+      );
+
+      reply.code(202).send({
+        status:
+          "If valid, please check your email to verify your subscription.",
+      });
     }
-
-    if (!(email && EMAIL_REGEX.test(email))) {
-      reply.code(400).send({ error: "Invalid email format." });
-      return;
-    }
-
-    const orch = getOrchestrator();
-    const client = orch.client("email-verification");
-    await client.add(
-      { email, frequency: frequency ?? "instant" },
-      { maxAttempts: 2 }
-    );
-
-    reply.code(202).send({
-      status: "If valid, please check your email to verify your subscription.",
-    });
-  });
+  );
 
   // ── Public: Verify subscription ──
-  fastify.get("/api/v1/subscribe/verify", async (request, reply) => {
-    const query = request.query as Record<string, string>;
-    const token = query.token;
+  fastify.get(
+    "/api/v1/subscribe/verify",
+    {
+      config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+    },
+    async (request, reply) => {
+      const query = request.query as Record<string, string>;
+      const token = query.token;
 
-    const rl = verifyLimiter.check(request.ip);
-    if (!rl.allowed) {
-      reply
-        .code(429)
-        .send({ error: "Too many requests. Please try again later." });
-      return;
+      if (!token) {
+        reply.code(400).send({ error: "Missing verification token." });
+        return;
+      }
+
+      const em = getEm();
+      const sub = await em.findOne(Subscriber, { verificationToken: token });
+      if (!sub) {
+        reply.code(404).send({ error: "Invalid or expired token." });
+        return;
+      }
+
+      sub.verified = true;
+      sub.verificationToken = null;
+      await em.flush();
+
+      reply.send({ status: "Email verified. You are now subscribed." });
     }
-
-    if (!token) {
-      reply.code(400).send({ error: "Missing verification token." });
-      return;
-    }
-
-    const em = getEm();
-    const sub = await em.findOne(Subscriber, { verificationToken: token });
-    if (!sub) {
-      reply.code(404).send({ error: "Invalid or expired token." });
-      return;
-    }
-
-    sub.verified = true;
-    sub.verificationToken = null;
-    await em.flush();
-
-    reply.send({ status: "Email verified. You are now subscribed." });
-  });
+  );
 
   // ── Public: Unsubscribe form page ──
-  fastify.get("/subscribe/unsubscribe", (request, reply) => {
-    const query = request.query as Record<string, string>;
-    const token = query.token ?? "";
+  fastify.get(
+    "/subscribe/unsubscribe",
+    {
+      config: { rateLimit: { max: 5, timeWindow: "1 minute" } },
+    },
+    (request, reply) => {
+      const query = request.query as Record<string, string>;
+      const token = query.token ?? "";
 
-    const rl = unsubscribeLimiter.check(request.ip);
-    if (!rl.allowed) {
-      reply
-        .code(429)
-        .send({ error: "Too many requests. Please try again later." });
-      return;
-    }
-
-    reply.type("text/html").send(`<!DOCTYPE html>
+      reply.type("text/html").send(`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -117,36 +106,34 @@ export function registerNewsletterRoutes(fastify: FastifyInstance): void {
   </form>
 </body>
 </html>`);
-  });
+    }
+  );
 
   // ── Public: Unsubscribe ──
   fastify.post<{
     Body: { token: string };
-  }>("/api/v1/subscribe/unsubscribe", async (request, reply) => {
-    const { token } = request.body;
+  }>(
+    "/api/v1/subscribe/unsubscribe",
+    {
+      config: { rateLimit: { max: 5, timeWindow: "1 minute" } },
+    },
+    async (request, reply) => {
+      const { token } = request.body;
 
-    const rl = unsubscribeLimiter.check(request.ip);
-    if (!rl.allowed) {
-      reply
-        .code(429)
-        .send({ error: "Too many requests. Please try again later." });
-      return;
-    }
+      if (!token) {
+        reply.code(400).send({ error: "Missing unsubscribe token." });
+        return;
+      }
 
-    if (!token) {
-      reply.code(400).send({ error: "Missing unsubscribe token." });
-      return;
-    }
+      const em = getEm();
+      const sub = await em.findOne(Subscriber, { unsubscribeToken: token });
+      if (!sub) {
+        reply.code(404).send({ error: "Invalid token." });
+        return;
+      }
 
-    const em = getEm();
-    const sub = await em.findOne(Subscriber, { unsubscribeToken: token });
-    if (!sub) {
-      reply.code(404).send({ error: "Invalid token." });
-      return;
-    }
-
-    await em.remove(sub).flush();
-    reply.type("text/html").send(`<!DOCTYPE html>
+      await em.remove(sub).flush();
+      reply.type("text/html").send(`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -162,7 +149,8 @@ export function registerNewsletterRoutes(fastify: FastifyInstance): void {
   <p>You have been successfully unsubscribed from all email updates.</p>
 </body>
 </html>`);
-  });
+    }
+  );
 
   // ── Public: Contact form ──
   fastify.post<{
@@ -173,43 +161,41 @@ export function registerNewsletterRoutes(fastify: FastifyInstance): void {
       message: string;
       name: string;
     };
-  }>("/api/v1/contact", async (request, reply) => {
-    const { name, email, message, captchaToken, captchaSolution } =
-      request.body;
+  }>(
+    "/api/v1/contact",
+    {
+      config: { rateLimit: { max: 3, timeWindow: "1 minute" } },
+    },
+    async (request, reply) => {
+      const { name, email, message, captchaToken, captchaSolution } =
+        request.body;
 
-    const rl = contactLimiter.check(request.ip);
-    if (!rl.allowed) {
-      reply
-        .code(429)
-        .send({ error: "Too many requests. Please try again later." });
-      return;
-    }
+      if (!(name && email && message)) {
+        reply.code(400).send({ error: "Missing required fields." });
+        return;
+      }
 
-    if (!(name && email && message)) {
-      reply.code(400).send({ error: "Missing required fields." });
-      return;
-    }
-
-    const orch = getOrchestrator();
-    const client = orch.client("email-send");
-    await client.add(
-      {
-        type: "contact",
-        data: {
-          name,
-          email,
-          message,
-          captchaToken,
-          captchaSolution,
-          ip: request.ip,
-          userAgent: request.headers["user-agent"],
+      const orch = getOrchestrator();
+      const client = orch.client("email-send");
+      await client.add(
+        {
+          type: "contact",
+          data: {
+            name,
+            email,
+            message,
+            captchaToken,
+            captchaSolution,
+            ip: request.ip,
+            userAgent: request.headers["user-agent"],
+          },
         },
-      },
-      { maxAttempts: 2 }
-    );
+        { maxAttempts: 2 }
+      );
 
-    reply.code(202).send({ status: "Message sent." });
-  });
+      reply.code(202).send({ status: "Message sent." });
+    }
+  );
 
   // ── Admin: List subscribers ──
   fastify.get("/api/v1/subscribers", async (request, reply) => {

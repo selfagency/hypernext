@@ -1,3 +1,8 @@
+import compress from "@fastify/compress";
+import cors from "@fastify/cors";
+import formbody from "@fastify/formbody";
+import helmet from "@fastify/helmet";
+import sensible from "@fastify/sensible";
 import Fastify from "fastify";
 import { recordPageview } from "../analytics/stats-manager.js";
 import { getCachedParse, setCachedParse } from "../cache.js";
@@ -17,6 +22,13 @@ const NOT_FOUND_HTML = "<h1>404 Not Found</h1>";
 
 export function createHttpServer(config: HypernextConfig) {
   const fastify = Fastify({ logger: false });
+
+  // Register Fastify ecosystem plugins
+  fastify.register(formbody);
+  fastify.register(cors, { origin: true });
+  fastify.register(helmet, { contentSecurityPolicy: false });
+  fastify.register(compress, { global: true });
+  fastify.register(sensible);
 
   // Home page
   fastify.get("/", (_request, reply) => {

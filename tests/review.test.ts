@@ -185,38 +185,6 @@ describe("ingestUrl SSRF", () => {
   });
 });
 
-describe("rate limiter", () => {
-  it("allows requests within limit", async () => {
-    const { createRateLimiter } = await import("../src/utils/rate-limit.js");
-    const limiter = createRateLimiter({ maxRequests: 3, windowMs: 60_000 });
-    expect(limiter.check("127.0.0.1").allowed).toBe(true);
-    expect(limiter.check("127.0.0.1").allowed).toBe(true);
-    expect(limiter.check("127.0.0.1").allowed).toBe(true);
-    expect(limiter.check("127.0.0.1").allowed).toBe(false);
-    limiter.destroy();
-  });
-
-  it("allows different IPs independently", async () => {
-    const { createRateLimiter } = await import("../src/utils/rate-limit.js");
-    const limiter = createRateLimiter({ maxRequests: 1, windowMs: 60_000 });
-    expect(limiter.check("10.0.0.1").allowed).toBe(true);
-    expect(limiter.check("10.0.0.1").allowed).toBe(false);
-    expect(limiter.check("10.0.0.2").allowed).toBe(true);
-    limiter.destroy();
-  });
-
-  it("resets after window expires", async () => {
-    const { createRateLimiter } = await import("../src/utils/rate-limit.js");
-    const limiter = createRateLimiter({ maxRequests: 1, windowMs: 50 });
-    expect(limiter.check("127.0.0.1").allowed).toBe(true);
-    expect(limiter.check("127.0.0.1").allowed).toBe(false);
-    // Wait for window to expire
-    await new Promise((resolve) => setTimeout(resolve, 60));
-    expect(limiter.check("127.0.0.1").allowed).toBe(true);
-    limiter.destroy();
-  });
-});
-
 describe("subscriber entity", () => {
   it("creates subscriber with required fields", async () => {
     const { Subscriber } = await import("../src/database/entities/subscriber.js");
