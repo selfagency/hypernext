@@ -396,6 +396,30 @@ export const COMPONENT_RESOLVERS: Record<string, ComponentResolver> = {
     ];
   },
 
+  EmailSubscribe() {
+    return [
+      paragraphNode([
+        {
+          type: "component",
+          componentName: "EmailSubscribe",
+          componentProps: {},
+        } as IrNode,
+      ]),
+    ];
+  },
+
+  ContactForm() {
+    return [
+      paragraphNode([
+        {
+          type: "component",
+          componentName: "ContactForm",
+          componentProps: {},
+        } as IrNode,
+      ]),
+    ];
+  },
+
   async Comments(_props, ctx) {
     if (!ctx.currentSlug) {
       return [];

@@ -195,6 +195,42 @@ export interface EditorConfig {
   defaultMode: "local" | "remote";
 }
 
+export interface SmtpConfig {
+  host: string;
+  pass: string;
+  port: number;
+  secure: boolean;
+  user: string;
+}
+
+export interface EmailFromConfig {
+  address: string;
+  name: string;
+}
+
+export interface NewsletterConfig {
+  digestSchedule: string;
+  digestTime: string;
+}
+
+export interface ContactFormConfig {
+  akismet: boolean;
+  captcha: boolean;
+  enabled: boolean;
+  recipient: string;
+}
+
+export interface EmailConfig {
+  contactForm: ContactFormConfig;
+  enabled: boolean;
+  from: EmailFromConfig;
+  newsletter: NewsletterConfig;
+  replyTo: string;
+  smtp: SmtpConfig;
+  subjectPrefix: string;
+  transport: string;
+}
+
 export interface McpConfig {
   enabled: boolean;
   transport: "stdio" | "sse";
@@ -213,6 +249,7 @@ export interface HypernextConfig {
   comments?: CommentConfig;
   database: DatabaseConfig;
   editor?: EditorConfig;
+  email?: EmailConfig;
   logging?: LoggingConfig;
   mcp: McpConfig;
   micropub: MicropubConfig;

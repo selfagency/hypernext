@@ -1,5 +1,6 @@
 import { registerApiAuthGuard } from "./api/auth.js";
 import { registerModerationRoutes } from "./api/moderation.js";
+import { registerNewsletterRoutes } from "./api/newsletter.js";
 import { registerApiRoutes } from "./api/routes.js";
 import { registerStatsRoutes } from "./api/stats.js";
 import { registerIndieAuthRoutes } from "./auth/indieauth.js";
@@ -36,6 +37,7 @@ export function startAllServers(config: HypernextConfig): void {
     registerApiAuthGuard(fastify);
     registerApiRoutes(fastify, config);
     registerModerationRoutes(fastify, config);
+    registerNewsletterRoutes(fastify, config);
     registerStatsRoutes(fastify);
     registerMcpSseTransport(fastify, config);
     registerFederationRoutes(fastify, config);

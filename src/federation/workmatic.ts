@@ -198,6 +198,91 @@ export function initWorkmatic(config: HypernextConfig): void {
     }
   });
 
+  // ── Queue: email verification ──
+  orchestrator.register("email-verification", {
+    worker: { concurrency: 2, timeoutMs: 30_000 },
+  });
+
+  orchestrator.process("email-verification", async (job) => {
+    const payload = job.payload as {
+      email: string;
+      frequency: string;
+    };
+    const { processNewSubscription } = await import("./email-tasks.js");
+    await processNewSubscription(config, payload);
+  });
+
+  // ── Queue: email sending (instant notifications, contact form) ──
+  orchestrator.register("email-send", {
+    worker: { concurrency: 2, timeoutMs: 30_000 },
+  });
+
+  orchestrator.process("email-send", async (job) => {
+    const payload = job.payload as {
+      type: "instant" | "contact" | "test";
+      data: Record<string, unknown>;
+    };
+    const { processContactForm, sendInstantNotification, sendTestEmail } =
+      await import("./email-tasks.js");
+
+    if (payload.type === "instant") {
+      const data = payload.data as {
+        email: string;
+        frequency: string;
+        slug: string;
+        title: string;
+        html?: string;
+      };
+      const { getEm } = await import("../database/index.js");
+      const { Subscriber } = await import("../database/entities/subscriber.js");
+      const em = getEm();
+      const sub = await em.findOne(Subscriber, { email: data.email });
+      if (sub) {
+        await sendInstantNotification(config, sub, {
+          slug: data.slug,
+          title: data.title,
+          html: data.html,
+        });
+      }
+    } else if (payload.type === "contact") {
+      await processContactForm(
+        config,
+        payload.data as {
+          captchaSolution?: string;
+          captchaToken?: string;
+          email: string;
+          ip: string;
+          message: string;
+          name: string;
+          userAgent?: string;
+        }
+      );
+    } else if (payload.type === "test") {
+      await sendTestEmail(config, String(payload.data.to));
+    }
+  });
+
+  // ── Queue: email digest ──
+  orchestrator.register("email-digest", {
+    worker: { concurrency: 1, timeoutMs: 60_000 },
+  });
+
+  orchestrator.process("email-digest", async (job) => {
+    const payload = job.payload as {
+      subscriberId: string;
+      docs: { slug: string; title: string; description?: string }[];
+    };
+    const { getEm } = await import("../database/index.js");
+    const { Subscriber } = await import("../database/entities/subscriber.js");
+    const { sendWeeklyDigest } = await import("./email-tasks.js");
+
+    const em = getEm();
+    const sub = await em.findOne(Subscriber, { id: payload.subscriberId });
+    if (sub) {
+      await sendWeeklyDigest(config, sub, payload.docs);
+    }
+  });
+
   orchestrator.startAll();
 }
 
