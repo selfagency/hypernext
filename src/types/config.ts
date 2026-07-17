@@ -250,6 +250,7 @@ export interface HypernextConfig {
   database: DatabaseConfig;
   editor?: EditorConfig;
   email?: EmailConfig;
+  jwtSecret?: string;
   logging?: LoggingConfig;
   mcp: McpConfig;
   micropub: MicropubConfig;

@@ -1,10 +1,14 @@
+import crypto from "node:crypto";
 import path from "node:path";
+import auth from "@fastify/auth";
 import compress from "@fastify/compress";
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
+import csrf from "@fastify/csrf-protection";
 import etag from "@fastify/etag";
 import formbody from "@fastify/formbody";
 import helmet from "@fastify/helmet";
+import jwt from "@fastify/jwt";
 import sensible from "@fastify/sensible";
 import staticFiles from "@fastify/static";
 import underPressure from "@fastify/under-pressure";
@@ -45,6 +49,16 @@ export function createHttpServer(config: HypernextConfig) {
     message: "Service Unavailable",
     retryAfter: 30,
   });
+
+  // JWT — derive secret from config or generate one per startup
+  const jwtSecret = config.jwtSecret ?? crypto.randomBytes(32).toString("hex");
+  fastify.register(jwt, { secret: jwtSecret });
+
+  // CSRF protection (uses @fastify/cookie already registered above)
+  fastify.register(csrf, { sessionPlugin: "@fastify/cookie" });
+
+  // Auth — composable auth functions
+  fastify.register(auth, { defaultRelation: "or" });
 
   // Serve static assets from /assets/
   const assetsDir = path.resolve("assets");

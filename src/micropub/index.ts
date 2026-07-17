@@ -1,5 +1,4 @@
 import type { FastifyInstance } from "fastify";
-import { requireAuth } from "../auth/index.js";
 import { indexDocument } from "../indexer/index.js";
 import { createStorage } from "../storage/index.js";
 import type { HypernextConfig } from "../types/config.js";
@@ -11,8 +10,14 @@ export function registerMicropubEndpoint(
 ): void {
   fastify.post("/micropub", async (request, reply) => {
     const auth = request.headers.authorization as string | undefined;
-    const token = auth?.replace("Bearer ", "");
-    if (!(await requireAuth(reply, token))) {
+    if (!auth?.startsWith("Bearer ")) {
+      reply.code(401).send({ error: "Unauthorized" });
+      return;
+    }
+    try {
+      await request.jwtVerify();
+    } catch {
+      reply.code(401).send({ error: "Invalid or expired token" });
       return;
     }
 

@@ -80,15 +80,16 @@ export function registerIndieAuthRoutes(
       return;
     }
 
-    const accessToken = generateToken();
-    const refreshToken = generateToken();
+    // Sign a JWT access token instead of storing in DB
+    const accessToken = await reply.jwtSign(
+      {
+        sub: config.site.canonicalBase,
+        scope: "create update delete media upload",
+      },
+      { expiresIn: "1h" }
+    );
 
-    await storeOAuthToken({
-      provider: "indieauth",
-      token: accessToken,
-      refreshToken,
-      expiresAt: new Date(Date.now() + 3600 * 1000).toISOString(),
-    });
+    const refreshToken = generateToken();
 
     reply.send({
       access_token: accessToken,

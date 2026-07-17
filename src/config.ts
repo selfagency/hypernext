@@ -221,6 +221,11 @@ export function mergeCliOverrides(
     };
   }
 
+  // Read JWT secret from env var
+  if (process.env.HYPERNEXT_JWT_SECRET) {
+    overrides.jwtSecret = process.env.HYPERNEXT_JWT_SECRET;
+  }
+
   return deepMerge(config, overrides);
 }
 

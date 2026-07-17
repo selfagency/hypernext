@@ -1,5 +1,20 @@
-import type { FastifyInstance, FastifyRequest } from "fastify";
-import { requireAuth } from "../auth/index.js";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+
+export async function verifyBearerToken(
+  request: FastifyRequest,
+  reply: FastifyReply
+): Promise<void> {
+  const auth = request.headers.authorization as string | undefined;
+  if (!auth?.startsWith("Bearer ")) {
+    reply.code(401).send({ error: "Unauthorized" });
+    return;
+  }
+  try {
+    await request.jwtVerify();
+  } catch {
+    reply.code(401).send({ error: "Invalid or expired token" });
+  }
+}
 
 export function registerApiAuthGuard(fastify: FastifyInstance): void {
   fastify.addHook("onRequest", async (request: FastifyRequest, reply) => {
@@ -7,11 +22,6 @@ export function registerApiAuthGuard(fastify: FastifyInstance): void {
       return;
     }
 
-    const auth = request.headers.authorization as string | undefined;
-    const token = auth?.replace("Bearer ", "");
-    const ok = await requireAuth(reply, token);
-    if (!ok) {
-      return;
-    }
+    await verifyBearerToken(request, reply);
   });
 }

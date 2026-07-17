@@ -83,6 +83,7 @@ export function registerNewsletterRoutes(fastify: FastifyInstance): void {
     (request, reply) => {
       const query = request.query as Record<string, string>;
       const token = query.token ?? "";
+      const csrfToken = reply.generateCsrf();
 
       reply.type("text/html").send(`<!DOCTYPE html>
 <html lang="en">
@@ -102,6 +103,7 @@ export function registerNewsletterRoutes(fastify: FastifyInstance): void {
   <p>Click the button below to unsubscribe from all email updates.</p>
   <form action="/api/v1/subscribe/unsubscribe" method="POST">
     <input type="hidden" name="token" value="${token}" />
+    <input type="hidden" name="_csrf" value="${csrfToken}" />
     <button type="submit">Unsubscribe</button>
   </form>
 </body>
@@ -111,11 +113,12 @@ export function registerNewsletterRoutes(fastify: FastifyInstance): void {
 
   // ── Public: Unsubscribe ──
   fastify.post<{
-    Body: { token: string };
+    Body: { token: string; _csrf: string };
   }>(
     "/api/v1/subscribe/unsubscribe",
     {
       config: { rateLimit: { max: 5, timeWindow: "1 minute" } },
+      preHandler: fastify.csrfProtection ? [fastify.csrfProtection] : undefined,
     },
     async (request, reply) => {
       const { token } = request.body;
