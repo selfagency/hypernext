@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import type { MikroORM } from "@mikro-orm/sqlite";
 import { getOrm } from "../database/index.js";
 import { logger } from "../utils/logger.js";
 
@@ -31,8 +32,14 @@ export async function recordPageview(
   ip: string,
   referrer?: string
 ): Promise<void> {
+  let orm: MikroORM;
   try {
-    const orm = getOrm();
+    orm = getOrm();
+  } catch {
+    // ORM not initialized (e.g. remote mode) — skip analytics
+    return;
+  }
+  try {
     const knex = orm.em.getConnection().getKnex();
 
     await knex("pageviews").insert({

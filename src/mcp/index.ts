@@ -35,9 +35,9 @@ export function registerMcpSseTransport(
 
   const server = createMcpServer(config);
 
-  // GET /mcp — establish SSE stream
-  fastify.get("/mcp", async (_request, reply) => {
-    const transport = new SSEServerTransport("/mcp/message", reply.raw);
+  // GET /api/v1/mcp — establish SSE stream
+  fastify.get("/api/v1/mcp", async (_request, reply) => {
+    const transport = new SSEServerTransport("/api/v1/mcp/message", reply.raw);
     // Track by session ID so POST handler can find it
     sseTransports.set(transport.sessionId, transport);
     transport.onclose = () => {
@@ -46,8 +46,8 @@ export function registerMcpSseTransport(
     await server.connect(transport);
   });
 
-  // POST /mcp/message — receive client messages
-  fastify.post("/mcp/message", async (request, reply) => {
+  // POST /api/v1/mcp/message — receive client messages
+  fastify.post("/api/v1/mcp/message", async (request, reply) => {
     const sessionId = (request.query as Record<string, string>).sessionId;
     const transport = sseTransports.get(sessionId);
     if (!transport) {

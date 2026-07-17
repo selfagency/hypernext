@@ -22,25 +22,38 @@ async function pushLocalChanges(
   contentDir: string,
   onProgress: SyncProgress
 ): Promise<void> {
-  for (const [slug, localMtime] of localMap) {
-    const remote = remoteDocs.find((r) => r.slug === slug);
-    const remoteMtime = remote?.mtime ? new Date(remote.mtime).getTime() : 0;
+  const concurrency = 5;
+  const entries = [...localMap.entries()];
+  const results: Promise<void>[] = [];
 
-    if (!remote || localMtime > remoteMtime) {
-      onProgress(`Pushing ${slug} to remote...`);
-      const filePath = path.join(contentDir, `${slug}.mdx`);
-      if (fs.existsSync(filePath)) {
-        const content = fs.readFileSync(filePath, "utf-8");
-        await fetch(`${remoteUrl}/api/v1/docs/${slug}`, {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${remoteToken}`,
-            "Content-Type": "text/plain",
-          },
-          body: content,
-        });
-      }
-    }
+  for (let i = 0; i < entries.length; i += concurrency) {
+    const batch = entries.slice(i, i + concurrency);
+    results.push(
+      ...batch.map(async ([slug, localMtime]) => {
+        const remote = remoteDocs.find((r) => r.slug === slug);
+        const remoteMtime = remote?.mtime
+          ? new Date(remote.mtime).getTime()
+          : 0;
+
+        if (!remote || localMtime > remoteMtime) {
+          onProgress(`Pushing ${slug} to remote...`);
+          const filePath = path.join(contentDir, `${slug}.mdx`);
+          if (fs.existsSync(filePath)) {
+            const content = fs.readFileSync(filePath, "utf-8");
+            await fetch(`${remoteUrl}/api/v1/docs/${slug}`, {
+              method: "PUT",
+              headers: {
+                Authorization: `Bearer ${remoteToken}`,
+                "Content-Type": "text/plain",
+              },
+              body: content,
+            });
+          }
+        }
+      })
+    );
+    await Promise.all(results);
+    results.length = 0;
   }
 }
 
@@ -52,22 +65,35 @@ async function pullRemoteChanges(
   contentDir: string,
   onProgress: SyncProgress
 ): Promise<void> {
-  for (const remote of remoteDocs) {
-    const localMtime = localMap.get(remote.slug) ?? 0;
-    const remoteMtime = remote.mtime ? new Date(remote.mtime).getTime() : 0;
+  const concurrency = 5;
+  const results: Promise<void>[] = [];
 
-    if (!localMap.has(remote.slug) || remoteMtime > localMtime) {
-      onProgress(`Pulling ${remote.slug} from remote...`);
-      const docRes = await fetch(`${remoteUrl}/api/v1/docs/${remote.slug}`, {
-        headers: { Authorization: `Bearer ${remoteToken}` },
-      });
-      if (docRes.ok) {
-        const docData = (await docRes.json()) as { rawMdx?: string };
-        const localFilePath = path.join(contentDir, `${remote.slug}.mdx`);
-        fs.mkdirSync(path.dirname(localFilePath), { recursive: true });
-        fs.writeFileSync(localFilePath, docData.rawMdx ?? "");
-      }
-    }
+  for (let i = 0; i < remoteDocs.length; i += concurrency) {
+    const batch = remoteDocs.slice(i, i + concurrency);
+    results.push(
+      ...batch.map(async (remote) => {
+        const localMtime = localMap.get(remote.slug) ?? 0;
+        const remoteMtime = remote.mtime ? new Date(remote.mtime).getTime() : 0;
+
+        if (!localMap.has(remote.slug) || remoteMtime > localMtime) {
+          onProgress(`Pulling ${remote.slug} from remote...`);
+          const docRes = await fetch(
+            `${remoteUrl}/api/v1/docs/${remote.slug}`,
+            {
+              headers: { Authorization: `Bearer ${remoteToken}` },
+            }
+          );
+          if (docRes.ok) {
+            const docData = (await docRes.json()) as { rawMdx?: string };
+            const localFilePath = path.join(contentDir, `${remote.slug}.mdx`);
+            fs.mkdirSync(path.dirname(localFilePath), { recursive: true });
+            fs.writeFileSync(localFilePath, docData.rawMdx ?? "");
+          }
+        }
+      })
+    );
+    await Promise.all(results);
+    results.length = 0;
   }
 }
 

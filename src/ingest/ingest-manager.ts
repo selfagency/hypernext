@@ -1,4 +1,5 @@
 import TurndownService from "turndown";
+import { validateSourceUrl } from "../federation/ssrf.js";
 import { writeStorage } from "../storage/index.js";
 import type { HypernextConfig } from "../types/config.js";
 
@@ -28,6 +29,11 @@ export async function ingestUrl(
       // No-op when no progress callback provided
     });
   const { url, collection, filename } = payload;
+
+  // SSRF protection — reject private IPs and localhost
+  if (!validateSourceUrl(url)) {
+    throw new Error(`URL rejected by SSRF check: ${url}`);
+  }
 
   log(`Fetching ${url}...`);
   const res = await fetch(url, {
