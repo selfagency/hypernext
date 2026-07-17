@@ -227,6 +227,9 @@ export function mergeCliOverrides(
 export function getConfig(cwd: string, options: CliOptions): HypernextConfig {
   const configPath = path.resolve(cwd, options.config ?? DEFAULT_CONFIG_PATH);
 
+  // Load .env file before config so ${VAR} substitution works
+  loadEnvFile(path.resolve(cwd, ".env"));
+
   if (!fs.existsSync(configPath)) {
     scaffoldDefaults(cwd);
   }

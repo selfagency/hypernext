@@ -1,6 +1,6 @@
 import net from "node:net";
 import { getDocBySlug, listDocSlugs } from "../database/index.js";
-import { isDocPrivate } from "../parser/frontmatter.js";
+import { isDocPrivate, isFutureDated } from "../parser/frontmatter.js";
 import { parseToIR, resolveComponentNodes } from "../parser/pipeline.js";
 import { renderGemtext } from "../renderers/gemtext.js";
 import type { HypernextConfig } from "../types/config.js";
@@ -39,7 +39,11 @@ async function handleGopherRequest(
     const visibleSlugs: string[] = [];
     for (const slug of slugs) {
       const doc = await getDocBySlug(slug);
-      if (doc && !isDocPrivate((doc.rawMdx as string) ?? "")) {
+      if (
+        doc &&
+        !isDocPrivate((doc.rawMdx as string) ?? "") &&
+        !isFutureDated((doc.rawMdx as string) ?? "")
+      ) {
         visibleSlugs.push(slug);
       }
     }
@@ -58,7 +62,7 @@ async function handleGopherRequest(
   }
 
   const rawMdx = (doc.rawMdx as string) ?? "";
-  if (isDocPrivate(rawMdx)) {
+  if (isDocPrivate(rawMdx) || isFutureDated(rawMdx)) {
     socket.end("3\tNot Found\terror.host\t1\r\n.\r\n");
     return;
   }

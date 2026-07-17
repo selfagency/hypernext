@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { Mention } from "../database/entities/mention.js";
 import { getEm } from "../database/index.js";
 import type { HypernextConfig } from "../types/config.js";
+import { hashString } from "../utils/crypto.js";
 
 const HTTP_SIGNATURE_REGEX =
   /^keyId="([^"]+)",\s*algorithm="([^"]+)",\s*headers="([^"]*)",\s*signature="([^"]+)"$/;
@@ -10,10 +11,6 @@ const HTML_TAG_REGEX = /<[^>]+>/g;
 const WHITESPACE_REGEX = /\s+/;
 const TRAILING_SLASH_REGEX = /\/+$/;
 const LEADING_SLASH_REGEX = /^\//;
-
-function hashString(input: string): string {
-  return crypto.createHash("sha256").update(input).digest("hex").slice(0, 16);
-}
 
 interface SignatureResult {
   actorId: string | undefined;

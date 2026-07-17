@@ -1,7 +1,12 @@
 import net from "node:net";
 import { getCachedParse, setCachedParse } from "../cache.js";
 import { getDocBySlug } from "../database/index.js";
-import { isDocPrivate } from "../parser/frontmatter.js";
+import {
+  isDocPrivate,
+  isDocPrivateFrontmatter,
+  isFutureDated,
+  isFutureDatedFrontmatter,
+} from "../parser/frontmatter.js";
 import { parseToIR, resolveComponentNodes } from "../parser/pipeline.js";
 import { renderGemtext } from "../renderers/gemtext.js";
 import type { HypernextConfig } from "../types/config.js";
@@ -45,6 +50,13 @@ async function handleSpartanRequest(
 
   const cached = getCachedParse(slug);
   if (cached) {
+    if (
+      isDocPrivateFrontmatter(cached.frontmatter) ||
+      isFutureDatedFrontmatter(cached.frontmatter)
+    ) {
+      socket.end("510 Not Found\r\n");
+      return;
+    }
     socket.end(`200 text/gemini\r\n${renderGemtext(cached.ir)}`);
     return;
   }
@@ -56,7 +68,7 @@ async function handleSpartanRequest(
   }
 
   const rawMdx = (doc.rawMdx as string) ?? "";
-  if (isDocPrivate(rawMdx)) {
+  if (isDocPrivate(rawMdx) || isFutureDated(rawMdx)) {
     socket.end("510 Not Found\r\n");
     return;
   }

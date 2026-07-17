@@ -3,6 +3,7 @@ import { getCachedParse, setCachedParse } from "../cache.js";
 import { getDocBySlug } from "../database/index.js";
 import {
   isDocPrivate,
+  isDocPrivateFrontmatter,
   isFutureDated,
   isFutureDatedFrontmatter,
 } from "../parser/frontmatter.js";
@@ -40,7 +41,7 @@ export function createHttpServer(config: HypernextConfig) {
       const cached = getCachedParse(fullSlug);
       if (cached) {
         if (
-          isDocPrivate(cached.frontmatter) ||
+          isDocPrivateFrontmatter(cached.frontmatter) ||
           isFutureDatedFrontmatter(cached.frontmatter)
         ) {
           reply.code(404).type("text/html").send(NOT_FOUND_HTML);

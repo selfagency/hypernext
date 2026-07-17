@@ -88,6 +88,7 @@ export async function resolveCommentConfig(
       endpoint: globalConfig.akismet.endpoint,
     },
     allowPrivateSources: globalConfig.allowPrivateSources,
+    blocklist: globalConfig.blocklist,
   };
 
   if (!globalConfig.enabled) {

@@ -35,6 +35,8 @@ const ALLOWED_COMPONENTS = new Set([
   "SyndicationLinks",
   "Figure",
   "Comments",
+  "Archive",
+  "PostList",
   "slot",
 ]);
 

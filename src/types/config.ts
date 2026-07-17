@@ -9,18 +9,22 @@ export interface SiteThemeConfig {
 }
 
 export interface SitePdfConfig {
+  cssPath?: string;
   enabled: boolean;
 }
 
 export interface SiteEbooksConfig {
+  coverImage?: string;
   enabled: boolean;
 }
 
 export interface SiteConfig {
   canonicalBase: string;
+  ebookCoverImage?: string;
   ebooks: SiteEbooksConfig;
   meta: SiteMetaConfig;
   pdf: SitePdfConfig;
+  pdfCssPath?: string;
   theme?: SiteThemeConfig;
 }
 

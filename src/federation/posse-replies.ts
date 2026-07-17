@@ -1,11 +1,7 @@
-import crypto from "node:crypto";
 import { Mention } from "../database/entities/mention.js";
 import { getEm } from "../database/index.js";
 import type { HypernextConfig } from "../types/config.js";
-
-function hashString(input: string): string {
-  return crypto.createHash("sha256").update(input).digest("hex").slice(0, 16);
-}
+import { hashString } from "../utils/crypto.js";
 
 export async function fetchMastodonReplies(
   config: HypernextConfig,

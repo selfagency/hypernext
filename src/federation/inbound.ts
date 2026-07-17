@@ -1,8 +1,8 @@
-import crypto from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { Mention } from "../database/entities/mention.js";
 import { getEm } from "../database/index.js";
 import type { HypernextConfig } from "../types/config.js";
+import { hashString } from "../utils/crypto.js";
 import { checkAkismet } from "./akismet.js";
 import { resolveCommentConfig } from "./config-resolver.js";
 import { validateSourceUrl } from "./ssrf.js";
@@ -21,10 +21,6 @@ const U_PHOTO_REGEX = /class="[^"]*\bu-photo\b[^"]*"[^>]*src="([^"]+)"/i;
 const HTML_TAG_REGEX = /<[^>]+>/g;
 const WHITESPACE_REGEX = /\s+/g;
 const REGEX_ESCAPE_REGEX = /[.*+?^${}()|[\]\\]/g;
-
-function hashString(input: string): string {
-  return crypto.createHash("sha256").update(input).digest("hex").slice(0, 16);
-}
 
 function extractTargetSlug(
   target: string,

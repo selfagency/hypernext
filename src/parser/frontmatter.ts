@@ -28,7 +28,13 @@ export function extractFrontmatter(content: string): FrontmatterResult {
 
 export function isDocPrivate(content: string): boolean {
   const { attributes } = extractFrontmatter(content);
-  return attributes.visibility === "private";
+  return isDocPrivateFrontmatter(attributes);
+}
+
+export function isDocPrivateFrontmatter(
+  frontmatter: Record<string, unknown>
+): boolean {
+  return frontmatter.visibility === "private";
 }
 
 export function isFutureDated(content: string): boolean {

@@ -1,8 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { FastifyInstance } from "fastify";
-import { Term } from "../database/entities/term.js";
-import { TermRelationship } from "../database/entities/term-relationship.js";
 import { getDocBySlug, getEm, listDocSlugs } from "../database/index.js";
 import { parseToIR } from "../parser/pipeline.js";
 import { renderHTML } from "../renderers/html.js";
@@ -24,29 +22,36 @@ export function registerApiRoutes(
     const offset = Number(query.offset) || 0;
 
     const em = getEm();
-    const qb = em.createQueryBuilder("DocMeta", "m");
-    qb.select(["m.slug", "m.title", "m.description", "m.date", "m.type"]);
-
+    const where: Record<string, unknown> = {};
     if (type) {
-      qb.andWhere({ type });
+      where.type = type;
     }
 
     if (tag) {
-      const em = getEm();
-      const term = await em.findOne(Term, { slug: tag });
-      if (term) {
-        const rels = await em.find(
-          TermRelationship,
-          { termId: term.id },
-          { fields: ["docId"] }
-        );
-        const docIds = rels.map((r) => r.docId);
-        qb.andWhere({ id: { $in: docIds } });
+      // Filter by tag using raw SQL (MikroORM v7 doesn't expose createQueryBuilder on EM)
+      const rows = await em.getConnection().execute<{ id: number }[]>(
+        `SELECT DISTINCT m.id FROM docs_meta m
+         JOIN term_relationships tr ON tr.doc_id = m.id
+         JOIN terms t ON t.id = tr.term_id
+         WHERE t.slug = ?`,
+        [tag]
+      );
+      if (rows.length > 0) {
+        where.id = { $in: rows.map((r: { id: number }) => r.id) };
+      } else {
+        // No matching tag — return empty
+        reply.send({ docs: [], limit, offset });
+        return;
       }
     }
 
-    qb.orderBy({ date: "DESC", id: "DESC" }).limit(limit).offset(offset);
-    const docs = await qb.execute();
+    // @ts-expect-error — MikroORM v7 resolves string entity names at runtime
+    const docs = await em.find("DocMeta", where, {
+      orderBy: { date: "DESC", id: "DESC" },
+      limit,
+      offset,
+      fields: ["slug", "title", "description", "date", "type"],
+    });
     reply.send({ docs, limit, offset });
   });
 
@@ -62,19 +67,23 @@ export function registerApiRoutes(
         return;
       }
 
-      const rawMdx = doc.rawMdx ?? "";
+      const rawMdx = (doc.rawMdx as string) ?? "";
       const result = parseToIR(rawMdx, docSlug);
       const md = renderMarkdown(result.ir);
 
-      const cssPath = config.site.pdf?.cssPath
-        ? path.resolve(config.site.pdf.cssPath)
+      const cssPath = config.site.pdfCssPath
+        ? path.resolve(config.site.pdfCssPath)
         : undefined;
 
       try {
         const { mdToPdf } = await import("md-to-pdf");
+        const pdfConfig: Record<string, string> = {};
+        if (cssPath) {
+          pdfConfig.css = fs.readFileSync(cssPath, "utf-8");
+        }
         const pdf = await mdToPdf(
           { content: md },
-          { css: cssPath ? fs.readFileSync(cssPath, "utf-8") : undefined }
+          Object.keys(pdfConfig).length > 0 ? pdfConfig : undefined
         );
         reply
           .type("application/pdf")
@@ -114,23 +123,29 @@ export function registerApiRoutes(
         if (!doc) {
           continue;
         }
-        const rawMdx = doc.rawMdx ?? "";
+        const rawMdx = (doc.rawMdx as string) ?? "";
         const result = parseToIR(rawMdx, slug);
         const html = renderHTML(result, config);
-        chapters.push({ title: doc.title ?? slug, data: html });
+        chapters.push({
+          title: String((doc.title as string) ?? slug),
+          data: html,
+        });
       }
 
       try {
         const { EPub } = await import("@lesjoursfr/html-to-epub");
-        const epub = new EPub({
+        const epubOptions: Record<string, unknown> = {
           title: collection.path ?? name,
+          description: config.site.meta.description,
           content: chapters,
           author: config.author.name,
           lang: config.site.meta.lang,
-          cover: config.site.ebooks?.coverImage
-            ? path.resolve(config.site.ebooks.coverImage)
-            : undefined,
-        });
+        };
+        if (config.site.ebookCoverImage) {
+          epubOptions.cover = path.resolve(config.site.ebookCoverImage);
+        }
+        // @ts-expect-error — @lesjoursfr/html-to-epub EPub constructor accepts options object
+        const epub = new EPub(epubOptions, "");
         const buffer = await epub.render();
         reply
           .type("application/epub+zip")

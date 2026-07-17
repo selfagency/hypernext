@@ -1,7 +1,12 @@
 import net from "node:net";
 import { getCachedParse, setCachedParse } from "../cache.js";
 import { getDocBySlug } from "../database/index.js";
-import { isDocPrivate } from "../parser/frontmatter.js";
+import {
+  isDocPrivate,
+  isDocPrivateFrontmatter,
+  isFutureDated,
+  isFutureDatedFrontmatter,
+} from "../parser/frontmatter.js";
 import { parseToIR, resolveComponentNodes } from "../parser/pipeline.js";
 import { renderMarkdown } from "../renderers/markdown.js";
 import type { HypernextConfig } from "../types/config.js";
@@ -42,6 +47,13 @@ async function handleTextRequest(
 
   const cached = getCachedParse(slug);
   if (cached) {
+    if (
+      isDocPrivateFrontmatter(cached.frontmatter) ||
+      isFutureDatedFrontmatter(cached.frontmatter)
+    ) {
+      socket.end("40 Not Found\n");
+      return;
+    }
     socket.end(`20 OK\n${renderMarkdown(cached.ir)}\n`);
     return;
   }
@@ -53,7 +65,7 @@ async function handleTextRequest(
   }
 
   const rawMdx = (doc.rawMdx as string) ?? "";
-  if (isDocPrivate(rawMdx)) {
+  if (isDocPrivate(rawMdx) || isFutureDated(rawMdx)) {
     socket.end("40 Not Found\n");
     return;
   }
