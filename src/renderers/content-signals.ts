@@ -5,11 +5,12 @@ export function addContentSignalHeader(
   reply: FastifyReply,
   config: HypernextConfig
 ): void {
-  if (!(config.agent?.enabled && config.agent.contentSignals.enabled)) {
+  // Check robotsTxt.contentSignals first, fall back to agent.contentSignals
+  const cs = config.robotsTxt?.contentSignals ?? config.agent?.contentSignals;
+  if (!cs?.enabled) {
     return;
   }
 
-  const cs = config.agent.contentSignals;
   const parts: string[] = [];
   if (cs.aiTrain !== undefined) {
     parts.push(`ai-train=${cs.aiTrain ? "yes" : "no"}`);

@@ -288,6 +288,13 @@ export interface SecurityTxtConfig {
   preferredLanguages?: string;
 }
 
+export interface RobotsTxtConfig {
+  aiCrawlers: "block" | "allow" | "selective";
+  contentSignals?: AgentContentSignalsConfig;
+  enabled: boolean;
+  rules: AgentRobotsTxtRule[];
+}
+
 export interface HypernextConfig {
   agent?: AgentConfig;
   api: ApiConfig;
@@ -302,11 +309,7 @@ export interface HypernextConfig {
   mcp: McpConfig;
   micropub: MicropubConfig;
   protocols: ProtocolsConfig;
-  robotsTxt?: {
-    enabled: boolean;
-    rules: AgentRobotsTxtRule[];
-    aiCrawlers: "block" | "allow" | "selective";
-  };
+  robotsTxt?: RobotsTxtConfig;
   securityTxt?: SecurityTxtConfig;
   site: SiteConfig;
   storage: StorageConfig;

@@ -69,11 +69,12 @@ function renderAiCrawlerRules(lines: string[], config: HypernextConfig): void {
 }
 
 function renderContentSignal(lines: string[], config: HypernextConfig): void {
-  if (!(config.agent?.enabled && config.agent.contentSignals.enabled)) {
+  // Check robotsTxt.contentSignals first, fall back to agent.contentSignals
+  const cs = config.robotsTxt?.contentSignals ?? config.agent?.contentSignals;
+  if (!cs?.enabled) {
     return;
   }
 
-  const cs = config.agent.contentSignals;
   const parts: string[] = [];
   if (cs.aiTrain !== undefined) {
     parts.push(`ai-train=${cs.aiTrain ? "yes" : "no"}`);
@@ -87,6 +88,7 @@ function renderContentSignal(lines: string[], config: HypernextConfig): void {
   if (parts.length > 0) {
     lines.push("User-agent: *");
     lines.push(`Content-Signal: ${parts.join(", ")}`);
+    lines.push("Allow: /");
     lines.push("");
   }
 }
