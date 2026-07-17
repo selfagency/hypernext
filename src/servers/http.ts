@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import path from "node:path";
 import auth from "@fastify/auth";
+import caching from "@fastify/caching";
 import compress from "@fastify/compress";
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
@@ -10,6 +11,7 @@ import etag from "@fastify/etag";
 import formbody from "@fastify/formbody";
 import helmet from "@fastify/helmet";
 import jwt from "@fastify/jwt";
+import { FastifyOtelInstrumentation } from "@fastify/otel";
 import sensible from "@fastify/sensible";
 import staticFiles from "@fastify/static";
 import swagger from "@fastify/swagger";
@@ -103,6 +105,16 @@ export function createHttpServer(config: HypernextConfig) {
     convertValidationErrors: true,
     use422ForValidationErrors: true,
   });
+
+  // OpenTelemetry instrumentation
+  const otel = new FastifyOtelInstrumentation({
+    instrumentHooks: true,
+    recordExceptions: true,
+  });
+  fastify.register(otel.plugin());
+
+  // HTTP caching layer (cache-control headers)
+  fastify.register(caching, { privacy: caching.privacy.PUBLIC });
 
   // Serve static assets from /assets/
   const assetsDir = path.resolve("assets");
