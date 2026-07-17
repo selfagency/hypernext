@@ -1,6 +1,10 @@
 import type { SecurityTxtConfig } from "../types/config.js";
 
 export function renderSecurityTxt(config: SecurityTxtConfig): string {
+  if (config.contact.length === 0 || !config.expires) {
+    return "";
+  }
+
   const lines: string[] = [];
 
   for (const contact of config.contact) {

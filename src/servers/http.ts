@@ -34,7 +34,9 @@ import { parseToIR, resolveComponentNodes } from "../parser/pipeline.js";
 import { registerWellKnownEndpoints } from "../renderers/agent-readiness.js";
 import { addContentSignalHeader } from "../renderers/content-signals.js";
 import { renderHTML } from "../renderers/html.js";
+import { addLinkHeaders } from "../renderers/link-headers.js";
 import { renderLlmsTxt } from "../renderers/llms-txt.js";
+import { handleMarkdownNegotiation } from "../renderers/markdown-negotiation.js";
 import { renderRobotsTxt } from "../renderers/robots-txt.js";
 import { renderSecurityTxt } from "../renderers/security-txt.js";
 import { renderSitemap } from "../renderers/sitemap.js";
@@ -144,6 +146,7 @@ export function createHttpServer(config: HypernextConfig) {
   fastify.get("/", (_request, reply) => {
     const cached = getCachedParse("index");
     if (cached) {
+      addLinkHeaders(reply, config);
       reply.type("text/html").send(renderHTML(cached, config));
       return;
     }
@@ -151,6 +154,7 @@ export function createHttpServer(config: HypernextConfig) {
       `# ${config.site.meta.title}\n\n${config.site.meta.description}`
     );
     setCachedParse("index", result);
+    addLinkHeaders(reply, config);
     reply.type("text/html").send(renderHTML(result, config));
   });
 
@@ -170,6 +174,7 @@ export function createHttpServer(config: HypernextConfig) {
           reply.code(404).type("text/html").send(NOT_FOUND_HTML);
           return;
         }
+        addLinkHeaders(reply, config, fullSlug);
         reply.type("text/html").send(renderHTML(cached, config, fullSlug));
         return;
       }
@@ -186,9 +191,16 @@ export function createHttpServer(config: HypernextConfig) {
       }
 
       const rawMdx = doc.rawMdx ?? "";
+
+      // Markdown content negotiation (Accept: text/markdown)
+      if (handleMarkdownNegotiation(request, reply, config, fullSlug, rawMdx)) {
+        return;
+      }
+
       const result = parseToIR(rawMdx, fullSlug);
       await resolveComponentNodes(result.ir, config, fullSlug);
       setCachedParse(fullSlug, result);
+      addLinkHeaders(reply, config, fullSlug);
       reply.type("text/html").send(renderHTML(result, config, fullSlug));
 
       // Fire-and-forget pageview recording
@@ -254,6 +266,7 @@ export function createHttpServer(config: HypernextConfig) {
       const result = parseToIR(rawMdx, fullSlug);
       await resolveComponentNodes(result.ir, config, fullSlug);
       setCachedParse(fullSlug, result);
+      addLinkHeaders(reply, config, fullSlug);
       reply.type("text/html").send(renderHTML(result, config, fullSlug));
       return;
     }
@@ -309,8 +322,8 @@ export function createHttpServer(config: HypernextConfig) {
     });
   }
 
-  // security.txt (RFC 9116) — served when contact is configured
-  if (config.securityTxt?.contact.length) {
+  // security.txt (RFC 9116) — served when contact and expires are configured
+  if (config.securityTxt?.contact.length && config.securityTxt.expires) {
     const securityTxt = renderSecurityTxt(config.securityTxt);
     fastify.get("/.well-known/security.txt", (_request, reply) => {
       reply.type("text/plain").send(securityTxt);
