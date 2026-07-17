@@ -47,6 +47,7 @@
   "dependencies": {
     "@atproto/api": "^0.15.0",
     "@aws-sdk/client-s3": "^3.800.0",
+    "@crosscopy/clipboard": "^0.3.6",
     "@fastify/accepts": "^5.0.4",
     "@fastify/accepts-serializer": "^6.0.4",
     "@fastify/auth": "^5.0.4",
@@ -99,6 +100,7 @@
     "gray-matter": "^4.0.3",
     "ink": "^7.1.1",
     "katex": "^0.16.22",
+    "kubo-rpc-client": "^7.1.0",
     "lru-cache": "^11.1.0",
     "md-to-pdf": "^5.2.5",
     "node-email-verifier": "^4.0.0",

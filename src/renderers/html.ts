@@ -452,6 +452,22 @@ function renderFeaturedImage(frontmatter: Record<string, unknown>): string {
   return img;
 }
 
+function buildIpfsMetaTags(frontmatter: Record<string, unknown>): string {
+  const contentCid = frontmatter.contentCid as string | undefined;
+  const htmlCid = frontmatter.htmlCid as string | undefined;
+  if (!(contentCid || htmlCid)) {
+    return "";
+  }
+  const tags: string[] = [];
+  if (contentCid) {
+    tags.push(`<meta name="ipfs-cid" content="${escapeAttr(contentCid)}" />`);
+  }
+  if (htmlCid) {
+    tags.push(`<meta name="ipfs-html-cid" content="${escapeAttr(htmlCid)}" />`);
+  }
+  return `\n  ${tags.join("\n  ")}`;
+}
+
 function buildAgentDirective(config: HypernextConfig): string {
   if (!(config.agent?.enabled && config.agent.hiddenAgentDirective)) {
     return "";
@@ -532,6 +548,7 @@ export function renderHTML(
   }
 
   const featuredImage = renderFeaturedImage(frontmatter);
+  const ipfsMetaTags = buildIpfsMetaTags(frontmatter);
 
   const agentDirective = buildAgentDirective(config);
   const viewTransitionCss = buildViewTransitionCss(config);
@@ -543,7 +560,7 @@ export function renderHTML(
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${escapeHtml(title)}</title>
   <meta name="description" content="${escapeHtml(description)}" />
-  <link rel="canonical" href="${escapeAttr(canonicalUrl)}" />
+  <link rel="canonical" href="${escapeAttr(canonicalUrl)}" />${ipfsMetaTags}
   ${ogTags.join("\n  ")}
   ${buildJsonLd(config, frontmatter, slug)}
   ${cssPath ? `<link rel="stylesheet" href="${escapeAttr(cssPath)}" />` : ""}

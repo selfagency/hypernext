@@ -9,6 +9,70 @@ import { renderMarkdown } from "../renderers/markdown.js";
 import type { HypernextConfig } from "../types/config.js";
 
 const PDF_EXT_REGEX = /\.pdf$/;
+const IPFS_SUFFIX = "/ipfs";
+const PIN_SUFFIX = "/pin";
+
+async function handleIpfsCidRequest(
+  slug: string,
+  config: HypernextConfig,
+  reply: import("fastify").FastifyReply
+): Promise<void> {
+  const docSlug = slug.slice(0, -IPFS_SUFFIX.length);
+  const doc = await getDocBySlug(docSlug);
+  if (!doc) {
+    reply.code(404).send({ error: "Not found" });
+    return;
+  }
+  const gatewayUrl = config.ipfs?.gatewayUrl ?? "https://ipfs.io/ipfs";
+  const contentCid = (doc.contentCid as string | null) ?? null;
+  const htmlCid = (doc.htmlCid as string | null) ?? null;
+  const activeCid = contentCid ?? htmlCid;
+  reply.send({
+    slug: docSlug,
+    contentCid,
+    htmlCid,
+    gatewayUrl: activeCid ? `${gatewayUrl}/${activeCid}` : null,
+  });
+}
+
+async function handlePdfRequest(
+  slug: string,
+  config: HypernextConfig,
+  reply: import("fastify").FastifyReply
+): Promise<void> {
+  const docSlug = slug.replace(PDF_EXT_REGEX, "");
+  const doc = await getDocBySlug(docSlug);
+  if (!doc) {
+    reply.code(404).send({ error: "Not found" });
+    return;
+  }
+
+  const rawMdx = (doc.rawMdx as string) ?? "";
+  const result = parseToIR(rawMdx, docSlug);
+  const md = renderMarkdown(result.ir);
+
+  const cssPath = config.site.pdfCssPath
+    ? path.resolve(config.site.pdfCssPath)
+    : undefined;
+
+  try {
+    const { mdToPdf } = await import("md-to-pdf");
+    const pdfConfig: Record<string, string> = {};
+    if (cssPath) {
+      pdfConfig.css = fs.readFileSync(cssPath, "utf-8");
+    }
+    const pdf = await mdToPdf(
+      { content: md },
+      Object.keys(pdfConfig).length > 0 ? pdfConfig : undefined
+    );
+    reply
+      .type("application/pdf")
+      .header("Content-Disposition", `inline; filename="${docSlug}.pdf"`)
+      .send(pdf.content);
+  } catch {
+    reply.code(500).send({ error: "PDF generation failed" });
+  }
+}
 
 export function registerApiRoutes(
   fastify: FastifyInstance,
@@ -54,43 +118,17 @@ export function registerApiRoutes(
     reply.send({ docs, limit, offset });
   });
 
-  // GET /api/v1/docs/* — single doc as JSON or PDF
+  // GET /api/v1/docs/* — single doc as JSON, PDF, or IPFS CIDs
   fastify.get("/api/v1/docs/*", async (request, reply) => {
     const slug = (request.params as { "*": string })["*"];
 
+    if (slug.endsWith(IPFS_SUFFIX)) {
+      await handleIpfsCidRequest(slug, config, reply);
+      return;
+    }
+
     if (slug.endsWith(".pdf")) {
-      const docSlug = slug.replace(PDF_EXT_REGEX, "");
-      const doc = await getDocBySlug(docSlug);
-      if (!doc) {
-        reply.code(404).send({ error: "Not found" });
-        return;
-      }
-
-      const rawMdx = (doc.rawMdx as string) ?? "";
-      const result = parseToIR(rawMdx, docSlug);
-      const md = renderMarkdown(result.ir);
-
-      const cssPath = config.site.pdfCssPath
-        ? path.resolve(config.site.pdfCssPath)
-        : undefined;
-
-      try {
-        const { mdToPdf } = await import("md-to-pdf");
-        const pdfConfig: Record<string, string> = {};
-        if (cssPath) {
-          pdfConfig.css = fs.readFileSync(cssPath, "utf-8");
-        }
-        const pdf = await mdToPdf(
-          { content: md },
-          Object.keys(pdfConfig).length > 0 ? pdfConfig : undefined
-        );
-        reply
-          .type("application/pdf")
-          .header("Content-Disposition", `inline; filename="${docSlug}.pdf"`)
-          .send(pdf.content);
-      } catch {
-        reply.code(500).send({ error: "PDF generation failed" });
-      }
+      await handlePdfRequest(slug, config, reply);
       return;
     }
 
@@ -100,6 +138,29 @@ export function registerApiRoutes(
       return;
     }
     reply.send(doc);
+  });
+
+  // POST /api/v1/docs/* — pin document to IPFS (when slug ends with /pin)
+  fastify.post("/api/v1/docs/*", async (request, reply) => {
+    const slug = (request.params as { "*": string })["*"];
+
+    if (slug.endsWith(PIN_SUFFIX)) {
+      if (!config.ipfs?.enabled) {
+        reply.code(400).send({ error: "IPFS is not enabled" });
+        return;
+      }
+      const docSlug = slug.slice(0, -PIN_SUFFIX.length);
+      try {
+        const { pinDoc } = await import("../storage/ipfs.js");
+        const result = await pinDoc(config, docSlug);
+        reply.send({ status: "pinned", slug: docSlug, ...result });
+      } catch (error) {
+        reply.code(500).send({ error: String(error) });
+      }
+      return;
+    }
+
+    reply.code(404).send({ error: "Not found" });
   });
 
   // PUT /api/v1/docs/* — create or update a document

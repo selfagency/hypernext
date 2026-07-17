@@ -77,7 +77,7 @@ export interface StorageS3Config {
 export interface StorageConfig {
   local?: StorageLocalConfig;
   s3?: StorageS3Config;
-  type: "local" | "s3";
+  type: "ipfs" | "local" | "s3";
 }
 
 export interface DatabaseConfig {
@@ -320,6 +320,14 @@ export interface AiConfig {
   vectorDimensions: number;
 }
 
+export interface IpfsConfig {
+  apiEndpoint: string;
+  cacheHtml: boolean;
+  enabled: boolean;
+  gatewayUrl: string;
+  pinning: boolean;
+}
+
 export interface HypernextConfig {
   agent?: AgentConfig;
   ai?: AiConfig;
@@ -331,6 +339,7 @@ export interface HypernextConfig {
   database: DatabaseConfig;
   editor?: EditorConfig;
   email?: EmailConfig;
+  ipfs?: IpfsConfig;
   jwtSecret?: string;
   logging?: LoggingConfig;
   mcp: McpConfig;

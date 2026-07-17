@@ -30,5 +30,7 @@ export const DocMeta = defineEntity({
     publishedAt: p.string().name("published_at").nullable(),
     order: p.integer().nullable(),
     metaJson: p.text().name("meta_json").nullable(),
+    contentCid: p.string().name("content_cid").nullable(),
+    htmlCid: p.string().name("html_cid").nullable(),
   },
 });

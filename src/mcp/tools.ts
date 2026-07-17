@@ -623,6 +623,59 @@ ${
     },
   ];
 
+  // Add IPFS tools if IPFS is enabled
+  if (config.ipfs?.enabled) {
+    tools.push({
+      name: "get_doc_cid",
+      description: "Get the IPFS CIDs (content and HTML cache) for a document",
+      inputSchema: {
+        type: "object",
+        properties: {
+          slug: { type: "string", description: "Document slug" },
+        },
+        required: ["slug"],
+      },
+      async handler(args) {
+        const slug = String(args.slug ?? "");
+        const { getDocCids } = await import("../storage/ipfs.js");
+        const cids = await getDocCids(slug);
+        return {
+          content: [{ type: "text", text: JSON.stringify(cids, null, 2) }],
+        };
+      },
+    });
+
+    tools.push({
+      name: "pin_doc",
+      description:
+        "Pin a document and its rendered HTML to IPFS, ensuring the node retains the content",
+      inputSchema: {
+        type: "object",
+        properties: {
+          slug: { type: "string", description: "Document slug to pin" },
+        },
+        required: ["slug"],
+      },
+      async handler(args) {
+        const slug = String(args.slug ?? "");
+        const { pinDoc } = await import("../storage/ipfs.js");
+        const result = await pinDoc(config, slug);
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                { status: "pinned", slug, ...result },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      },
+    });
+  }
+
   // Add AI-powered tools if AI is enabled
   if (config.ai?.enabled) {
     tools.push({

@@ -1,3 +1,4 @@
+import { setText } from "@crosscopy/clipboard";
 import { render } from "ink";
 import React from "react";
 import type { HypernextConfig } from "../types/config.js";
@@ -17,8 +18,51 @@ function createEditorApp(config: HypernextConfig, mode: "local" | "remote") {
   const currentFiles: EditorFile[] = [];
   let currentRerender: (() => void) | null = null;
 
+  async function pinCurrentDocToIpfs() {
+    const file = currentFiles[state.activeFileIndex];
+    if (!file) {
+      return;
+    }
+    try {
+      if (mode === "remote" && config.remote?.url) {
+        await fetch(`${config.remote.url}/api/v1/docs/${file.slug}/pin`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${config.remote.token}` },
+        });
+      } else {
+        const { pinDoc } = await import("../storage/ipfs.js");
+        await pinDoc(config, file.slug);
+      }
+      console.log(`Pinned ${file.slug} to IPFS.`);
+    } catch (err) {
+      console.error("IPFS pin failed:", err);
+    }
+  }
+
+  async function copyIpfsGatewayUrl() {
+    const file = currentFiles[state.activeFileIndex];
+    if (!file) {
+      return;
+    }
+    try {
+      const { getDocCids } = await import("../storage/ipfs.js");
+      const cids = await getDocCids(file.slug);
+      const cid = cids.htmlCid ?? cids.contentCid;
+      if (!cid) {
+        console.log("No IPFS CID found for this document.");
+        return;
+      }
+      const gatewayUrl = config.ipfs?.gatewayUrl ?? "https://ipfs.io/ipfs";
+      const url = `${gatewayUrl}/${cid}`;
+      await setText(url);
+      console.log(`Copied IPFS URL: ${url}`);
+    } catch (err) {
+      console.error("Failed to copy IPFS URL:", err);
+    }
+  }
+
   function buildCommandItems(): CommandItem[] {
-    return [
+    const items: CommandItem[] = [
       {
         id: "toggle-explorer",
         label: "Toggle Explorer",
@@ -154,15 +198,39 @@ function createEditorApp(config: HypernextConfig, mode: "local" | "remote") {
           closePalette();
         },
       },
-      {
-        id: "quit",
-        label: "Quit",
-        key: "Ctrl+Q",
-        action() {
-          process.exit(0);
-        },
-      },
     ];
+
+    if (config.ipfs?.enabled) {
+      items.push({
+        id: "pin-ipfs",
+        label: "Pin to IPFS",
+        key: "",
+        action() {
+          pinCurrentDocToIpfs();
+          closePalette();
+        },
+      });
+      items.push({
+        id: "copy-ipfs-url",
+        label: "Copy IPFS Gateway URL",
+        key: "Ctrl+I",
+        action() {
+          copyIpfsGatewayUrl();
+          closePalette();
+        },
+      });
+    }
+
+    items.push({
+      id: "quit",
+      label: "Quit",
+      key: "Ctrl+Q",
+      action() {
+        process.exit(0);
+      },
+    });
+
+    return items;
   }
 
   async function fetchDashboardData() {
@@ -432,6 +500,8 @@ function createEditorApp(config: HypernextConfig, mode: "local" | "remote") {
     state,
     saveCurrentFile,
     onOpenPalette,
+    pinCurrentDocToIpfs,
+    copyIpfsGatewayUrl,
     getFiles: () => currentFiles,
   };
 }
@@ -483,6 +553,10 @@ export function startEditor(
     // Ctrl+K
     if (str === "\u000b") {
       app.onOpenPalette();
+    }
+    // Ctrl+I — copy IPFS gateway URL
+    if (str === "\u0009") {
+      app.copyIpfsGatewayUrl();
     }
     // Ctrl+Q
     if (str === "\u0011") {

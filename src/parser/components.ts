@@ -317,6 +317,24 @@ export const COMPONENT_RESOLVERS: Record<string, ComponentResolver> = {
     ];
   },
 
+  async IPFSLink(_props, ctx) {
+    if (!ctx.currentSlug) {
+      return [];
+    }
+    const doc = await getDocBySlug(ctx.currentSlug);
+    if (!doc) {
+      return [];
+    }
+    const cid =
+      (doc.htmlCid as string | null) ?? (doc.contentCid as string | null);
+    if (!cid) {
+      return [];
+    }
+    const gatewayUrl = ctx.config.ipfs?.gatewayUrl ?? "https://ipfs.io/ipfs";
+    const url = `${gatewayUrl}/${cid}`;
+    return [paragraphNode([linkNode(url, [textNode("View on IPFS")])])];
+  },
+
   async Archive(props, _ctx) {
     const filter = String(props.filter ?? "");
     const collection = String(props.collection ?? "");

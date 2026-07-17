@@ -37,6 +37,7 @@ const ALLOWED_COMPONENTS = new Set([
   "Comments",
   "Archive",
   "PostList",
+  "IPFSLink",
   "slot",
 ]);
 

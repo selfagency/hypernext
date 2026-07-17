@@ -71,6 +71,8 @@ export async function insertDoc(row: {
   publishedAt?: string;
   order?: number;
   metaJson?: string;
+  contentCid?: string;
+  htmlCid?: string;
 }): Promise<number> {
   const em = getEm();
   const existing = await em.findOne("DocMeta", { slug: row.slug });
@@ -91,6 +93,8 @@ export async function insertDoc(row: {
       publishedAt: row.publishedAt,
       order: row.order,
       metaJson: row.metaJson,
+      contentCid: row.contentCid,
+      htmlCid: row.htmlCid,
       updatedAt: new Date(),
     });
     await em.flush();
@@ -113,6 +117,8 @@ export async function insertDoc(row: {
     publishedAt: row.publishedAt,
     order: row.order,
     metaJson: row.metaJson,
+    contentCid: row.contentCid,
+    htmlCid: row.htmlCid,
   });
   await em.flush();
   return doc.id;

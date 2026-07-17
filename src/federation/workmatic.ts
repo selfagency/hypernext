@@ -122,6 +122,12 @@ export function initWorkmatic(config: HypernextConfig): void {
         { maxAttempts: 2 }
       );
     }
+
+    // If IPFS is enabled, enqueue pinning
+    if (config.ipfs?.enabled && orchestrator) {
+      const client = orchestrator.client("ipfs-pinning");
+      await client.add({ slug: payload.slug }, { maxAttempts: 3 });
+    }
   });
 
   // ── Queue: AI embedding generation ──
@@ -137,6 +143,19 @@ export function initWorkmatic(config: HypernextConfig): void {
       };
       const { generateAndStoreEmbedding } = await import("./ai-tasks.js");
       await generateAndStoreEmbedding(config, payload.slug, payload.rawMdx);
+    });
+  }
+
+  // ── Queue: IPFS pinning (content + HTML cache) ──
+  if (config.ipfs?.enabled) {
+    orchestrator.register("ipfs-pinning", {
+      worker: { concurrency: 1, timeoutMs: 60_000 },
+    });
+
+    orchestrator.process("ipfs-pinning", async (job) => {
+      const payload = job.payload as { slug: string };
+      const { pinDoc } = await import("../storage/ipfs.js");
+      await pinDoc(config, payload.slug);
     });
   }
 
@@ -372,6 +391,12 @@ export async function enqueueIndexing(
   const orch = getOrchestrator();
   const client = orch.client("indexing");
   await client.add({ slug, rawMdx }, { maxAttempts: 2 });
+}
+
+export async function enqueueIpfsPinning(slug: string): Promise<void> {
+  const orch = getOrchestrator();
+  const client = orch.client("ipfs-pinning");
+  await client.add({ slug }, { maxAttempts: 3 });
 }
 
 export async function enqueuePdfGeneration(

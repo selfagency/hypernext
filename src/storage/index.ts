@@ -1,4 +1,5 @@
 import type { HypernextConfig } from "../types/config.js";
+import { IPFSStorageProvider } from "./ipfs.js";
 import { LocalStorageProvider } from "./local.js";
 import { S3StorageProvider } from "./s3.js";
 
@@ -11,7 +12,12 @@ export function createStorage(config: HypernextConfig): StorageProvider {
     return storageInstance;
   }
 
-  if (config.storage.type === "s3") {
+  if (config.storage.type === "ipfs") {
+    if (!config.ipfs?.enabled) {
+      throw new Error("IPFS storage requires ipfs.enabled: true");
+    }
+    storageInstance = new IPFSStorageProvider(config.ipfs);
+  } else if (config.storage.type === "s3") {
     if (!config.storage.s3) {
       throw new Error("Missing storage.s3 configuration");
     }

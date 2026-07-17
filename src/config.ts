@@ -162,6 +162,13 @@ agent:
     webmcp: true
   hiddenAgentDirective: true
   viewTransitions: true
+
+ipfs:
+  enabled: false
+  apiEndpoint: "http://127.0.0.1:5001"
+  gatewayUrl: "https://ipfs.io/ipfs"
+  pinning: true
+  cacheHtml: true
 `;
 
 export function scaffoldDefaults(cwd: string): void {
