@@ -1,4 +1,5 @@
 import net from "node:net";
+import { recordPageview } from "../analytics/stats-manager.js";
 import { getDocBySlug, listDocSlugs } from "../database/index.js";
 import { isDocPrivate, isFutureDated } from "../parser/frontmatter.js";
 import { parseToIR, resolveComponentNodes } from "../parser/pipeline.js";
@@ -72,4 +73,11 @@ async function handleGopherRequest(
 
   const text = renderGemtext(result.ir);
   socket.end(`${text}\r\n.\r\n`);
+
+  // Fire-and-forget pageview recording
+  recordPageview(cleaned, "gopher", socket.remoteAddress ?? "0.0.0.0").catch(
+    () => {
+      /* fire-and-forget */
+    }
+  );
 }

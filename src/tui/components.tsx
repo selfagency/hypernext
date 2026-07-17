@@ -1,7 +1,13 @@
 import { Select, TextInput } from "@inkjs/ui";
 import { Box, Text } from "ink";
 import type { ReactNode } from "react";
-import type { CommandItem, EditorFile, EditorState } from "../state.js";
+import type {
+  CommandItem,
+  DashboardData,
+  EditorFile,
+  EditorState,
+  ModerationItem,
+} from "./state.js";
 
 // ── Left Pane: File Explorer ──
 
@@ -174,6 +180,124 @@ function PreviewPane({
   );
 }
 
+// ── Dashboard Pane ──
+
+export function DashboardPane({ data }: { data: DashboardData | null }) {
+  if (!data) {
+    return (
+      <Box borderStyle="single" flexDirection="column" paddingX={1}>
+        <Text bold color="cyan">
+          Dashboard
+        </Text>
+        <Text>Loading...</Text>
+      </Box>
+    );
+  }
+  return (
+    <Box borderStyle="single" flexDirection="column" paddingX={1} width={60}>
+      <Text bold color="cyan">
+        Dashboard
+      </Text>
+      <Box flexDirection="column" marginTop={1}>
+        <Text bold>Analytics (Last 7 Days)</Text>
+        <Text> {data.analytics}</Text>
+      </Box>
+      <Box flexDirection="column" marginTop={1}>
+        <Text bold>Moderation Queue</Text>
+        <Text> Pending Mentions: {data.moderationPending}</Text>
+        <Text> Spam Caught: {data.moderationSpam}</Text>
+      </Box>
+      <Box flexDirection="column" marginTop={1}>
+        <Text bold>Content Stats</Text>
+        <Text> Total Posts: {data.totalPosts}</Text>
+        <Text> Total Docs: {data.totalDocs}</Text>
+      </Box>
+    </Box>
+  );
+}
+
+// ── Moderation Pane ──
+
+export function ModerationPane({
+  items,
+  onModerate,
+}: {
+  items: ModerationItem[];
+  onModerate?: (id: string, status: string) => void;
+}) {
+  return (
+    <Box borderStyle="single" flexDirection="column" paddingX={1} width={60}>
+      <Text bold color="cyan">
+        Moderation Queue ({items.length})
+      </Text>
+      {items.length === 0 && (
+        <Box marginTop={1}>
+          <Text color="green">No pending items.</Text>
+        </Box>
+      )}
+      {items.map((m) => (
+        <Box flexDirection="column" key={m.id} marginTop={1}>
+          <Text color="yellow">
+            {m.authorName} ({m.platform})
+          </Text>
+          <Text>{m.content.slice(0, 80)}...</Text>
+          {onModerate && (
+            <Box>
+              <Text color="green" onPress={() => onModerate(m.id, "ham")}>
+                {" "}
+                [A] Approve
+              </Text>
+              <Text color="red" onPress={() => onModerate(m.id, "spam")}>
+                {" "}
+                [S] Spam
+              </Text>
+              <Text color="gray" onPress={() => onModerate(m.id, "delete")}>
+                {" "}
+                [D] Delete
+              </Text>
+            </Box>
+          )}
+        </Box>
+      ))}
+    </Box>
+  );
+}
+
+// ── Taxonomy Pane ──
+
+export function TaxonomyPane() {
+  return (
+    <Box borderStyle="single" flexDirection="column" paddingX={1} width={60}>
+      <Text bold color="cyan">
+        Taxonomy Manager
+      </Text>
+      <Box marginTop={1}>
+        <Text color="gray">
+          Taxonomy management is available via the REST API.
+        </Text>
+      </Box>
+    </Box>
+  );
+}
+
+// ── Logs Pane ──
+
+export function LogsPane() {
+  return (
+    <Box borderStyle="single" flexDirection="column" paddingX={1} width={60}>
+      <Text bold color="cyan">
+        System Logs
+      </Text>
+      <Box marginTop={1}>
+        <Text color="gray">
+          Logs are streamed via tslog transport. In remote mode, poll GET
+          /api/v1/logs.
+        </Text>
+      </Box>
+    </Box>
+  );
+}
+
 // ── Command Palette ──
 
 interface CommandPaletteProps {
@@ -266,8 +390,8 @@ function StatusBar({
       </Box>
       <Box marginLeft={2}>
         <Text color="gray">
-          Ctrl+S Save | Ctrl+B Explorer | Ctrl+P Preview | Ctrl+K Palette |
-          Ctrl+Q Quit
+          Ctrl+S Save | Ctrl+B Explorer | Ctrl+P Preview | Ctrl+D Dashboard |
+          Ctrl+K Palette | Ctrl+Q Quit
         </Text>
       </Box>
     </Box>
@@ -288,6 +412,7 @@ export function EditorLayout({
   onOpenPalette,
   onPaletteFilterChange,
   onPaletteSelect,
+  onModerate,
 }: {
   state: EditorState;
   files: EditorFile[];
@@ -300,6 +425,7 @@ export function EditorLayout({
   onOpenPalette: () => void;
   onPaletteFilterChange: (value: string) => void;
   onPaletteSelect: (item: CommandItem) => void;
+  onModerate?: (id: string, status: string) => void;
 }): ReactNode {
   const activeFile =
     state.activeFileIndex >= 0 ? files[state.activeFileIndex] : undefined;
@@ -345,6 +471,19 @@ export function EditorLayout({
             onToggleMode={onTogglePreviewMode}
           />
         )}
+
+        {state.dashboardVisible && <DashboardPane data={state.dashboardData} />}
+
+        {state.moderationVisible && (
+          <ModerationPane
+            items={state.moderationItems}
+            onModerate={onModerate}
+          />
+        )}
+
+        {state.taxonomyVisible && <TaxonomyPane />}
+
+        {state.logsVisible && <LogsPane />}
       </Box>
 
       <StatusBar

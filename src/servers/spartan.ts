@@ -1,4 +1,5 @@
 import net from "node:net";
+import { recordPageview } from "../analytics/stats-manager.js";
 import { getCachedParse, setCachedParse } from "../cache.js";
 import { getDocBySlug } from "../database/index.js";
 import {
@@ -77,4 +78,11 @@ async function handleSpartanRequest(
   await resolveComponentNodes(result.ir, config, slug);
   setCachedParse(slug, result);
   socket.end(`200 text/gemini\r\n${renderGemtext(result.ir)}`);
+
+  // Fire-and-forget pageview recording
+  recordPageview(slug, "spartan", socket.remoteAddress ?? "0.0.0.0").catch(
+    () => {
+      /* fire-and-forget */
+    }
+  );
 }

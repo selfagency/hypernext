@@ -1,4 +1,5 @@
 import net from "node:net";
+import { recordPageview } from "../analytics/stats-manager.js";
 import { getCachedParse, setCachedParse } from "../cache.js";
 import { getDocBySlug } from "../database/index.js";
 import {
@@ -75,4 +76,9 @@ async function handleNexRequest(
   await resolveComponentNodes(result.ir, config, slug);
   setCachedParse(slug, result);
   socket.end(renderGemtext(result.ir));
+
+  // Fire-and-forget pageview recording
+  recordPageview(slug, "nex", socket.remoteAddress ?? "0.0.0.0").catch(() => {
+    /* fire-and-forget */
+  });
 }

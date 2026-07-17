@@ -20,14 +20,36 @@ export interface CommandPaletteState {
   selectedIndex: number;
 }
 
+export interface DashboardData {
+  analytics: string;
+  moderationPending: number;
+  moderationSpam: number;
+  totalDocs: number;
+  totalPosts: number;
+}
+
+export interface ModerationItem {
+  authorName: string;
+  content: string;
+  id: string;
+  platform: string;
+  spamStatus: string;
+}
+
 export interface EditorState {
   activeFileIndex: number;
   commandPalette: CommandPaletteState;
+  dashboardData: DashboardData | null;
+  dashboardVisible: boolean;
   explorerVisible: boolean;
   files: EditorFile[];
+  logsVisible: boolean;
   mode: "local" | "remote";
+  moderationItems: ModerationItem[];
+  moderationVisible: boolean;
   previewMode: "preview" | "diagnostics";
   previewVisible: boolean;
+  taxonomyVisible: boolean;
 }
 
 const FRONTMATTER_REGEX = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/;
@@ -40,6 +62,12 @@ export function createInitialState(mode: "local" | "remote"): EditorState {
     explorerVisible: true,
     previewVisible: true,
     previewMode: "preview",
+    dashboardVisible: false,
+    dashboardData: null,
+    moderationVisible: false,
+    moderationItems: [],
+    taxonomyVisible: false,
+    logsVisible: false,
     commandPalette: {
       open: false,
       filter: "",

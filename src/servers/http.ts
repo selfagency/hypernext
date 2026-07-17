@@ -1,4 +1,5 @@
 import Fastify from "fastify";
+import { recordPageview } from "../analytics/stats-manager.js";
 import { getCachedParse, setCachedParse } from "../cache.js";
 import { getDocBySlug } from "../database/index.js";
 import {
@@ -67,6 +68,16 @@ export function createHttpServer(config: HypernextConfig) {
       await resolveComponentNodes(result.ir, config, fullSlug);
       setCachedParse(fullSlug, result);
       reply.type("text/html").send(renderHTML(result, config, fullSlug));
+
+      // Fire-and-forget pageview recording
+      recordPageview(
+        fullSlug,
+        "http",
+        request.ip,
+        request.headers.referer
+      ).catch(() => {
+        /* fire-and-forget */
+      });
     }
   );
 

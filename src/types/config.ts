@@ -176,6 +176,25 @@ export interface SyndicationConfig {
   mastodon?: MastodonSyndicationConfig;
 }
 
+export interface LoggingConfig {
+  filePath?: string;
+  format: "json" | "pretty";
+  level: "trace" | "debug" | "info" | "warn" | "error";
+  logToFile: boolean;
+  maskSecrets: boolean;
+}
+
+export interface TelemetryConfig {
+  enabled: boolean;
+  exportInterval: number;
+  otlpEndpoint: string;
+  serviceName: string;
+}
+
+export interface EditorConfig {
+  defaultMode: "local" | "remote";
+}
+
 export interface McpConfig {
   enabled: boolean;
   transport: "stdio" | "sse";
@@ -193,6 +212,8 @@ export interface HypernextConfig {
   collections: Record<string, CollectionConfig>;
   comments?: CommentConfig;
   database: DatabaseConfig;
+  editor?: EditorConfig;
+  logging?: LoggingConfig;
   mcp: McpConfig;
   micropub: MicropubConfig;
   protocols: ProtocolsConfig;
@@ -200,6 +221,7 @@ export interface HypernextConfig {
   storage: StorageConfig;
   syndication: SyndicationConfig;
   taxonomies: TaxonomyConfig[];
+  telemetry?: TelemetryConfig;
 }
 
 export interface CliOptions {

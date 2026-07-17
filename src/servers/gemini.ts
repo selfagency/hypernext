@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import tls from "node:tls";
+import { recordPageview } from "../analytics/stats-manager.js";
 import { getCachedParse, setCachedParse } from "../cache.js";
 import { getDocBySlug } from "../database/index.js";
 import {
@@ -95,4 +96,11 @@ async function handleRequest(
   await resolveComponentNodes(result.ir, config, slug);
   setCachedParse(slug, result);
   socket.end(`20 text/gemini\r\n${renderGemtext(result.ir)}`);
+
+  // Fire-and-forget pageview recording
+  recordPageview(slug, "gemini", socket.remoteAddress ?? "0.0.0.0").catch(
+    () => {
+      /* fire-and-forget */
+    }
+  );
 }
