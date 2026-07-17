@@ -37,7 +37,7 @@ export function startAllServers(config: HypernextConfig): void {
     registerApiAuthGuard(fastify);
     registerApiRoutes(fastify, config);
     registerModerationRoutes(fastify, config);
-    registerNewsletterRoutes(fastify, config);
+    registerNewsletterRoutes(fastify);
     registerStatsRoutes(fastify);
     registerMcpSseTransport(fastify, config);
     registerFederationRoutes(fastify, config);

@@ -39,7 +39,7 @@ function buildHeaders(
   if (unsubscribeToken) {
     headers.set(
       "List-Unsubscribe",
-      `<${config.site.canonicalBase}/api/v1/subscribe/unsubscribe?token=${unsubscribeToken}>`
+      `<${config.site.canonicalBase}/subscribe/unsubscribe?token=${unsubscribeToken}>`
     );
     headers.set("List-Unsubscribe-Post", "List-Unsubscribe=One-Click");
   }
@@ -53,6 +53,21 @@ export async function processNewSubscription(
   payload: { email: string; frequency: string }
 ): Promise<void> {
   const { email, frequency } = payload;
+
+  // Validate email deliverability (MX records, format)
+  try {
+    const { default: emailValidator } = await import("node-email-verifier");
+    const isValid = await emailValidator(email, {
+      checkMx: true,
+      timeout: 5000,
+    });
+    if (!isValid) {
+      return; // Silently drop invalid emails
+    }
+  } catch {
+    // DNS validation failed — proceed anyway to avoid blocking subscriptions
+    // during transient DNS failures
+  }
 
   const em = getEm();
   const existing = await em.findOne(Subscriber, { email });
@@ -117,7 +132,7 @@ export async function sendInstantNotification(
 ${doc.html ?? ""}
 <hr />
 <p style="font-size: 12px; color: #999;">
-  <a href="${config.site.canonicalBase}/api/v1/subscribe/unsubscribe?token=${sub.unsubscribeToken}">Unsubscribe</a>
+  <a href="${config.site.canonicalBase}/subscribe/unsubscribe?token=${sub.unsubscribeToken}">Unsubscribe</a>
 </p>`;
 
   const message = createMessage({
@@ -156,7 +171,7 @@ export async function sendWeeklyDigest(
 <ul>${items}</ul>
 <hr />
 <p style="font-size: 12px; color: #999;">
-  <a href="${config.site.canonicalBase}/api/v1/subscribe/unsubscribe?token=${sub.unsubscribeToken}">Unsubscribe</a>
+  <a href="${config.site.canonicalBase}/subscribe/unsubscribe?token=${sub.unsubscribeToken}">Unsubscribe</a>
 </p>`;
 
   const message = createMessage({
