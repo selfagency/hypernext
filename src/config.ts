@@ -122,9 +122,9 @@ robotsTxt:
   rules: []
   contentSignals:
     enabled: true
-    aiTrain: true
+    aiTrain: false
     search: true
-    aiInput: true
+    aiInput: false
 
 securityTxt:
   contact: []
@@ -134,9 +134,9 @@ agent:
   enabled: false
   contentSignals:
     enabled: true
-    aiTrain: true
+    aiTrain: false
     search: true
-    aiInput: true
+    aiInput: false
   markdownNegotiation: true
   llmsTxt: true
   sitemap: true
