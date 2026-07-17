@@ -249,13 +249,6 @@ export interface AgentRobotsTxtRule {
   userAgent: string;
 }
 
-export interface AgentContentSignalsConfig {
-  aiInput: boolean;
-  aiTrain: boolean;
-  enabled: boolean;
-  search: boolean;
-}
-
 export interface AgentWellKnownConfig {
   agentSkills: boolean;
   apiCatalog: boolean;
@@ -287,9 +280,15 @@ export interface SecurityTxtConfig {
   preferredLanguages?: string;
 }
 
+export interface ContentSignalsConfig {
+  aiInput: boolean;
+  aiTrain: boolean;
+  enabled: boolean;
+  search: boolean;
+}
+
 export interface RobotsTxtConfig {
   aiCrawlers: "block" | "allow" | "selective";
-  contentSignals?: AgentContentSignalsConfig;
   enabled: boolean;
   rules: AgentRobotsTxtRule[];
 }
@@ -300,6 +299,7 @@ export interface HypernextConfig {
   author: AuthorConfig;
   collections: Record<string, CollectionConfig>;
   comments?: CommentConfig;
+  contentSignals?: ContentSignalsConfig;
   database: DatabaseConfig;
   editor?: EditorConfig;
   email?: EmailConfig;

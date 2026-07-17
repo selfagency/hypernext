@@ -69,7 +69,7 @@ function renderAiCrawlerRules(lines: string[], config: HypernextConfig): void {
 }
 
 function renderContentSignal(lines: string[], config: HypernextConfig): void {
-  const cs = config.robotsTxt?.contentSignals;
+  const cs = config.contentSignals;
   if (!cs?.enabled) {
     return;
   }

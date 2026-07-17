@@ -359,7 +359,7 @@ export function createHttpServer(config: HypernextConfig) {
   registerWellKnownEndpoints(fastify, config);
 
   // Global onResponse hook for Content-Signal header
-  if (config.robotsTxt?.contentSignals?.enabled) {
+  if (config.contentSignals?.enabled) {
     fastify.addHook("onResponse", (_request, reply, done) => {
       addContentSignalHeader(reply, config);
       done();

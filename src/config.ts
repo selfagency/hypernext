@@ -120,11 +120,12 @@ robotsTxt:
   enabled: true
   aiCrawlers: block
   rules: []
-  contentSignals:
-    enabled: true
-    aiTrain: false
-    search: true
-    aiInput: false
+
+contentSignals:
+  enabled: true
+  aiTrain: false
+  search: true
+  aiInput: false
 
 securityTxt:
   contact: []

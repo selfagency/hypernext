@@ -5,7 +5,7 @@ export function addContentSignalHeader(
   reply: FastifyReply,
   config: HypernextConfig
 ): void {
-  const cs = config.robotsTxt?.contentSignals;
+  const cs = config.contentSignals;
   if (!cs?.enabled) {
     return;
   }
