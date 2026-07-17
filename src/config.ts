@@ -116,6 +116,23 @@ mcp:
   enabled: true
   transport: stdio
 
+ai:
+  enabled: false
+  openai:
+    baseUrl: "http://localhost:11434/v1"
+    apiKey: ""
+  models:
+    embedding: "text-embedding-3-small"
+    utility: "gpt-4o-mini"
+    vision: "gpt-4o"
+    moderation: "gpt-4o"
+  vectorDimensions: 1536
+  features:
+    altText: true
+    autoTagging: true
+    seoMeta: true
+    moderation: true
+
 robotsTxt:
   enabled: true
   aiCrawlers: block

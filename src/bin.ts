@@ -91,7 +91,7 @@ if (!parsed.command) {
 
   try {
     const config = getConfig(process.cwd(), options);
-    startAllServers(config);
+    await startAllServers(config);
   } catch (error) {
     console.error(error);
     process.exit(1);

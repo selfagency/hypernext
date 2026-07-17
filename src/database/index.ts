@@ -25,6 +25,15 @@ export async function initOrm(dbName?: string): Promise<MikroORM> {
   return ormInstance;
 }
 
+export async function initVecTable(vectorDimensions: number): Promise<void> {
+  const em = getEm();
+  await em
+    .getConnection()
+    .execute(
+      `CREATE VIRTUAL TABLE IF NOT EXISTS docs_vec USING vec0(slug TEXT PRIMARY KEY, embedding FLOAT[${vectorDimensions}]);`
+    );
+}
+
 export function getOrm(): MikroORM {
   if (!ormInstance) {
     throw new Error("ORM not initialized. Call initOrm() first.");

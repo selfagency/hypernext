@@ -15,7 +15,7 @@ export interface McpTool {
 }
 
 export function createTools(config: HypernextConfig): McpTool[] {
-  return [
+  const tools: McpTool[] = [
     {
       name: "search_docs",
       description: "Search documents using FTS5 full-text search",
@@ -622,4 +622,33 @@ ${
       },
     },
   ];
+
+  // Add AI-powered tools if AI is enabled
+  if (config.ai?.enabled) {
+    tools.push({
+      name: "talk_to_docs",
+      description:
+        "Ask a natural language question and get an answer based on the content of your documents using semantic search and RAG.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "Your question about the document content",
+          },
+        },
+        required: ["query"],
+      },
+      async handler(args) {
+        const query = String(args.query ?? "");
+        const { ragSearch } = await import("../federation/ai-tasks.js");
+        const answer = await ragSearch(config, query);
+        return {
+          content: [{ type: "text", text: answer }],
+        };
+      },
+    });
+  }
+
+  return tools;
 }

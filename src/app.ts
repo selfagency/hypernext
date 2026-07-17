@@ -1,3 +1,4 @@
+import { registerAiRoutes } from "./api/ai.js";
 import { registerApiAuthGuard } from "./api/auth.js";
 import { registerModerationRoutes } from "./api/moderation.js";
 import { registerNewsletterRoutes } from "./api/newsletter.js";
@@ -19,7 +20,7 @@ import { startTextServer } from "./servers/text.js";
 import type { HypernextConfig } from "./types/config.js";
 import { initLogger } from "./utils/logger.js";
 
-export function startAllServers(config: HypernextConfig): void {
+export async function startAllServers(config: HypernextConfig): Promise<void> {
   const { protocols } = config;
 
   // Initialize logger
@@ -30,6 +31,12 @@ export function startAllServers(config: HypernextConfig): void {
 
   // Initialize workmatic job queue
   initWorkmatic(config);
+
+  // Initialize vector table if AI is enabled
+  if (config.ai?.enabled) {
+    const { initVecTable } = await import("./database/index.js");
+    await initVecTable(config.ai.vectorDimensions);
+  }
 
   if (protocols.http.enabled) {
     const fastify = createHttpServer(config);
@@ -43,6 +50,7 @@ export function startAllServers(config: HypernextConfig): void {
     registerFederationRoutes(fastify, config);
     registerInboundRoutes(fastify, config);
     registerMicropubEndpoint(fastify, config);
+    registerAiRoutes(fastify, config);
     fastify.listen({ port: protocols.http.port, host: "0.0.0.0" });
   }
 

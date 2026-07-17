@@ -293,8 +293,36 @@ export interface RobotsTxtConfig {
   rules: AgentRobotsTxtRule[];
 }
 
+export interface AiOpenaiConfig {
+  apiKey?: string;
+  baseUrl: string;
+}
+
+export interface AiModelsConfig {
+  embedding: string;
+  moderation?: string;
+  utility: string;
+  vision?: string;
+}
+
+export interface AiFeaturesConfig {
+  altText: boolean;
+  autoTagging: boolean;
+  moderation: boolean;
+  seoMeta: boolean;
+}
+
+export interface AiConfig {
+  enabled: boolean;
+  features: AiFeaturesConfig;
+  models: AiModelsConfig;
+  openai: AiOpenaiConfig;
+  vectorDimensions: number;
+}
+
 export interface HypernextConfig {
   agent?: AgentConfig;
+  ai?: AiConfig;
   api: ApiConfig;
   author: AuthorConfig;
   collections: Record<string, CollectionConfig>;

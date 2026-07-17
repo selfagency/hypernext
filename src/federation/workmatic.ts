@@ -113,7 +113,32 @@ export function initWorkmatic(config: HypernextConfig): void {
     };
     const { indexDocument } = await import("../indexer/index.js");
     await indexDocument(payload.slug, payload.rawMdx);
+
+    // If AI is enabled, enqueue embedding generation
+    if (config.ai?.enabled && orchestrator) {
+      const client = orchestrator.client("ai-embedding");
+      await client.add(
+        { slug: payload.slug, rawMdx: payload.rawMdx },
+        { maxAttempts: 2 }
+      );
+    }
   });
+
+  // ── Queue: AI embedding generation ──
+  if (config.ai?.enabled) {
+    orchestrator.register("ai-embedding", {
+      worker: { concurrency: 1, timeoutMs: 60_000 },
+    });
+
+    orchestrator.process("ai-embedding", async (job) => {
+      const payload = job.payload as {
+        slug: string;
+        rawMdx: string;
+      };
+      const { generateAndStoreEmbedding } = await import("./ai-tasks.js");
+      await generateAndStoreEmbedding(config, payload.slug, payload.rawMdx);
+    });
+  }
 
   // ── Queue: PDF generation ──
   orchestrator.register("pdf-generation", {
