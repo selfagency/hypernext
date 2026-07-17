@@ -5,15 +5,19 @@ import compress from "@fastify/compress";
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import csrf from "@fastify/csrf-protection";
+import env from "@fastify/env";
 import etag from "@fastify/etag";
 import formbody from "@fastify/formbody";
 import helmet from "@fastify/helmet";
 import jwt from "@fastify/jwt";
 import sensible from "@fastify/sensible";
 import staticFiles from "@fastify/static";
+import swagger from "@fastify/swagger";
+import swaggerUi from "@fastify/swagger-ui";
 import underPressure from "@fastify/under-pressure";
 import urlData from "@fastify/url-data";
 import Fastify from "fastify";
+import httpErrorsEnhanced from "fastify-http-errors-enhanced";
 import { recordPageview } from "../analytics/stats-manager.js";
 import { getCachedParse, setCachedParse } from "../cache.js";
 import { getDocBySlug } from "../database/index.js";
@@ -59,6 +63,46 @@ export function createHttpServer(config: HypernextConfig) {
 
   // Auth — composable auth functions
   fastify.register(auth, { defaultRelation: "or" });
+
+  // Swagger/OpenAPI docs
+  fastify.register(swagger, {
+    openapi: {
+      info: {
+        title: config.site.meta.title,
+        description: config.site.meta.description,
+        version: "1.0.0",
+      },
+      servers: [{ url: config.site.canonicalBase }],
+    },
+  });
+  fastify.register(swaggerUi, { routePrefix: "/documentation" });
+
+  // Environment variable validation
+  fastify.register(env, {
+    schema: {
+      type: "object",
+      properties: {
+        HYPERNEXT_JWT_SECRET: { type: "string" },
+        HYPERNEXT_DB_PATH: { type: "string" },
+        HYPERNEXT_AKISMET_KEY: { type: "string" },
+        HYPERNEXT_SMTP_HOST: { type: "string" },
+        HYPERNEXT_SMTP_PORT: { type: "string" },
+        HYPERNEXT_SMTP_USER: { type: "string" },
+        HYPERNEXT_SMTP_PASS: { type: "string" },
+        HYPERNEXT_OTLP_ENDPOINT: { type: "string" },
+      },
+      required: [],
+    },
+    data: process.env,
+    confKey: "env",
+  });
+
+  // Enhanced HTTP error responses
+  fastify.register(httpErrorsEnhanced, {
+    hideUnhandledErrors: false,
+    convertValidationErrors: true,
+    use422ForValidationErrors: true,
+  });
 
   // Serve static assets from /assets/
   const assetsDir = path.resolve("assets");
