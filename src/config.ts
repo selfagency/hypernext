@@ -132,11 +132,6 @@ securityTxt:
 
 agent:
   enabled: false
-  contentSignals:
-    enabled: true
-    aiTrain: false
-    search: true
-    aiInput: false
   markdownNegotiation: true
   llmsTxt: true
   sitemap: true

@@ -265,7 +265,6 @@ export interface AgentWellKnownConfig {
 }
 
 export interface AgentConfig {
-  contentSignals: AgentContentSignalsConfig;
   enabled: boolean;
   hiddenAgentDirective: boolean;
   linkHeaders: boolean;

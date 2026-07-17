@@ -69,8 +69,7 @@ function renderAiCrawlerRules(lines: string[], config: HypernextConfig): void {
 }
 
 function renderContentSignal(lines: string[], config: HypernextConfig): void {
-  // Check robotsTxt.contentSignals first, fall back to agent.contentSignals
-  const cs = config.robotsTxt?.contentSignals ?? config.agent?.contentSignals;
+  const cs = config.robotsTxt?.contentSignals;
   if (!cs?.enabled) {
     return;
   }
