@@ -122,11 +122,11 @@ ai:
     baseUrl: "http://localhost:11434/v1"
     apiKey: ""
   models:
-    embedding: "text-embedding-3-small"
-    utility: "gpt-4o-mini"
-    vision: "gpt-4o"
-    moderation: "gpt-4o"
-  vectorDimensions: 1536
+    embedding: "nomic-embed-text-v2-moe:latest"
+    utility: "llama3.2:1b"
+    vision: "llava:7b"
+    reasoning: "llama3.1:8b"
+  vectorDimensions: 768
   features:
     altText: true
     autoTagging: true

@@ -300,7 +300,7 @@ export interface AiOpenaiConfig {
 
 export interface AiModelsConfig {
   embedding: string;
-  moderation?: string;
+  reasoning?: string;
   utility: string;
   vision?: string;
 }

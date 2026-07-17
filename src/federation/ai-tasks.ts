@@ -167,7 +167,7 @@ export async function aiModerateComment(
   postContent: string
 ): Promise<"ham" | "spam"> {
   const ai = getAiConfig(config);
-  const model = ai.models.moderation ?? ai.models.utility;
+  const model = ai.models.reasoning ?? ai.models.utility;
   const response = await getClient(ai).chat.completions.create({
     model,
     messages: [
