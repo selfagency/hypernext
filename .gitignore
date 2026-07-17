@@ -316,3 +316,8 @@ $RECYCLE.BIN/
 
 # End of https://www.toptal.com/developers/gitignore/api/windows,linux,macos,node,test,visualstudiocode
 .fallow/
+
+# SQLite databases
+*.db
+*.db-shm
+*.db-wal

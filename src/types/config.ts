@@ -1,6 +1,10 @@
 export interface SiteMetaConfig {
   description: string;
   lang: string;
+  ogDescription?: string;
+  ogImage?: string;
+  ogImageAlt?: string;
+  ogTitle?: string;
   title: string;
 }
 
@@ -23,6 +27,7 @@ export interface SiteConfig {
   ebookCoverImage?: string;
   ebooks: SiteEbooksConfig;
   meta: SiteMetaConfig;
+  organization?: OrganizationConfig;
   pdf: SitePdfConfig;
   pdfCssPath?: string;
   theme?: SiteThemeConfig;
@@ -33,6 +38,27 @@ export interface AuthorConfig {
   email?: string;
   name: string;
   photo?: string;
+  socials?: Record<string, string>;
+  url?: string;
+}
+
+export interface OrganizationContactPoint {
+  email?: string;
+  url?: string;
+}
+
+export interface OrganizationAddress {
+  country?: string;
+  locality?: string;
+}
+
+export interface OrganizationConfig {
+  address?: OrganizationAddress;
+  contactPoint?: OrganizationContactPoint;
+  founders?: string[];
+  logo?: string;
+  name: string;
+  sameAs?: string[];
   url?: string;
 }
 
@@ -153,6 +179,12 @@ export interface SyndicationConfig {
 export interface McpConfig {
   enabled: boolean;
   transport: "stdio" | "sse";
+}
+
+export interface RemoteConfig {
+  enabled: boolean;
+  token: string;
+  url: string;
 }
 
 export interface HypernextConfig {

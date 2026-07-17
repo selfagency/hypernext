@@ -47,6 +47,7 @@
   "dependencies": {
     "@atproto/api": "^0.15.0",
     "@aws-sdk/client-s3": "^3.800.0",
+    "@inkjs/ui": "^2.0.0",
     "@lesjoursfr/html-to-epub": "^6.2.0",
     "@mikro-orm/core": "^7.1.6",
     "@mikro-orm/sqlite": "^7.1.6",
@@ -55,6 +56,7 @@
     "cac": "^6.7.14",
     "fastify": "^5.3.2",
     "gray-matter": "^4.0.3",
+    "ink": "^7.1.1",
     "katex": "^0.16.22",
     "lru-cache": "^11.1.0",
     "md-to-pdf": "^5.2.5",
@@ -72,6 +74,7 @@
   "devDependencies": {
     "@biomejs/biome": "2.4.16",
     "@types/node": "^22.15.17",
+    "@types/turndown": "^5.0.6",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.8",
     "mdast-util-mdx": "^3.0.0",

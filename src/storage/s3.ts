@@ -1,4 +1,5 @@
 import {
+  DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
   ListObjectsV2Command,
@@ -63,6 +64,15 @@ export class S3StorageProvider implements StorageProvider {
         Key: this.keyForSlug(slug),
         Body: content,
         ContentType: "text/markdown",
+      })
+    );
+  }
+
+  async delete(slug: string): Promise<void> {
+    await this.client.send(
+      new DeleteObjectCommand({
+        Bucket: this.bucket,
+        Key: this.keyForSlug(slug),
       })
     );
   }

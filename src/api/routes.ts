@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { FastifyInstance } from "fastify";
 import { getDocBySlug, getEm, listDocSlugs } from "../database/index.js";
+import { ingestUrl } from "../ingest/ingest-manager.js";
 import { parseToIR } from "../parser/pipeline.js";
 import { renderHTML } from "../renderers/html.js";
 import { renderMarkdown } from "../renderers/markdown.js";
@@ -28,7 +29,6 @@ export function registerApiRoutes(
     }
 
     if (tag) {
-      // Filter by tag using raw SQL (MikroORM v7 doesn't expose createQueryBuilder on EM)
       const rows = await em.getConnection().execute<{ id: number }[]>(
         `SELECT DISTINCT m.id FROM docs_meta m
          JOIN term_relationships tr ON tr.doc_id = m.id
@@ -39,7 +39,6 @@ export function registerApiRoutes(
       if (rows.length > 0) {
         where.id = { $in: rows.map((r: { id: number }) => r.id) };
       } else {
-        // No matching tag — return empty
         reply.send({ docs: [], limit, offset });
         return;
       }
@@ -101,6 +100,39 @@ export function registerApiRoutes(
       return;
     }
     reply.send(doc);
+  });
+
+  // PUT /api/v1/docs/* — create or update a document
+  fastify.put("/api/v1/docs/*", async (request, reply) => {
+    const slug = (request.params as { "*": string })["*"];
+    const content = request.body as string;
+    const { writeStorage } = await import("../storage/index.js");
+    await writeStorage(slug, content);
+    reply.send({ status: "saved", slug });
+  });
+
+  // POST /api/v1/ingest — ingest a URL and save as MDX
+  fastify.post<{
+    Body: { url: string; collection?: string; filename?: string };
+  }>("/api/v1/ingest", async (request, reply) => {
+    const { url, collection, filename } = request.body;
+    if (!url) {
+      reply.code(400).send({ error: "Missing url" });
+      return;
+    }
+    try {
+      const slug = await ingestUrl(
+        {
+          url,
+          collection: collection ?? "library",
+          filename: filename ?? "ingested",
+        },
+        config
+      );
+      reply.send({ status: "ingested", slug });
+    } catch (error) {
+      reply.code(500).send({ error: String(error) });
+    }
   });
 
   // GET /api/v1/collections/:name.epub — EPUB generation

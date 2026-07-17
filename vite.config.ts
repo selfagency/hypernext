@@ -12,7 +12,14 @@ export default defineConfig({
     target: "node20",
     ssr: true,
     rollupOptions: {
-      external: [/^node:/, ...builtins()],
+      external: [
+        /^node:/,
+        ...builtins(),
+        "react",
+        "react/jsx-runtime",
+        "ink",
+        "@inkjs/ui",
+      ],
       output: {
         preserveModules: false,
       },

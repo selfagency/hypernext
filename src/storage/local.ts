@@ -36,6 +36,11 @@ export class LocalStorageProvider implements StorageProvider {
     await fs.writeFile(filePath, content, "utf-8");
   }
 
+  async delete(slug: string): Promise<void> {
+    const filePath = resolveSafeSlug(this.basePath, `${slug}.mdx`);
+    await fs.unlink(filePath);
+  }
+
   async exists(slug: string): Promise<boolean> {
     const filePath = resolveSafeSlug(this.basePath, `${slug}.mdx`);
     try {
