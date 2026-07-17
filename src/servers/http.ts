@@ -1,8 +1,14 @@
+import path from "node:path";
 import compress from "@fastify/compress";
+import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
+import etag from "@fastify/etag";
 import formbody from "@fastify/formbody";
 import helmet from "@fastify/helmet";
 import sensible from "@fastify/sensible";
+import staticFiles from "@fastify/static";
+import underPressure from "@fastify/under-pressure";
+import urlData from "@fastify/url-data";
 import Fastify from "fastify";
 import { recordPageview } from "../analytics/stats-manager.js";
 import { getCachedParse, setCachedParse } from "../cache.js";
@@ -29,6 +35,24 @@ export function createHttpServer(config: HypernextConfig) {
   fastify.register(helmet, { contentSecurityPolicy: false });
   fastify.register(compress, { global: true });
   fastify.register(sensible);
+  fastify.register(cookie);
+  fastify.register(etag);
+  fastify.register(urlData);
+  fastify.register(underPressure, {
+    maxEventLoopDelay: 1000,
+    maxHeapUsedBytes: 200_000_000,
+    maxRssBytes: 300_000_000,
+    message: "Service Unavailable",
+    retryAfter: 30,
+  });
+
+  // Serve static assets from /assets/
+  const assetsDir = path.resolve("assets");
+  fastify.register(staticFiles, {
+    root: assetsDir,
+    prefix: "/assets/",
+    decorateReply: false,
+  });
 
   // Home page
   fastify.get("/", (_request, reply) => {
