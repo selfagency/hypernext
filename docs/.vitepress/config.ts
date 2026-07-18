@@ -4,6 +4,9 @@ export default defineConfig({
   title: "Hypernext",
   description:
     "Multi-Protocol MDX Document Server and IndieWeb Publishing Engine",
+  lang: "en-US",
+  cleanUrls: true,
+  lastUpdated: true,
   themeConfig: {
     nav: [
       { text: "Home", link: "/" },
@@ -20,6 +23,9 @@ export default defineConfig({
       { text: "IndieWeb Features", link: "/indieweb" },
       { text: "API Reference", link: "/api" },
       { text: "Customization", link: "/customization" },
+    ],
+    socialLinks: [
+      { icon: "github", link: "https://github.com/selfagency/hypernext" },
     ],
   },
 });
