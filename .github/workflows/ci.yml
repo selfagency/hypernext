@@ -17,7 +17,10 @@ jobs:
           node-version: "24"
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
-      - run: pnpm rebuild better-sqlite3
+      - name: Rebuild native modules
+        run: pnpm rebuild
+        env:
+          npm_config_build_from_source: "true"
       - run: pnpm exec playwright install chromium
       - run: pnpm check
       - run: pnpm test:run
