@@ -258,6 +258,10 @@ dist
 *testing
 *testingdir
 *testingfile
+
+# But allow our test source directory
+!tests/
+!tests/**/*
 *testingfiles
 *temp
 *tempdir
