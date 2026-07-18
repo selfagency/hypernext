@@ -23,11 +23,6 @@ export default defineConfig({
     },
     testTimeout: 10_000,
     hookTimeout: 10_000,
-    pool: "forks",
-    poolOptions: {
-      forks: {
-        singleFork: true,
-      },
-    },
+    singleFork: true,
   },
 });
