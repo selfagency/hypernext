@@ -160,6 +160,7 @@ export async function processInboundMention(
     type: "webmention" | "pingback" | "trackback";
     excerpt?: string;
     blogName?: string;
+    title?: string;
   }
 ): Promise<void> {
   // 1. Validate target URL resolves to a valid slug
@@ -348,8 +349,7 @@ export function registerInboundRoutes(
       title: title ?? undefined,
       excerpt,
       blogName: blog_name,
-      // biome-ignore lint/suspicious/noExplicitAny: Payload includes optional title field
-    } as any).catch((err) => console.error("Trackback worker error:", err));
+    }).catch((err) => console.error("Trackback worker error:", err));
 
     reply.code(202).send({ status: "accepted" });
   });

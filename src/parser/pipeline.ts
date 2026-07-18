@@ -13,33 +13,10 @@ import remarkParse from "remark-parse";
 import { unified } from "unified";
 import { visit } from "unist-util-visit";
 import type { HypernextConfig } from "../types/config.js";
-import type { ComponentContext } from "./components.js";
-import { resolveComponent } from "./components.js";
 import { extractFrontmatter } from "./frontmatter.js";
 import type { IrNode, ParseResult } from "./ir.js";
-
-const ALLOWED_COMPONENTS = new Set([
-  "NavMenu",
-  "RecentPosts",
-  "TableOfContents",
-  "Include",
-  "Mermaid",
-  "Latex",
-  "AuthorBio",
-  "Enclosure",
-  "Breadcrumbs",
-  "Search",
-  "TagCloud",
-  "PostNav",
-  "RelatedPosts",
-  "SyndicationLinks",
-  "Figure",
-  "Comments",
-  "Archive",
-  "PostList",
-  "IPFSLink",
-  "slot",
-]);
+import type { ComponentContext } from "./resolver.js";
+import { ALLOWED_COMPONENTS, resolveComponent } from "./resolver.js";
 
 type MdastNode =
   | Root
@@ -251,6 +228,9 @@ export async function resolveComponentNodes(
     currentSlug: slug,
   };
 
+  // Clone the IR tree to avoid mutating cached parse results
+  const clone = JSON.parse(JSON.stringify(ir)) as IrNode;
+
   async function walk(node: IrNode): Promise<void> {
     if (node.type === "component" && node.componentName) {
       const resolved = await resolveComponent(
@@ -270,5 +250,9 @@ export async function resolveComponentNodes(
     }
   }
 
-  await walk(ir);
+  await walk(clone);
+
+  // Copy resolved nodes back to original IR
+  ir.children = clone.children;
+  ir.type = clone.type;
 }

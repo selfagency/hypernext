@@ -117,40 +117,8 @@ export async function createHttpServer(config: HypernextConfig) {
   });
 
   // OpenTelemetry instrumentation
-  if (config.telemetry?.enabled && config.telemetry.otlpEndpoint) {
-    const { diag, DiagConsoleLogger } = await import("@opentelemetry/api");
-    const { OTLPTraceExporter } = await import(
-      "@opentelemetry/exporter-trace-otlp-proto"
-    );
-    const { BatchSpanProcessor } = await import(
-      "@opentelemetry/sdk-trace-base"
-    );
-    const { NodeTracerProvider } = await import(
-      "@opentelemetry/sdk-trace-node"
-    );
-    // biome-ignore lint/suspicious/noExplicitAny: OpenTelemetry API types vary by version
-    diag.setLogger(new DiagConsoleLogger(), (diag as any).LogLevel?.WARN ?? 3);
-    // biome-ignore lint/suspicious/noExplicitAny: OpenTelemetry API types vary by version
-    const provider = new NodeTracerProvider({
-      serviceName: config.telemetry.serviceName ?? "hypernext",
-      // biome-ignore lint/suspicious/noExplicitAny: OpenTelemetry API types vary by version
-    } as any);
-    // biome-ignore lint/suspicious/noExplicitAny: OpenTelemetry API types vary by version
-    const exporter = new OTLPTraceExporter({
-      url: config.telemetry.otlpEndpoint,
-      // biome-ignore lint/suspicious/noExplicitAny: OpenTelemetry API types vary by version
-    } as any);
-    // biome-ignore lint/suspicious/noExplicitAny: OpenTelemetry API types vary by version
-    (provider as any).addSpanProcessor(
-      // biome-ignore lint/suspicious/noExplicitAny: OpenTelemetry API types vary by version
-      new BatchSpanProcessor(exporter, {
-        scheduledDelayMillis: config.telemetry.exportInterval ?? 5000,
-        // biome-ignore lint/suspicious/noExplicitAny: OpenTelemetry API types vary by version
-      } as any)
-    );
-    // biome-ignore lint/suspicious/noExplicitAny: OpenTelemetry API types vary by version
-    (provider as any).register();
-  }
+  await setupOpenTelemetry(config);
+
   const otel = new FastifyOtelInstrumentation({
     instrumentHooks: true,
     recordExceptions: true,
@@ -437,4 +405,36 @@ export async function createHttpServer(config: HypernextConfig) {
   }
 
   return fastify;
+}
+
+async function setupOpenTelemetry(config: HypernextConfig): Promise<void> {
+  if (!(config.telemetry?.enabled && config.telemetry.otlpEndpoint)) {
+    return;
+  }
+  const { diag, DiagConsoleLogger } = await import("@opentelemetry/api");
+  const { OTLPTraceExporter } = await import(
+    "@opentelemetry/exporter-trace-otlp-proto"
+  );
+  const { BatchSpanProcessor } = await import("@opentelemetry/sdk-trace-base");
+  const { NodeTracerProvider } = await import("@opentelemetry/sdk-trace-node");
+  // biome-ignore lint/suspicious/noExplicitAny: OpenTelemetry API types vary by version
+  diag.setLogger(new DiagConsoleLogger(), (diag as any).LogLevel?.WARN ?? 3);
+  // biome-ignore lint/suspicious/noExplicitAny: OpenTelemetry API types vary by version
+  const provider: any = new NodeTracerProvider(
+    // biome-ignore lint/suspicious/noExplicitAny: OpenTelemetry API types vary by version
+    { serviceName: config.telemetry.serviceName ?? "hypernext" } as any
+  );
+  // biome-ignore lint/suspicious/noExplicitAny: OpenTelemetry API types vary by version
+  const exporter: any = new OTLPTraceExporter(
+    // biome-ignore lint/suspicious/noExplicitAny: OpenTelemetry API types vary by version
+    { url: config.telemetry.otlpEndpoint } as any
+  );
+  // biome-ignore lint/suspicious/noExplicitAny: OpenTelemetry API types vary by version
+  (provider as any).addSpanProcessor(
+    new BatchSpanProcessor(exporter, {
+      scheduledDelayMillis: config.telemetry.exportInterval ?? 5000,
+    })
+  );
+  // biome-ignore lint/suspicious/noExplicitAny: OpenTelemetry API types vary by version
+  (provider as any).register();
 }

@@ -137,25 +137,43 @@ export function getDocBySlug(
   return getEm().findOne(DocMeta, { slug });
 }
 
-export async function listDocSlugs(includeFuture = false): Promise<string[]> {
+export async function listDocSlugs(
+  includeFuture = false,
+  limit?: number,
+  offset?: number
+): Promise<string[]> {
   const now = new Date().toISOString();
   const em = getEm();
   if (!includeFuture) {
     // Filter out docs where publishedAt > now AND date > now
     // We use raw SQL because the filter is complex (OR between two fields)
-    const rows = await em.getConnection().execute<{ slug: string }[]>(
-      `SELECT slug FROM docs_meta
+    let sql = `SELECT slug FROM docs_meta
          WHERE (published_at IS NULL OR published_at <= ?)
          AND (date IS NULL OR date <= ?)
-         ORDER BY date DESC, id DESC`,
-      [now, now]
-    );
+         ORDER BY date DESC, id DESC`;
+    const params: (string | number)[] = [now, now];
+    if (limit !== undefined) {
+      sql += " LIMIT ?";
+      params.push(limit);
+    }
+    if (offset !== undefined) {
+      sql += " OFFSET ?";
+      params.push(offset);
+    }
+    const rows = await em
+      .getConnection()
+      .execute<{ slug: string }[]>(sql, params);
     return rows.map((r: { slug: string }) => r.slug);
   }
   const docs = await em.find(
     DocMeta,
     {},
-    { orderBy: { date: "DESC", id: "DESC" }, fields: ["slug"] }
+    {
+      orderBy: { date: "DESC", id: "DESC" },
+      fields: ["slug"],
+      ...(limit === undefined ? {} : { limit }),
+      ...(offset === undefined ? {} : { offset }),
+    }
   );
   return docs.map((d: Record<string, unknown>) => d.slug as string);
 }
