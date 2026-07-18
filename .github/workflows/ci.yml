@@ -17,6 +17,7 @@ jobs:
           node-version: "22"
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
+      - run: pnpm rebuild better-sqlite3
       - run: pnpm exec playwright install chromium
       - run: pnpm check
       - run: pnpm test:run
