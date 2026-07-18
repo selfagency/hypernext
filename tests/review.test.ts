@@ -37,10 +37,7 @@ tags: [test, mdx]
   });
 
   it("handles boolean and numeric frontmatter values", () => {
-    const mdx = serializeFrontmatter(
-      { published: true, order: 1 },
-      "content"
-    );
+    const mdx = serializeFrontmatter({ published: true, order: 1 }, "content");
     expect(mdx).toContain("published: true");
     expect(mdx).toContain("order: 1");
   });
@@ -90,7 +87,11 @@ describe("JSON-LD structured data", () => {
     };
     const result = {
       ir: { type: "root" as const, children: [] },
-      frontmatter: { title: "Post", description: "A post.", date: "2026-07-17" },
+      frontmatter: {
+        title: "Post",
+        description: "A post.",
+        date: "2026-07-17",
+      },
       errors: [],
       metadata: {},
     };
@@ -106,8 +107,6 @@ describe("JSON-LD structured data", () => {
 
 describe("hashVisitor", () => {
   it("produces consistent hash for same IP on same day", async () => {
-    const { hashVisitor } = await import("../src/analytics/stats-manager.js");
-    // Use a static method approach — call the internal function
     const crypto = await import("node:crypto");
     const dateSalt = new Date().toISOString().slice(0, 10);
     const hash1 = crypto
@@ -158,7 +157,12 @@ describe("ingestUrl SSRF", () => {
   it("rejects private IP URLs", async () => {
     const { ingestUrl } = await import("../src/ingest/ingest-manager.js");
     const config: any = {
-      site: { canonicalBase: "https://example.com", meta: { title: "Test", lang: "en", description: "" }, ebooks: { enabled: false }, pdf: { enabled: false } },
+      site: {
+        canonicalBase: "https://example.com",
+        meta: { title: "Test", lang: "en", description: "" },
+        ebooks: { enabled: false },
+        pdf: { enabled: false },
+      },
       storage: { type: "local", local: { path: "/tmp" } },
       mcp: { enabled: false, transport: "stdio" },
       micropub: { enabled: false },
@@ -178,7 +182,11 @@ describe("ingestUrl SSRF", () => {
     };
     await expect(
       ingestUrl(
-        { url: "http://127.0.0.1/admin", collection: "library", filename: "test" },
+        {
+          url: "http://127.0.0.1/admin",
+          collection: "library",
+          filename: "test",
+        },
         config
       )
     ).rejects.toThrow("SSRF check");
@@ -187,7 +195,9 @@ describe("ingestUrl SSRF", () => {
 
 describe("subscriber entity", () => {
   it("creates subscriber with required fields", async () => {
-    const { Subscriber } = await import("../src/database/entities/subscriber.js");
+    const { Subscriber } = await import(
+      "../src/database/entities/subscriber.js"
+    );
     expect(Subscriber).toBeDefined();
     expect(Subscriber.name).toBe("Subscriber");
   });
@@ -195,10 +205,17 @@ describe("subscriber entity", () => {
 
 describe("newsletter API validation", () => {
   it("rejects missing email on subscribe", async () => {
-    const { registerNewsletterRoutes } = await import("../src/api/newsletter.js");
+    const { registerNewsletterRoutes } = await import(
+      "../src/api/newsletter.js"
+    );
     const fastify = (await import("fastify")).default();
     const config: any = {
-      site: { canonicalBase: "https://example.com", meta: { title: "Test", lang: "en", description: "" }, ebooks: { enabled: false }, pdf: { enabled: false } },
+      site: {
+        canonicalBase: "https://example.com",
+        meta: { title: "Test", lang: "en", description: "" },
+        ebooks: { enabled: false },
+        pdf: { enabled: false },
+      },
       storage: { type: "local", local: { path: "/tmp" } },
       mcp: { enabled: false, transport: "stdio" },
       micropub: { enabled: false },
@@ -228,10 +245,17 @@ describe("newsletter API validation", () => {
   });
 
   it("rejects missing fields on contact form", async () => {
-    const { registerNewsletterRoutes } = await import("../src/api/newsletter.js");
+    const { registerNewsletterRoutes } = await import(
+      "../src/api/newsletter.js"
+    );
     const fastify = (await import("fastify")).default();
     const config: any = {
-      site: { canonicalBase: "https://example.com", meta: { title: "Test", lang: "en", description: "" }, ebooks: { enabled: false }, pdf: { enabled: false } },
+      site: {
+        canonicalBase: "https://example.com",
+        meta: { title: "Test", lang: "en", description: "" },
+        ebooks: { enabled: false },
+        pdf: { enabled: false },
+      },
       storage: { type: "local", local: { path: "/tmp" } },
       mcp: { enabled: false, transport: "stdio" },
       micropub: { enabled: false },
