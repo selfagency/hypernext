@@ -16,7 +16,6 @@ function createTransport(config: HypernextConfig): SmtpTransport {
     port: emailCfg.smtp.port,
     secure: emailCfg.smtp.secure,
     auth: {
-      type: "user-pass" as const,
       user: emailCfg.smtp.user,
       pass: emailCfg.smtp.pass,
     },
@@ -91,7 +90,7 @@ export async function processNewSubscription(
 
 async function sendVerificationEmail(
   config: HypernextConfig,
-  sub: (typeof Subscriber)["prototype"]
+  sub: Record<string, unknown>
 ): Promise<void> {
   const emailCfg = config.email;
   if (!emailCfg?.enabled) {
@@ -105,11 +104,11 @@ async function sendVerificationEmail(
 
   const message = createMessage({
     from: `${emailCfg.from.name} <${emailCfg.from.address}>`,
-    to: sub.email,
+    to: sub.email as string,
     replyTo: emailCfg.replyTo,
     subject: `${emailCfg.subjectPrefix} Please verify your email`,
     content: { html },
-    headers: buildHeaders(config, sub.unsubscribeToken ?? undefined),
+    headers: buildHeaders(config, sub.unsubscribeToken as string | undefined),
   });
 
   const transport = createTransport(config);
@@ -120,7 +119,7 @@ async function sendVerificationEmail(
 
 export async function sendInstantNotification(
   config: HypernextConfig,
-  sub: (typeof Subscriber)["prototype"],
+  sub: Record<string, unknown>,
   doc: { slug: string; title: string; html?: string }
 ): Promise<void> {
   const emailCfg = config.email;
@@ -137,11 +136,11 @@ ${doc.html ?? ""}
 
   const message = createMessage({
     from: `${emailCfg.from.name} <${emailCfg.from.address}>`,
-    to: sub.email,
+    to: sub.email as string,
     replyTo: emailCfg.replyTo,
     subject: `${emailCfg.subjectPrefix} New Post: ${doc.title}`,
     content: { html },
-    headers: buildHeaders(config, sub.unsubscribeToken ?? undefined),
+    headers: buildHeaders(config, sub.unsubscribeToken as string | undefined),
   });
 
   const transport = createTransport(config);
@@ -152,7 +151,7 @@ ${doc.html ?? ""}
 
 export async function sendWeeklyDigest(
   config: HypernextConfig,
-  sub: (typeof Subscriber)["prototype"],
+  sub: Record<string, unknown>,
   docs: { slug: string; title: string; description?: string }[]
 ): Promise<void> {
   const emailCfg = config.email;
@@ -176,11 +175,11 @@ export async function sendWeeklyDigest(
 
   const message = createMessage({
     from: `${emailCfg.from.name} <${emailCfg.from.address}>`,
-    to: sub.email,
+    to: sub.email as string,
     replyTo: emailCfg.replyTo,
     subject: `${emailCfg.subjectPrefix} Weekly Digest`,
     content: { html },
-    headers: buildHeaders(config, sub.unsubscribeToken ?? undefined),
+    headers: buildHeaders(config, sub.unsubscribeToken as string | undefined),
   });
 
   const transport = createTransport(config);
@@ -210,6 +209,7 @@ export async function processContactForm(
 
   // 1. Verify CAPTCHA (ribaunt)
   if (emailCfg.contactForm.captcha) {
+    // @ts-expect-error — ribaunt exports verifyCaptcha at runtime
     const { verifyCaptcha } = await import("ribaunt");
     const isValidCaptcha = await verifyCaptcha(
       payload.captchaToken,

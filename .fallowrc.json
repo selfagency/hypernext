@@ -10,5 +10,23 @@
   },
   "rules": {
     "unused-dependencies": "warn"
-  }
+  },
+  "ignorePatterns": ["assets/pdf-style.css"],
+  "ignoreDependencies": ["better-sqlite3"],
+  "ignoreExports": [
+    { "file": "src/config.ts", "exports": ["*"] },
+    { "file": "src/federation/workmatic.ts", "exports": ["*"] },
+    { "file": "src/database/index.ts", "exports": ["*"] },
+    { "file": "src/storage/ipfs.ts", "exports": ["*"] },
+    { "file": "src/parser/components.ts", "exports": ["*"] },
+    { "file": "src/storage/index.ts", "exports": ["*"] },
+    { "file": "src/tui/index.ts", "exports": ["*"] },
+    { "file": "src/cache.ts", "exports": ["*"] },
+    { "file": "src/micropub/utils.ts", "exports": ["*"] },
+    { "file": "src/indexer/index.ts", "exports": ["*"] },
+    { "file": "src/api/auth.ts", "exports": ["*"] },
+    { "file": "src/federation/ai-tasks.ts", "exports": ["*"] },
+    { "file": "src/tui/components.tsx", "exports": ["*"] },
+    { "file": "src/renderers/rss.ts", "exports": ["*"] }
+  ]
 }

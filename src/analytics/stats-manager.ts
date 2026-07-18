@@ -17,7 +17,7 @@ interface StatsResult {
   uniqueVisitors: number;
 }
 
-function hashVisitor(ip: string): string {
+export function hashVisitor(ip: string): string {
   const dateSalt = new Date().toISOString().slice(0, 10);
   return crypto
     .createHash("sha256")
@@ -40,7 +40,9 @@ export async function recordPageview(
     return;
   }
   try {
-    const knex = orm.em.getConnection().getKnex();
+    const connection = orm.em.getConnection();
+    // @ts-expect-error — getKnex() is available on SqliteConnection at runtime
+    const knex = connection.getKnex();
 
     await knex("pageviews").insert({
       slug,
@@ -57,6 +59,7 @@ export async function recordPageview(
 
 export async function getStats(query: StatsQuery): Promise<StatsResult> {
   const orm = getOrm();
+  // @ts-expect-error — getKnex() is available on SqliteConnection at runtime
   const knex = orm.em.getConnection().getKnex();
 
   const days = query.days ?? 7;

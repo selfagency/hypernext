@@ -189,7 +189,7 @@ export function initWorkmatic(config: HypernextConfig): void {
       if (pdf) {
         // Store the PDF in the doc's cache or storage
         const { writeStorage } = await import("../storage/index.js");
-        await writeStorage(`${payload.slug}.pdf`, pdf.content);
+        await writeStorage(`${payload.slug}.pdf`, pdf.content.toString());
       }
     } catch (error) {
       console.error(`PDF generation failed for ${payload.slug}:`, error);
@@ -216,12 +216,16 @@ export function initWorkmatic(config: HypernextConfig): void {
       const rawMdx = (doc.rawMdx as string) ?? "";
       const result = parseToIR(rawMdx, slug);
       const { renderHTML } = await import("../renderers/html.js");
-      const html = renderHTML(result, config);
+      const html = renderHTML(result, config, slug, {
+        contentCid: (doc.contentCid as string | undefined) ?? undefined,
+        htmlCid: (doc.htmlCid as string | undefined) ?? undefined,
+      });
       chapters.push({ title: (doc.title as string) ?? slug, data: html });
     }
 
     try {
       const { EPub } = await import("@lesjoursfr/html-to-epub");
+      // @ts-expect-error — @lesjoursfr/html-to-epub EPub constructor accepts options object
       const epub = new EPub({
         title: payload.collectionName,
         content: chapters,
@@ -233,7 +237,7 @@ export function initWorkmatic(config: HypernextConfig): void {
       });
       const buffer = await epub.render();
       const { writeStorage } = await import("../storage/index.js");
-      await writeStorage(`${payload.collectionName}.epub`, buffer);
+      await writeStorage(`${payload.collectionName}.epub`, buffer.result);
     } catch (error) {
       console.error(
         `EPUB generation failed for ${payload.collectionName}:`,

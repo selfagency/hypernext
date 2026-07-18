@@ -1,6 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import { invalidateAll } from "../cache.js";
+import { DocMeta } from "../database/entities/doc-meta.js";
+import { Term } from "../database/entities/term.js";
+import { TermRelationship } from "../database/entities/term-relationship.js";
 import {
   getEm,
   insertDoc,
@@ -61,9 +64,9 @@ export async function reindexAll(config: HypernextConfig): Promise<void> {
   const storage = createStorage(config);
   const em = getEm();
 
-  await em.nativeDelete("TermRelationship", {});
-  await em.nativeDelete("Term", {});
-  await em.nativeDelete("DocMeta", {});
+  await em.nativeDelete(TermRelationship, {});
+  await em.nativeDelete(Term, {});
+  await em.nativeDelete(DocMeta, {});
 
   const slugs = await storage.list();
   for (const slug of slugs) {

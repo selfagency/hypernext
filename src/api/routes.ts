@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { FastifyInstance } from "fastify";
+import { DocMeta } from "../database/entities/doc-meta.js";
 import { getDocBySlug, getEm, listDocSlugs } from "../database/index.js";
-import { ingestUrl } from "../ingest/ingest-manager.js";
 import { parseToIR } from "../parser/pipeline.js";
 import { renderHTML } from "../renderers/html.js";
 import { renderMarkdown } from "../renderers/markdown.js";
@@ -108,8 +108,7 @@ export function registerApiRoutes(
       }
     }
 
-    // @ts-expect-error — MikroORM v7 resolves string entity names at runtime
-    const docs = await em.find("DocMeta", where, {
+    const docs = await em.find(DocMeta, where, {
       orderBy: { date: "DESC", id: "DESC" },
       limit,
       offset,
@@ -174,23 +173,34 @@ export function registerApiRoutes(
 
   // POST /api/v1/ingest — ingest a URL and save as MDX
   fastify.post<{
-    Body: { url: string; collection?: string; filename?: string };
+    Body: {
+      url: string;
+      collection?: string;
+      filename?: string;
+      downloadMedia?: boolean;
+    };
   }>("/api/v1/ingest", async (request, reply) => {
-    const { url, collection, filename } = request.body;
+    const { url, collection, filename, downloadMedia } = request.body;
     if (!url) {
       reply.code(400).send({ error: "Missing url" });
       return;
     }
     try {
-      const slug = await ingestUrl(
+      const { ingestUrlWithMeta } = await import("../ingest/ingest-manager.js");
+      const result = await ingestUrlWithMeta(
         {
           url,
           collection: collection ?? "library",
           filename: filename ?? "ingested",
+          downloadMedia: downloadMedia ?? false,
         },
         config
       );
-      reply.send({ status: "ingested", slug });
+      reply.send({
+        status: "ingested",
+        slug: result.slug,
+        assets: result.assets,
+      });
     } catch (error) {
       reply.code(500).send({ error: String(error) });
     }
@@ -218,7 +228,10 @@ export function registerApiRoutes(
         }
         const rawMdx = (doc.rawMdx as string) ?? "";
         const result = parseToIR(rawMdx, slug);
-        const html = renderHTML(result, config);
+        const html = renderHTML(result, config, slug, {
+          contentCid: (doc.contentCid as string | undefined) ?? undefined,
+          htmlCid: (doc.htmlCid as string | undefined) ?? undefined,
+        });
         chapters.push({
           title: String((doc.title as string) ?? slug),
           data: html,

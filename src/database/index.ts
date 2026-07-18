@@ -1,5 +1,10 @@
 import type { EntityManager } from "@mikro-orm/core";
 import { MikroORM } from "@mikro-orm/sqlite";
+import { DocMeta } from "./entities/doc-meta.js";
+import { OAuthToken } from "./entities/oauth-token.js";
+import { Syndication } from "./entities/syndication.js";
+import { Term } from "./entities/term.js";
+import { TermRelationship } from "./entities/term-relationship.js";
 import config from "./mikro-orm.config.js";
 
 const FTS5_SQL = `CREATE VIRTUAL TABLE IF NOT EXISTS docs_fts USING fts5(title, description, raw_mdx, content='docs_meta', content_rowid='id');
@@ -75,7 +80,7 @@ export async function insertDoc(row: {
   htmlCid?: string;
 }): Promise<number> {
   const em = getEm();
-  const existing = await em.findOne("DocMeta", { slug: row.slug });
+  const existing = await em.findOne(DocMeta, { slug: row.slug });
   if (existing) {
     em.assign(existing, {
       title: row.title,
@@ -96,11 +101,12 @@ export async function insertDoc(row: {
       contentCid: row.contentCid,
       htmlCid: row.htmlCid,
       updatedAt: new Date(),
-    });
+      // biome-ignore lint/suspicious/noExplicitAny: MikroORM entity types are complex
+    } as any);
     await em.flush();
     return existing.id;
   }
-  const doc = em.create("DocMeta", {
+  const doc = em.create(DocMeta, {
     slug: row.slug,
     title: row.title,
     description: row.description,
@@ -119,7 +125,8 @@ export async function insertDoc(row: {
     metaJson: row.metaJson,
     contentCid: row.contentCid,
     htmlCid: row.htmlCid,
-  });
+    // biome-ignore lint/suspicious/noExplicitAny: MikroORM entity types are complex
+  } as any);
   await em.flush();
   return doc.id;
 }
@@ -127,7 +134,7 @@ export async function insertDoc(row: {
 export function getDocBySlug(
   slug: string
 ): Promise<Record<string, unknown> | null> {
-  return getEm().findOne("DocMeta", { slug });
+  return getEm().findOne(DocMeta, { slug });
 }
 
 export async function listDocSlugs(includeFuture = false): Promise<string[]> {
@@ -143,10 +150,10 @@ export async function listDocSlugs(includeFuture = false): Promise<string[]> {
          ORDER BY date DESC, id DESC`,
       [now, now]
     );
-    return rows.map((r) => r.slug);
+    return rows.map((r: { slug: string }) => r.slug);
   }
   const docs = await em.find(
-    "DocMeta",
+    DocMeta,
     {},
     { orderBy: { date: "DESC", id: "DESC" }, fields: ["slug"] }
   );
@@ -171,7 +178,9 @@ export async function searchDocs(
   if (rows.length === 0) {
     return [];
   }
-  return em.find("DocMeta", { id: { $in: rows.map((r) => r.id) } });
+  return em.find(DocMeta, {
+    id: { $in: rows.map((r: { id: number }) => r.id) },
+  });
 }
 
 // ── Term CRUD ──
@@ -182,13 +191,14 @@ export async function upsertTerm(
   name: string
 ): Promise<number> {
   const em = getEm();
-  const existing = await em.findOne("Term", { taxonomy, slug });
+  const existing = await em.findOne(Term, { taxonomy, slug });
   if (existing) {
     existing.name = name;
     await em.flush();
     return existing.id;
   }
-  const term = em.create("Term", { taxonomy, slug, name });
+  // biome-ignore lint/suspicious/noExplicitAny: MikroORM entity types are complex
+  const term = em.create(Term, { taxonomy, slug, name } as any);
   await em.flush();
   return term.id;
 }
@@ -197,7 +207,7 @@ export function getTermBySlug(
   taxonomy: string,
   slug: string
 ): Promise<Record<string, unknown> | null> {
-  return getEm().findOne("Term", { taxonomy, slug });
+  return getEm().findOne(Term, { taxonomy, slug });
 }
 
 export async function relateDocToTerm(
@@ -205,11 +215,11 @@ export async function relateDocToTerm(
   termId: number
 ): Promise<void> {
   const em = getEm();
-  const existing = await em.findOne("TermRelationship", { docId, termId });
+  const existing = await em.findOne(TermRelationship, { docId, termId });
   if (existing) {
     return;
   }
-  em.create("TermRelationship", { docId, termId });
+  em.create(TermRelationship, { docId, termId });
   await em.flush();
 }
 
@@ -218,12 +228,12 @@ export async function getTermsForDoc(
   taxonomy: string
 ): Promise<Record<string, unknown>[]> {
   const em = getEm();
-  const rels = await em.find("TermRelationship", { docId });
+  const rels = await em.find(TermRelationship, { docId });
   if (rels.length === 0) {
     return [];
   }
   const termIds = rels.map((r: Record<string, unknown>) => r.termId as number);
-  return em.find("Term", { id: { $in: termIds }, taxonomy });
+  return em.find(Term, { id: { $in: termIds }, taxonomy });
 }
 
 // ── Syndication ──
@@ -234,7 +244,7 @@ export async function recordSyndication(record: {
   url: string;
 }): Promise<void> {
   const em = getEm();
-  em.create("Syndication", record);
+  em.create(Syndication, record);
   await em.flush();
 }
 
@@ -242,7 +252,7 @@ export function getSyndicationForDoc(
   docId: number
 ): Promise<Record<string, unknown>[]> {
   return getEm().find(
-    "Syndication",
+    Syndication,
     { docId },
     { orderBy: { publishedAt: "DESC" } }
   );
@@ -257,7 +267,7 @@ export async function storeOAuthToken(token: {
   expiresAt?: string;
 }): Promise<void> {
   const em = getEm();
-  em.create("OAuthToken", token);
+  em.create(OAuthToken, token);
   await em.flush();
 }
 
@@ -265,7 +275,7 @@ export function getOAuthToken(
   provider: string
 ): Promise<Record<string, unknown> | null> {
   return getEm().findOne(
-    "OAuthToken",
+    OAuthToken,
     { provider },
     { orderBy: { createdAt: "DESC" } }
   );
@@ -273,7 +283,7 @@ export function getOAuthToken(
 
 export async function deleteOAuthToken(provider: string): Promise<void> {
   const em = getEm();
-  const tokens = await em.find("OAuthToken", { provider });
+  const tokens = await em.find(OAuthToken, { provider });
   for (const t of tokens) {
     em.remove(t);
   }

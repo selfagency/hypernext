@@ -99,8 +99,12 @@ export const COMPONENT_RESOLVERS: Record<string, ComponentResolver> = {
     return [
       paragraphNode(
         terms
-          .map((t) => linkNode(`/${t.taxonomy}/${t.slug}`, [textNode(t.name)]))
-          .flatMap((n, i) => (i < terms.length - 1 ? [n, textNode(" ")] : [n]))
+          .map((t: { taxonomy: string; slug: string; name: string }) =>
+            linkNode(`/${t.taxonomy}/${t.slug}`, [textNode(t.name)])
+          )
+          .flatMap((n: IrNode, i: number) =>
+            i < terms.length - 1 ? [n, textNode(" ")] : [n]
+          )
       ),
     ];
   },
@@ -115,7 +119,11 @@ export const COMPONENT_RESOLVERS: Record<string, ComponentResolver> = {
     for (const slug of slugs) {
       const doc = await getDocBySlug(slug);
       items.push(
-        listItemNode([linkNode(`/${slug}`, [textNode(doc?.title ?? slug)])])
+        listItemNode([
+          linkNode(`/${slug}`, [
+            textNode((doc?.title as string | undefined) ?? slug),
+          ]),
+        ])
       );
     }
     return [listNode(false, items)];
@@ -133,16 +141,30 @@ export const COMPONENT_RESOLVERS: Record<string, ComponentResolver> = {
     const nav: IrNode[] = [];
     if (idx > 0) {
       const prev = allSlugs[idx - 1];
+      if (!prev) {
+        return [];
+      }
       const doc = await getDocBySlug(prev);
-      nav.push(linkNode(`/${prev}`, [textNode(`← ${doc?.title ?? prev}`)]));
+      nav.push(
+        linkNode(`/${prev}`, [
+          textNode(`← ${(doc?.title as string | undefined) ?? prev}`),
+        ])
+      );
     }
     if (idx < allSlugs.length - 1) {
       const next = allSlugs[idx + 1];
+      if (!next) {
+        return [];
+      }
       const doc = await getDocBySlug(next);
       if (nav.length > 0) {
         nav.push(textNode(" · "));
       }
-      nav.push(linkNode(`/${next}`, [textNode(`${doc?.title ?? next} →`)]));
+      nav.push(
+        linkNode(`/${next}`, [
+          textNode(`${(doc?.title as string | undefined) ?? next} →`),
+        ])
+      );
     }
     return [paragraphNode(nav)];
   },
@@ -175,7 +197,7 @@ export const COMPONENT_RESOLVERS: Record<string, ComponentResolver> = {
     return [
       listNode(
         false,
-        related.map((r) =>
+        related.map((r: { slug: string; title: string }) =>
           listItemNode([linkNode(`/${r.slug}`, [textNode(r.title)])])
         )
       ),
@@ -224,12 +246,14 @@ export const COMPONENT_RESOLVERS: Record<string, ComponentResolver> = {
     includeStack.add(src);
     try {
       const doc = await getDocBySlug(
-        src.replace(LEADING_SLASH_REGEX, "").replace(MDX_EXTENSION_REGEX, "")
+        src
+          .replace(LEADING_SLASH_REGEX, "")
+          .replace(MDX_EXTENSION_REGEX, "") as string
       );
       if (!doc) {
         return [paragraphNode([textNode(`[Include not found: ${src}]`)])];
       }
-      const rawMdx = doc.rawMdx ?? "";
+      const rawMdx = (doc.rawMdx as string | undefined) ?? "";
       const result = parseToIR(rawMdx, src);
       return result.ir.children ?? [];
     } finally {
@@ -271,13 +295,15 @@ export const COMPONENT_RESOLVERS: Record<string, ComponentResolver> = {
     return [
       paragraphNode([
         textNode("Also published on: "),
-        ...records.flatMap((r, i) => {
-          const nodes: IrNode[] = [linkNode(r.url, [textNode(r.platform)])];
-          if (i < records.length - 1) {
-            nodes.push(textNode(", "));
+        ...records.flatMap(
+          (r: { platform: string; url: string }, i: number) => {
+            const nodes: IrNode[] = [linkNode(r.url, [textNode(r.platform)])];
+            if (i < records.length - 1) {
+              nodes.push(textNode(", "));
+            }
+            return nodes;
           }
-          return nodes;
-        }),
+        ),
       ]),
     ];
   },

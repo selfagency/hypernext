@@ -32,6 +32,16 @@ export async function startAllServers(config: HypernextConfig): Promise<void> {
   // Initialize workmatic job queue
   initWorkmatic(config);
 
+  // Start weekly digest cron if email is enabled
+  if (config.email?.enabled && config.email.newsletter) {
+    startDigestCron(config);
+  }
+
+  // Index all documents and watch for changes
+  const { reindexAll, watchStorage } = await import("./indexer/index.js");
+  await reindexAll(config);
+  watchStorage(config);
+
   // Initialize vector table if AI is enabled
   if (config.ai?.enabled) {
     const { initVecTable } = await import("./database/index.js");
@@ -39,7 +49,7 @@ export async function startAllServers(config: HypernextConfig): Promise<void> {
   }
 
   if (protocols.http.enabled) {
-    const fastify = createHttpServer(config);
+    const fastify = await createHttpServer(config);
     registerIndieAuthRoutes(fastify, config);
     registerApiAuthGuard(fastify);
     registerApiRoutes(fastify, config);
@@ -85,4 +95,65 @@ export async function startAllServers(config: HypernextConfig): Promise<void> {
   process.on("SIGINT", () => {
     process.exit(0);
   });
+}
+
+const DAY_NAMES = [
+  "sunday",
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+];
+
+function startDigestCron(config: HypernextConfig): void {
+  const email = config.email;
+  if (!email?.newsletter) {
+    return;
+  }
+  const schedule = email.newsletter.digestSchedule?.toLowerCase() ?? "friday";
+  const timeStr = email.newsletter.digestTime ?? "09:00";
+  const [hourStr, minuteStr] = timeStr.split(":");
+  const targetHour = Number(hourStr) || 9;
+  const targetMinute = Number(minuteStr) || 0;
+  const targetDay = DAY_NAMES.indexOf(schedule);
+
+  // Check every 60 seconds
+  setInterval(async () => {
+    const now = new Date();
+    const dayName = DAY_NAMES[now.getDay()] ?? "";
+    const matchesDay = targetDay === -1 || dayName === schedule;
+    const matchesTime =
+      now.getHours() === targetHour && now.getMinutes() === targetMinute;
+
+    if (!(matchesDay && matchesTime)) {
+      return;
+    }
+
+    try {
+      const { getEm, listDocSlugs } = await import("./database/index.js");
+      const { Subscriber } = await import("./database/entities/subscriber.js");
+      const { getOrchestrator } = await import("./federation/workmatic.js");
+
+      const em = getEm();
+      const weeklySubs = await em.find(Subscriber, {
+        frequency: "weekly",
+        verified: true,
+      });
+      const slugs = await listDocSlugs();
+      const docs = slugs.map((s: string) => ({ slug: s, title: s }));
+
+      const orch = getOrchestrator();
+      const client = orch.client("email-digest");
+      for (const sub of weeklySubs) {
+        await client.add(
+          { subscriberId: (sub as Record<string, unknown>).id, docs },
+          { maxAttempts: 2 }
+        );
+      }
+    } catch {
+      // Digest cron failures are non-fatal
+    }
+  }, 60_000);
 }

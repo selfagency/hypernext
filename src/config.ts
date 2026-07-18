@@ -280,7 +280,10 @@ export function mergeCliOverrides(
     overrides.jwtSecret = process.env.HYPERNEXT_JWT_SECRET;
   }
 
-  return deepMerge(config, overrides);
+  return deepMerge(
+    config as unknown as Record<string, unknown>,
+    overrides as unknown as Record<string, unknown>
+  ) as unknown as HypernextConfig;
 }
 
 export function getConfig(cwd: string, options: CliOptions): HypernextConfig {

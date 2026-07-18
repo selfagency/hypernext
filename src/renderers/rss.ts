@@ -63,22 +63,32 @@ export async function renderRSS(
       continue;
     }
 
-    if (isDocPrivate(doc.rawMdx)) {
+    const rawMdx = doc.rawMdx as string;
+
+    if (isDocPrivate(rawMdx)) {
       continue;
     }
 
-    const docType = doc.type ?? extractFrontmatter(doc.rawMdx).attributes.type;
+    const docType =
+      (doc.type as string | undefined) ??
+      extractFrontmatter(rawMdx).attributes.type;
     if (docType !== "post") {
       continue;
     }
 
-    const { attributes } = extractFrontmatter(doc.rawMdx);
-    const title = doc.title ?? slug;
+    const { attributes } = extractFrontmatter(rawMdx);
+    const title = (doc.title as string | undefined) ?? slug;
     const link = `${config.site.canonicalBase}/${slug}`;
-    const date = doc.date ?? doc.publishedAt ?? "";
+    const date =
+      (doc.date as string | undefined) ??
+      (doc.publishedAt as string | undefined) ??
+      "";
     const guid = buildGuid(config, slug, date);
-    const result = parseToIR(doc.rawMdx, slug);
-    const htmlContent = renderHTML(result, config);
+    const result = parseToIR(rawMdx, slug);
+    const htmlContent = renderHTML(result, config, slug, {
+      contentCid: (doc.contentCid as string | undefined) ?? undefined,
+      htmlCid: (doc.htmlCid as string | undefined) ?? undefined,
+    });
     const enclosures = parseEnclosures(
       attributes.enclosure ?? attributes.enclosures
     );

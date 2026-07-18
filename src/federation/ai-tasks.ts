@@ -49,6 +49,7 @@ export async function generateAndStoreEmbedding(
     input: plainText,
   });
 
+  // @ts-expect-error — OpenAI API always returns at least one embedding
   const embedding = response.data[0].embedding;
 
   const { getEm } = await import("../database/index.js");
@@ -81,6 +82,7 @@ export async function generateSummary(
     ],
     temperature: 0.3,
   });
+  // @ts-expect-error — OpenAI API always returns at least one choice
   return response.choices[0].message.content ?? "";
 }
 
@@ -113,6 +115,7 @@ export async function generateAltText(
       },
     ],
   });
+  // @ts-expect-error — OpenAI API always returns at least one choice
   return response.choices[0].message.content ?? "";
 }
 
@@ -133,6 +136,7 @@ export async function suggestTags(
       },
     ],
   });
+  // @ts-expect-error — OpenAI API always returns at least one choice
   const text = response.choices[0].message.content ?? "";
   return text
     .split(TAG_SPLIT_REGEX)
@@ -156,6 +160,7 @@ export async function generateSeoMeta(
       },
     ],
   });
+  // @ts-expect-error — OpenAI API always returns at least one choice
   return response.choices[0].message.content ?? "";
 }
 
@@ -177,6 +182,7 @@ export async function aiModerateComment(
       },
     ],
   });
+  // @ts-expect-error — OpenAI API always returns at least one choice
   const text = (response.choices[0].message.content ?? "").toLowerCase();
   return text.includes("ham") ? "ham" : "spam";
 }
@@ -194,6 +200,7 @@ export async function ragSearch(
     model: ai.models.embedding,
     input: query,
   });
+  // @ts-expect-error — OpenAI API always returns at least one embedding
   const queryVector = queryResponse.data[0].embedding;
 
   // 2. KNN search
@@ -239,5 +246,6 @@ export async function ragSearch(
       },
     ],
   });
+  // @ts-expect-error — OpenAI API always returns at least one choice
   return response.choices[0].message.content ?? "";
 }

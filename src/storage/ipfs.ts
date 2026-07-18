@@ -1,4 +1,5 @@
 import { create } from "kubo-rpc-client";
+import { DocMeta } from "../database/entities/doc-meta.js";
 import { getDocBySlug, getEm } from "../database/index.js";
 import type { HypernextConfig, IpfsConfig } from "../types/config.js";
 import type { StorageProvider } from "./types.js";
@@ -54,7 +55,7 @@ export async function updateDocCids(
   cids: Partial<{ contentCid: string; htmlCid: string }>
 ): Promise<void> {
   const em = getEm();
-  const existing = await em.findOne("DocMeta", { slug });
+  const existing = await em.findOne(DocMeta, { slug });
   if (existing) {
     em.assign(existing, cids);
     await em.flush();
@@ -86,7 +87,10 @@ export async function pinDoc(
     const { renderHTML } = await import("../renderers/html.js");
     const result = parseToIR(rawMdx, slug);
     await resolveComponentNodes(result.ir, config, slug);
-    const html = renderHTML(result, config, slug);
+    const html = renderHTML(result, config, slug, {
+      contentCid,
+      htmlCid: undefined,
+    });
     htmlCid = await pinToIpfs(html, ipfsConfig);
   }
 
@@ -123,7 +127,7 @@ export class IPFSStorageProvider implements StorageProvider {
   }
 
   async delete(slug: string): Promise<void> {
-    await updateDocCids(slug, { contentCid: null });
+    await updateDocCids(slug, { contentCid: null as unknown as undefined });
   }
 
   async exists(slug: string): Promise<boolean> {

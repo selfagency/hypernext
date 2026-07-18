@@ -15,7 +15,7 @@ export function extractFrontmatter(content: string): FrontmatterResult {
 
   let attributes: Record<string, unknown>;
   try {
-    attributes = yaml.parse(match[1]) as Record<string, unknown>;
+    attributes = yaml.parse(match[1] ?? "") as Record<string, unknown>;
   } catch {
     attributes = {};
   }

@@ -46,7 +46,7 @@ import type { HypernextConfig } from "../types/config.js";
 const NOT_FOUND_HTML = "<h1>404 Not Found</h1>";
 const INDEX_MD_REGEX = /\/index\.md$/;
 
-export function createHttpServer(config: HypernextConfig) {
+export async function createHttpServer(config: HypernextConfig) {
   const fastify = Fastify({ logger: false });
 
   // Register Fastify ecosystem plugins
@@ -117,6 +117,40 @@ export function createHttpServer(config: HypernextConfig) {
   });
 
   // OpenTelemetry instrumentation
+  if (config.telemetry?.enabled && config.telemetry.otlpEndpoint) {
+    const { diag, DiagConsoleLogger } = await import("@opentelemetry/api");
+    const { OTLPTraceExporter } = await import(
+      "@opentelemetry/exporter-trace-otlp-proto"
+    );
+    const { BatchSpanProcessor } = await import(
+      "@opentelemetry/sdk-trace-base"
+    );
+    const { NodeTracerProvider } = await import(
+      "@opentelemetry/sdk-trace-node"
+    );
+    // biome-ignore lint/suspicious/noExplicitAny: OpenTelemetry API types vary by version
+    diag.setLogger(new DiagConsoleLogger(), (diag as any).LogLevel?.WARN ?? 3);
+    // biome-ignore lint/suspicious/noExplicitAny: OpenTelemetry API types vary by version
+    const provider = new NodeTracerProvider({
+      serviceName: config.telemetry.serviceName ?? "hypernext",
+      // biome-ignore lint/suspicious/noExplicitAny: OpenTelemetry API types vary by version
+    } as any);
+    // biome-ignore lint/suspicious/noExplicitAny: OpenTelemetry API types vary by version
+    const exporter = new OTLPTraceExporter({
+      url: config.telemetry.otlpEndpoint,
+      // biome-ignore lint/suspicious/noExplicitAny: OpenTelemetry API types vary by version
+    } as any);
+    // biome-ignore lint/suspicious/noExplicitAny: OpenTelemetry API types vary by version
+    (provider as any).addSpanProcessor(
+      // biome-ignore lint/suspicious/noExplicitAny: OpenTelemetry API types vary by version
+      new BatchSpanProcessor(exporter, {
+        scheduledDelayMillis: config.telemetry.exportInterval ?? 5000,
+        // biome-ignore lint/suspicious/noExplicitAny: OpenTelemetry API types vary by version
+      } as any)
+    );
+    // biome-ignore lint/suspicious/noExplicitAny: OpenTelemetry API types vary by version
+    (provider as any).register();
+  }
   const otel = new FastifyOtelInstrumentation({
     instrumentHooks: true,
     recordExceptions: true,
@@ -133,6 +167,13 @@ export function createHttpServer(config: HypernextConfig) {
       files: 5,
     },
   });
+
+  // ActivityPub content type support
+  fastify.addContentTypeParser(
+    "application/activity+json",
+    { parseAs: "string" },
+    fastify.getDefaultJsonParser("error", "ignore")
+  );
 
   // Serve static assets from /assets/
   const assetsDir = path.resolve("assets");
@@ -159,7 +200,7 @@ export function createHttpServer(config: HypernextConfig) {
   });
 
   // Blog/library slug routes
-  fastify.get<{ Params: { slug: string } }>(
+  fastify.get<{ Params: { collection: string; slug: string } }>(
     "/:collection/:slug",
     async (request, reply) => {
       const { collection, slug } = request.params;
@@ -185,12 +226,12 @@ export function createHttpServer(config: HypernextConfig) {
         return;
       }
 
-      if (isDocPrivate(doc.rawMdx ?? "") || isFutureDated(doc.rawMdx ?? "")) {
+      const rawMdx = (doc.rawMdx as string | undefined) ?? "";
+
+      if (isDocPrivate(rawMdx) || isFutureDated(rawMdx)) {
         reply.code(404).type("text/html").send(NOT_FOUND_HTML);
         return;
       }
-
-      const rawMdx = doc.rawMdx ?? "";
 
       // Markdown content negotiation (Accept: text/markdown)
       if (handleMarkdownNegotiation(request, reply, config, fullSlug, rawMdx)) {
@@ -201,7 +242,12 @@ export function createHttpServer(config: HypernextConfig) {
       await resolveComponentNodes(result.ir, config, fullSlug);
       setCachedParse(fullSlug, result);
       addLinkHeaders(reply, config, fullSlug);
-      reply.type("text/html").send(renderHTML(result, config, fullSlug));
+      reply.type("text/html").send(
+        renderHTML(result, config, fullSlug, {
+          contentCid: (doc.contentCid as string | undefined) ?? undefined,
+          htmlCid: (doc.htmlCid as string | undefined) ?? undefined,
+        })
+      );
 
       // Fire-and-forget pageview recording
       recordPageview(
@@ -258,16 +304,21 @@ export function createHttpServer(config: HypernextConfig) {
         reply.code(404).type("text/html").send(NOT_FOUND_HTML);
         return;
       }
-      if (isDocPrivate(doc.rawMdx ?? "") || isFutureDated(doc.rawMdx ?? "")) {
+      const rawMdx = (doc.rawMdx as string | undefined) ?? "";
+      if (isDocPrivate(rawMdx) || isFutureDated(rawMdx)) {
         reply.code(404).type("text/html").send(NOT_FOUND_HTML);
         return;
       }
-      const rawMdx = doc.rawMdx ?? "";
       const result = parseToIR(rawMdx, fullSlug);
       await resolveComponentNodes(result.ir, config, fullSlug);
       setCachedParse(fullSlug, result);
       addLinkHeaders(reply, config, fullSlug);
-      reply.type("text/html").send(renderHTML(result, config, fullSlug));
+      reply.type("text/html").send(
+        renderHTML(result, config, fullSlug, {
+          contentCid: (doc.contentCid as string | undefined) ?? undefined,
+          htmlCid: (doc.htmlCid as string | undefined) ?? undefined,
+        })
+      );
       return;
     }
 
@@ -300,12 +351,18 @@ export function createHttpServer(config: HypernextConfig) {
   );
 
   // RSS feed
-  fastify.get("/rss.xml", (_request, reply) => {
-    reply
-      .type("application/rss+xml")
-      .send(
-        '<?xml version="1.0" encoding="utf-8"?>\n<rss version="2.0"><channel><title>RSS</title></channel></rss>'
-      );
+  fastify.get("/rss.xml", async (_request, reply) => {
+    const { renderRSS } = await import("../renderers/rss.js");
+    try {
+      const rss = await renderRSS(config);
+      reply.type("application/rss+xml").send(rss);
+    } catch {
+      reply
+        .type("application/rss+xml")
+        .send(
+          '<?xml version="1.0" encoding="utf-8"?>\n<rss version="2.0"><channel><title>RSS</title></channel></rss>'
+        );
+    }
   });
 
   // Health check

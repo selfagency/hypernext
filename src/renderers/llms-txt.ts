@@ -30,7 +30,7 @@ export async function renderLlmsTxt(config: HypernextConfig): Promise<string> {
     }
 
     const parts = slug.split("/");
-    const collection = parts.length > 1 ? parts[0] : "root";
+    const collection = parts.length > 1 ? (parts[0] ?? "root") : "root";
     if (!grouped[collection]) {
       grouped[collection] = [];
     }

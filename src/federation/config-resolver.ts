@@ -1,3 +1,4 @@
+import { DocMeta } from "../database/entities/doc-meta.js";
 import { getEm } from "../database/index.js";
 import type { CommentConfig, HypernextConfig } from "../types/config.js";
 
@@ -45,7 +46,7 @@ export async function resolveCommentConfig(
   const globalConfig = getGlobalCommentConfig(config);
 
   const em = getEm();
-  const doc = await em.findOne("DocMeta", { slug }, { fields: ["metaJson"] });
+  const doc = await em.findOne(DocMeta, { slug }, { fields: ["metaJson"] });
   if (!doc) {
     throw new Error(`Document not found: ${slug}`);
   }

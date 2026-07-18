@@ -49,6 +49,7 @@ export interface EditorState {
   moderationVisible: boolean;
   previewMode: "preview" | "diagnostics";
   previewVisible: boolean;
+  subscribersVisible: boolean;
   taxonomyVisible: boolean;
 }
 
@@ -68,6 +69,7 @@ export function createInitialState(mode: "local" | "remote"): EditorState {
     moderationItems: [],
     taxonomyVisible: false,
     logsVisible: false,
+    subscribersVisible: false,
     commandPalette: {
       open: false,
       filter: "",
@@ -87,7 +89,7 @@ export function parseFrontmatter(content: string): {
     return { frontmatter: {}, body: content };
   }
 
-  const yaml = match[1];
+  const yaml = match[1] ?? "";
   const body = content.slice(match[0].length);
   const frontmatter: Record<string, unknown> = {};
 

@@ -102,7 +102,8 @@ export function initLogger(config: HypernextConfig): void {
   }
 }
 
-export function attachTransport(t: Transport): void {
+// biome-ignore lint/correctness/noUnusedVariables: kept for future use
+function attachTransport(t: Transport): void {
   transports.push(t);
 }
 

@@ -1,6 +1,7 @@
 import { setText } from "@crosscopy/clipboard";
 import { render } from "ink";
 import React from "react";
+import { DocMeta } from "../database/entities/doc-meta.js";
 import type { HypernextConfig } from "../types/config.js";
 import { EditorLayout } from "./components.js";
 import type { CommandItem, EditorFile, EditorState } from "./state.js";
@@ -17,6 +18,12 @@ function createEditorApp(config: HypernextConfig, mode: "local" | "remote") {
   const state: EditorState = createInitialState(mode);
   const currentFiles: EditorFile[] = [];
   let currentRerender: (() => void) | null = null;
+  let subscriberItems: {
+    id: string;
+    email: string;
+    frequency: string;
+    verified: boolean;
+  }[] = [];
 
   async function pinCurrentDocToIpfs() {
     const file = currentFiles[state.activeFileIndex];
@@ -173,6 +180,23 @@ function createEditorApp(config: HypernextConfig, mode: "local" | "remote") {
           state.dashboardVisible = false;
           state.moderationVisible = false;
           state.taxonomyVisible = false;
+          state.subscribersVisible = false;
+          closePalette();
+        },
+      },
+      {
+        id: "subscribers",
+        label: "Open Subscribers",
+        key: "",
+        action() {
+          state.subscribersVisible = !state.subscribersVisible;
+          state.dashboardVisible = false;
+          state.moderationVisible = false;
+          state.taxonomyVisible = false;
+          state.logsVisible = false;
+          if (state.subscribersVisible) {
+            fetchSubscribers();
+          }
           closePalette();
         },
       },
@@ -239,7 +263,7 @@ function createEditorApp(config: HypernextConfig, mode: "local" | "remote") {
         const res = await fetch(`${config.remote.url}/api/v1/stats/overview`, {
           headers: { Authorization: `Bearer ${config.remote.token}` },
         });
-        const stats = await res.json();
+        const stats = (await res.json()) as Record<string, unknown>;
         state.dashboardData = {
           analytics: `Total Views: ${stats.totalViews ?? "N/A"} | Unique Visitors: ${stats.uniqueVisitors ?? "N/A"}`,
           moderationPending: 0,
@@ -249,15 +273,20 @@ function createEditorApp(config: HypernextConfig, mode: "local" | "remote") {
         };
       } else {
         const { getEm } = await import("../database/index.js");
+        const { Mention } = await import("../database/entities/mention.js");
         const em = getEm();
-        const docs = await em.find("DocMeta", {}, { fields: ["slug", "type"] });
+        const docs = await em.find(DocMeta, {}, { fields: ["slug", "type"] });
         const posts = docs.filter(
           (d: Record<string, unknown>) => d.type === "post"
         );
+        const pendingMentions = await em.find(Mention, {
+          spamStatus: "pending",
+        });
+        const spamMentions = await em.find(Mention, { spamStatus: "spam" });
         state.dashboardData = {
-          analytics: "(local mode — no analytics)",
-          moderationPending: 0,
-          moderationSpam: 0,
+          analytics: `Total Docs: ${docs.length} | Posts: ${posts.length}`,
+          moderationPending: pendingMentions.length,
+          moderationSpam: spamMentions.length,
           totalPosts: posts.length,
           totalDocs: docs.length,
         };
@@ -283,16 +312,16 @@ function createEditorApp(config: HypernextConfig, mode: "local" | "remote") {
             headers: { Authorization: `Bearer ${config.remote.token}` },
           }
         );
-        const data = await res.json();
-        state.moderationItems = (data.data ?? []).map(
-          (m: Record<string, unknown>) => ({
-            id: String(m.id),
-            authorName: String(m.authorName ?? m.author_name ?? "Anonymous"),
-            platform: String(m.platform ?? "webmention"),
-            content: String(m.content ?? ""),
-            spamStatus: String(m.spamStatus ?? m.spam_status ?? "pending"),
-          })
-        );
+        const data = (await res.json()) as Record<string, unknown>;
+        state.moderationItems = (
+          (data.data as Record<string, unknown>[] | undefined) ?? []
+        ).map((m: Record<string, unknown>) => ({
+          id: String(m.id),
+          authorName: String(m.authorName ?? m.author_name ?? "Anonymous"),
+          platform: String(m.platform ?? "webmention"),
+          content: String(m.content ?? ""),
+          spamStatus: String(m.spamStatus ?? m.spam_status ?? "pending"),
+        }));
       } else {
         const { getEm } = await import("../database/index.js");
         const { Mention } = await import("../database/entities/mention.js");
@@ -338,6 +367,66 @@ function createEditorApp(config: HypernextConfig, mode: "local" | "remote") {
         }
       }
       state.moderationItems = state.moderationItems.filter((m) => m.id !== id);
+      renderApp();
+    } catch {
+      // Silently fail
+    }
+  }
+
+  async function fetchSubscribers() {
+    try {
+      if (mode === "remote" && config.remote?.url) {
+        const res = await fetch(`${config.remote.url}/api/v1/subscribers`, {
+          headers: { Authorization: `Bearer ${config.remote.token}` },
+        });
+        const data = (await res.json()) as Record<string, unknown>;
+        subscriberItems = (
+          (data.data as Record<string, unknown>[] | undefined) ?? []
+        ).map((s: Record<string, unknown>) => ({
+          id: String(s.id),
+          email: String(s.email),
+          frequency: String(s.frequency ?? "instant"),
+          verified: !!s.verified,
+        }));
+      } else {
+        const { getEm } = await import("../database/index.js");
+        const { Subscriber } = await import(
+          "../database/entities/subscriber.js"
+        );
+        const em = getEm();
+        const subs = await em.find(Subscriber, {}, { limit: 100 });
+        subscriberItems = subs.map((s: Record<string, unknown>) => ({
+          id: String(s.id),
+          email: String(s.email),
+          frequency: String(s.frequency ?? "instant"),
+          verified: !!s.verified,
+        }));
+      }
+    } catch {
+      subscriberItems = [];
+    }
+    renderApp();
+  }
+
+  async function deleteSubscriber(id: string) {
+    try {
+      if (mode === "remote" && config.remote?.url) {
+        await fetch(`${config.remote.url}/api/v1/subscribers/${id}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${config.remote.token}` },
+        });
+      } else {
+        const { getEm } = await import("../database/index.js");
+        const { Subscriber } = await import(
+          "../database/entities/subscriber.js"
+        );
+        const em = getEm();
+        const sub = await em.findOne(Subscriber, { id });
+        if (sub) {
+          await em.remove(sub).flush();
+        }
+      }
+      subscriberItems = subscriberItems.filter((s) => s.id !== id);
       renderApp();
     } catch {
       // Silently fail
@@ -485,12 +574,14 @@ function createEditorApp(config: HypernextConfig, mode: "local" | "remote") {
       onPaletteFilterChange,
       onPaletteSelect,
       onModerate: moderateItem,
+      onDeleteSubscriber: deleteSubscriber,
+      subscribers: subscriberItems,
     });
     if (currentRerender) {
       currentRerender();
     } else {
       const { rerender } = render(app);
-      currentRerender = rerender;
+      currentRerender = rerender as unknown as () => void;
     }
   }
 

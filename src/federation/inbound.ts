@@ -53,13 +53,13 @@ function extractMf2Data(html: string): {
   // Try to extract p-name (author name) — look for p-name class directly
   const nameMatch = html.match(P_NAME_REGEX);
   if (nameMatch) {
-    result.authorName = nameMatch[1].trim();
+    result.authorName = nameMatch[1]?.trim() ?? "";
   }
 
   // Try to extract e-content
   const contentMatch = html.match(E_CONTENT_REGEX);
   if (contentMatch) {
-    result.content = contentMatch[1]
+    result.content = (contentMatch[1] ?? "")
       .replace(HTML_TAG_REGEX, "")
       .replace(WHITESPACE_REGEX, " ")
       .trim()
@@ -69,7 +69,7 @@ function extractMf2Data(html: string): {
   // Try to extract dt-published
   const dateMatch = html.match(DT_PUBLISHED_REGEX);
   if (dateMatch) {
-    const parsed = Date.parse(dateMatch[1].trim());
+    const parsed = Date.parse((dateMatch[1] ?? "").trim());
     if (!Number.isNaN(parsed)) {
       result.publishedAt = parsed;
     }
@@ -78,13 +78,13 @@ function extractMf2Data(html: string): {
   // Try to extract u-url for author URL
   const urlMatch = html.match(U_URL_REGEX);
   if (urlMatch) {
-    result.authorUrl = urlMatch[1];
+    result.authorUrl = urlMatch[1] ?? "";
   }
 
   // Try to extract u-photo for author photo
   const photoMatch = html.match(U_PHOTO_REGEX);
   if (photoMatch) {
-    result.authorPhoto = photoMatch[1];
+    result.authorPhoto = photoMatch[1] ?? "";
   }
 
   return result;
@@ -329,7 +329,7 @@ export function registerInboundRoutes(
       blog_name?: string;
     };
   }>("/trackback/*", (request, reply) => {
-    const slug = (request.params as { "*": string })["*"];
+    const slug = (request.params as unknown as { "*": string })["*"];
     const { url, title, excerpt, blog_name } = request.body;
 
     if (!url) {
@@ -345,10 +345,11 @@ export function registerInboundRoutes(
       ip: request.ip,
       userAgent: (request.headers["user-agent"] as string) ?? "",
       type: "trackback",
-      title,
+      title: title ?? undefined,
       excerpt,
       blogName: blog_name,
-    }).catch((err) => console.error("Trackback worker error:", err));
+      // biome-ignore lint/suspicious/noExplicitAny: Payload includes optional title field
+    } as any).catch((err) => console.error("Trackback worker error:", err));
 
     reply.code(202).send({ status: "accepted" });
   });

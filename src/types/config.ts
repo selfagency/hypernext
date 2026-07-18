@@ -70,6 +70,7 @@ export interface StorageS3Config {
   accessKeyId: string;
   bucket: string;
   endpoint?: string;
+  prefix?: string;
   region: string;
   secretAccessKey: string;
 }
@@ -287,6 +288,14 @@ export interface ContentSignalsConfig {
   search: boolean;
 }
 
+export interface MetadataFieldConfig {
+  label: string;
+  name: string;
+  options?: string[];
+  required?: boolean;
+  type: "boolean" | "date" | "number" | "string";
+}
+
 export interface RobotsTxtConfig {
   aiCrawlers: "block" | "allow" | "selective";
   enabled: boolean;
@@ -345,6 +354,7 @@ export interface HypernextConfig {
   mcp: McpConfig;
   micropub: MicropubConfig;
   protocols: ProtocolsConfig;
+  remote?: RemoteConfig;
   robotsTxt?: RobotsTxtConfig;
   securityTxt?: SecurityTxtConfig;
   site: SiteConfig;

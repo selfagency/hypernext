@@ -45,8 +45,8 @@ export function matchRoute(
   // /:collection/:slug
   const collectionMatch = pathname.match(COLLECTION_SLUG_REGEX);
   if (collectionMatch) {
-    const collection = collectionMatch[1];
-    const slug = collectionMatch[2];
+    const collection = collectionMatch[1] ?? "";
+    const slug = collectionMatch[2] ?? "";
 
     if (config.collections[collection]) {
       return { type: "doc", collection, slug: `${collection}/${slug}` };
@@ -58,7 +58,7 @@ export function matchRoute(
   // /:collection
   const collectionRootMatch = pathname.match(COLLECTION_ROOT_REGEX);
   if (collectionRootMatch) {
-    const collection = collectionRootMatch[1];
+    const collection = collectionRootMatch[1] ?? "";
     if (config.collections[collection]) {
       return { type: "collection", collection };
     }

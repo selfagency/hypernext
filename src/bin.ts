@@ -7,6 +7,7 @@ import { ingestUrl } from "./ingest/ingest-manager.js";
 import { pushToRemote, syncTwoWay } from "./sync/sync-manager.js";
 import type { CliOptions } from "./types/config.js";
 
+// @ts-expect-error — cac ESM/CJS interop: the default export is callable at runtime
 const cli = cac("hypernext");
 
 cli

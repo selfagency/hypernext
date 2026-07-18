@@ -1,5 +1,9 @@
 import type { IrNode, ParseResult } from "../parser/ir.js";
-import type { HypernextConfig } from "../types/config.js";
+import type {
+  AuthorConfig,
+  HypernextConfig,
+  OrganizationConfig,
+} from "../types/config.js";
 
 type Renderer = (node: IrNode) => string;
 
@@ -161,8 +165,11 @@ function buildJsonLdWebSite(
 }
 
 function buildContactPoint(
-  contactPoint: NonNullable<typeof config.site.organization>["contactPoint"]
+  contactPoint: OrganizationConfig["contactPoint"]
 ): Record<string, string> | undefined {
+  if (!contactPoint) {
+    return;
+  }
   const cp: Record<string, string> = { "@type": "ContactPoint" };
   if (contactPoint.email) {
     cp.email = contactPoint.email;
@@ -174,8 +181,11 @@ function buildContactPoint(
 }
 
 function buildPostalAddress(
-  address: NonNullable<typeof config.site.organization>["address"]
+  address: OrganizationConfig["address"]
 ): Record<string, string> | undefined {
+  if (!address) {
+    return;
+  }
   const addr: Record<string, string> = { "@type": "PostalAddress" };
   if (address.country) {
     addr.addressCountry = address.country;
@@ -190,7 +200,7 @@ function buildJsonLdOrganization(
   siteUrl: string,
   siteName: string,
   resolveUrl: (path: string) => string,
-  org?: typeof config.site.organization
+  org?: OrganizationConfig
 ): Record<string, unknown> {
   if (!org) {
     return {
@@ -219,7 +229,7 @@ function buildJsonLdOrganization(
     obj.address = buildPostalAddress(org.address);
   }
   if (org.founders && org.founders.length > 0) {
-    obj.founder = org.founders.map((f) => ({
+    obj.founder = org.founders.map((f: string) => ({
       "@type": "Person",
       name: f,
     }));
@@ -230,7 +240,7 @@ function buildJsonLdOrganization(
 function buildJsonLdPerson(
   siteUrl: string,
   resolveUrl: (path: string) => string,
-  author: typeof config.author
+  author: AuthorConfig
 ): Record<string, unknown> | null {
   if (!author?.name) {
     return null;
@@ -432,7 +442,12 @@ function resolveMeta(
     return fm;
   }
   const cfg =
-    config.site.meta[configKey ?? (key as keyof typeof config.site.meta)];
+    config.site.meta[configKey as keyof typeof config.site.meta] ??
+    (configKey
+      ? undefined
+      : (config.site.meta as unknown as Record<string, string | undefined>)[
+          key
+        ]);
   return cfg as string | undefined;
 }
 
@@ -452,9 +467,7 @@ function renderFeaturedImage(frontmatter: Record<string, unknown>): string {
   return img;
 }
 
-function buildIpfsMetaTags(frontmatter: Record<string, unknown>): string {
-  const contentCid = frontmatter.contentCid as string | undefined;
-  const htmlCid = frontmatter.htmlCid as string | undefined;
+function buildIpfsMetaTags(contentCid?: string, htmlCid?: string): string {
   if (!(contentCid || htmlCid)) {
     return "";
   }
@@ -493,7 +506,8 @@ function buildViewTransitionCss(config: HypernextConfig): string {
 export function renderHTML(
   result: ParseResult,
   config: HypernextConfig,
-  slug?: string
+  slug?: string,
+  cids?: { contentCid?: string; htmlCid?: string }
 ): string {
   const { ir, frontmatter } = result;
   const siteName = config.site.meta.title;
@@ -548,7 +562,7 @@ export function renderHTML(
   }
 
   const featuredImage = renderFeaturedImage(frontmatter);
-  const ipfsMetaTags = buildIpfsMetaTags(frontmatter);
+  const ipfsMetaTags = buildIpfsMetaTags(cids?.contentCid, cids?.htmlCid);
 
   const agentDirective = buildAgentDirective(config);
   const viewTransitionCss = buildViewTransitionCss(config);

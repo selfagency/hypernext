@@ -48,7 +48,12 @@ export function registerMcpSseTransport(
 
   // POST /api/v1/mcp/message — receive client messages
   fastify.post("/api/v1/mcp/message", async (request, reply) => {
-    const sessionId = (request.query as Record<string, string>).sessionId;
+    const sessionId = (request.query as Record<string, string | undefined>)
+      .sessionId;
+    if (!sessionId) {
+      reply.code(400).send({ error: "Missing sessionId" });
+      return;
+    }
     const transport = sseTransports.get(sessionId);
     if (!transport) {
       reply.code(404).send({ error: "No SSE session found" });

@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { DocMeta } from "../database/entities/doc-meta.js";
 import { getEm } from "../database/index.js";
 import type { HypernextConfig } from "../types/config.js";
 
@@ -164,7 +165,7 @@ export async function syncTwoWay(
   onProgress("Reading local index...");
   const em = getEm();
   const localDocs = await em.find(
-    "DocMeta",
+    DocMeta,
     {},
     { fields: ["slug", "updatedAt"] }
   );

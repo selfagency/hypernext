@@ -2,6 +2,7 @@ import type { HypernextConfig } from "../types/config.js";
 import { IPFSStorageProvider } from "./ipfs.js";
 import { LocalStorageProvider } from "./local.js";
 import { S3StorageProvider } from "./s3.js";
+import type { StorageProvider } from "./types.js";
 
 export type { StorageProvider } from "./types.js";
 

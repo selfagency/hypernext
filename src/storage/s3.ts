@@ -6,7 +6,7 @@ import {
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
-import type { S3StorageConfig } from "../types/config.js";
+import type { StorageS3Config } from "../types/config.js";
 import type { StorageProvider } from "./types.js";
 
 const LEADING_SLASH_REGEX = /^\/+/;
@@ -32,7 +32,7 @@ export class S3StorageProvider implements StorageProvider {
   private readonly bucket: string;
   private readonly prefix: string;
 
-  constructor(config: S3StorageConfig) {
+  constructor(config: StorageS3Config) {
     this.client = new S3Client({
       region: config.region,
       endpoint: config.endpoint,

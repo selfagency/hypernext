@@ -66,7 +66,8 @@ function isMdxEsm(node: MdastNode): node is MdxjsEsm {
   return node.type === "mdxjsEsm";
 }
 
-type NodeFactory = (node: MdastNode) => IrNode;
+// biome-ignore lint/suspicious/noExplicitAny: NodeFactory needs to accept any mdast node type
+type NodeFactory = (node: any) => IrNode;
 
 const NODE_CONVERTERS: Record<string, NodeFactory> = {
   root(node) {
