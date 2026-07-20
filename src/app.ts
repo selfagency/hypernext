@@ -32,6 +32,10 @@ export async function startAllServers(config: HypernextConfig): Promise<void> {
   // Initialize workmatic job queue
   initWorkmatic(config);
 
+  // Initialize database
+  const { initOrm } = await import("./database/index.js");
+  await initOrm(config.database.path);
+
   // Start weekly digest cron if email is enabled
   if (config.email?.enabled && config.email.newsletter) {
     startDigestCron(config);
