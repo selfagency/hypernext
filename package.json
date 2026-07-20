@@ -32,7 +32,7 @@
   },
   "scripts": {
     "dev": "tsx watch src/bin.ts",
-    "dev:editor": "tsx watch src/bin.ts editor --local",
+    "dev:editor": "tsx watch src/bin.ts edit",
     "build": "tsup",
     "start": "node dist/bin.js",
     "lint": "biome check .",

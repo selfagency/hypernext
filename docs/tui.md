@@ -5,9 +5,11 @@ Hypernext includes a terminal-based editor built with Ink and React for managing
 ## Launching
 
 ```bash
-hypernext editor --local    # Local mode (reads/writes content/ directory)
-hypernext editor --remote   # Remote mode (API proxy to production server)
+hypernext edit              # Local mode (default, reads/writes content/ directory)
+hypernext edit --remote     # Remote mode (API proxy to production server)
 ```
+
+Remote mode requires `remote.url` and `remote.token` in `config.yml` or environment variables.
 
 Or via npm script:
 

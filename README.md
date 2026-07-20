@@ -58,8 +58,8 @@ Built-in components: `NavMenu`, `RecentPosts`, `TableOfContents`, `Include`, `Me
 Hypernext includes a terminal-based editor for managing content:
 
 ```bash
-hypernext editor --local    # Edit local content directory
-hypernext editor --remote   # Edit via API proxy to production server
+hypernext edit              # Edit local content directory (default)
+hypernext edit --remote     # Edit via API proxy to production server
 ```
 
 Or via npm script:
@@ -67,6 +67,8 @@ Or via npm script:
 ```bash
 pnpm dev:editor
 ```
+
+Remote mode requires `remote.url` and `remote.token` in `config.yml` or environment variables.
 
 **Keybindings:**
 - `Ctrl+B` — Toggle file explorer
@@ -81,7 +83,8 @@ The editor provides a structured frontmatter form, multi-line body editor, previ
 
 ```bash
 hypernext                    # Start all protocol servers
-hypernext editor --local     # Launch TUI editor
+hypernext edit               # Launch TUI editor (local mode by default)
+hypernext edit --remote      # Launch TUI editor in remote mode
 hypernext push               # Push content to production server
 hypernext sync               # Two-way sync with production
 hypernext ingest <url>       # Fetch a URL and convert to MDX

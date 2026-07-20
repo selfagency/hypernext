@@ -18,14 +18,22 @@ cli
   .help()
   .version("0.1.0");
 
-// Editor command
+// Edit command
 cli
-  .command("editor", "Launch the TUI editor")
-  .option("--local", "Run in local mode (starts indexer, no network servers)")
-  .option("--remote", "Run in remote mode (API proxy only)")
-  .action((options: { local?: boolean; remote?: boolean }) => {
-    const mode = options.local ? "local" : "remote";
+  .command("edit", "Launch the TUI editor (default: local mode)")
+  .option(
+    "--remote",
+    "Run in remote mode (requires remote.url and remote.token in config)"
+  )
+  .action((options: { remote?: boolean }) => {
+    const mode = options.remote ? "remote" : "local";
     const config = getConfig(process.cwd(), {} as CliOptions);
+    if (mode === "remote" && !config.remote?.url) {
+      console.error(
+        "Remote mode requires remote.url and remote.token in config.yml or .env"
+      );
+      process.exit(1);
+    }
     import("./tui/index.js").then(({ startEditor }) => {
       startEditor(config, mode);
     });
