@@ -88,13 +88,13 @@ export async function getTaxonomyDocs(
     return [];
   }
 
-  const docIds = rels.map((r) => r.docId);
+  const docIds = rels.map((r: Record<string, unknown>) => r.docId as number);
   const docs = await em.find(
     DocMeta,
     { id: { $in: docIds } },
     { orderBy: { date: "DESC" }, fields: ["slug"] }
   );
-  return docs.map((d) => d.slug);
+  return docs.map((d: Record<string, unknown>) => d.slug as string);
 }
 
 export async function getArchiveDocs(
@@ -114,7 +114,7 @@ export async function getArchiveDocs(
     { date: { $gte: start, $lt: end } },
     { orderBy: { date: "DESC" }, fields: ["slug", "title", "date"] }
   );
-  return docs.map((d) => d.slug);
+  return docs.map((d: Record<string, unknown>) => d.slug as string);
 }
 
 export async function getAuthorDocs(author: string): Promise<string[]> {
@@ -125,15 +125,13 @@ export async function getAuthorDocs(author: string): Promise<string[]> {
     { orderBy: { date: "DESC" }, fields: ["slug"] }
   );
   // Filter in-memory since SQLite JSON filtering is limited
-  const filtered = docs.filter((d) => {
+  const filtered = docs.filter((d: Record<string, unknown>) => {
     try {
-      const meta = JSON.parse(
-        ((d as Record<string, unknown>).metaJson as string) ?? "{}"
-      );
+      const meta = JSON.parse((d.metaJson as string) ?? "{}");
       return String(meta.author ?? "").toLowerCase() === author.toLowerCase();
     } catch {
       return false;
     }
   });
-  return filtered.map((d) => d.slug);
+  return filtered.map((d: Record<string, unknown>) => d.slug as string);
 }

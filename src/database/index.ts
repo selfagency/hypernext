@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import type { EntityManager } from "@mikro-orm/core";
 import { MikroORM } from "@mikro-orm/sqlite";
 import { DocMeta } from "./entities/doc-meta.js";
@@ -18,9 +20,16 @@ export async function initOrm(dbName?: string): Promise<MikroORM> {
   if (ormInstance) {
     return ormInstance;
   }
+
+  // Ensure the db directory exists
+  const resolvedDbName = dbName ?? config.dbName;
+  if (resolvedDbName && resolvedDbName !== ":memory:") {
+    fs.mkdirSync(path.dirname(resolvedDbName), { recursive: true });
+  }
+
   ormInstance = await MikroORM.init({
     ...config,
-    dbName: dbName ?? config.dbName,
+    dbName: resolvedDbName,
   });
   await ormInstance.schema.ensureDatabase();
   const createSql = await ormInstance.schema.getCreateSchemaSQL();

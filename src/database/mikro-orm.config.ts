@@ -19,7 +19,7 @@ export default defineConfig({
     Pageview,
     Subscriber,
   ],
-  dbName: process.env.HYPERNEXT_DB_PATH ?? "./hypernext.db",
+  dbName: process.env.HYPERNEXT_DB_PATH ?? "./db/hypernext.db",
   debug: false,
   allowGlobalContext: true,
 });

@@ -46,7 +46,7 @@ storage:
 
 database:
   type: sqlite
-  path: "./hypernext.db"
+  path: "./db/hypernext.db"
 
 api:
   enabled: true
