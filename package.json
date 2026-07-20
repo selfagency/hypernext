@@ -5,6 +5,11 @@
   "type": "module",
   "license": "GPL-3.0-or-later",
   "author": "Daniel Sieradski <daniel@self.agency>",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3"
+    ]
+  },
   "keywords": [
     "markdown",
     "md",
