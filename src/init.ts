@@ -140,7 +140,7 @@ export function scaffoldInit(projectDir: string, options: InitOptions): void {
   }
 
   console.log(
-    "\nDone! Edit config.yml and templates/ to customize your site.\nRun `hypernext serve` to start the server."
+    "\nDone! Edit config.yml and templates/ to customize your site.\nRun `hypernext serve --project .` to start the server."
   );
 }
 

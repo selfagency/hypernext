@@ -27,7 +27,9 @@ export default class Init extends BaseCommand {
 
   async run(): Promise<void> {
     const { flags } = await this.parse(Init);
-    const projectDir = flags.path ? path.resolve(flags.path) : process.cwd();
+    const projectDir = flags.path
+      ? path.resolve(flags.path)
+      : this.getProjectDir(flags);
     scaffoldInit(projectDir, {
       force: flags.force ?? false,
       skipAgentSkill: flags["agent-skill"] === false,
