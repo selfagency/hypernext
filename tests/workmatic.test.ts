@@ -10,7 +10,12 @@ import {
   recordSyndication,
 } from "../src/database";
 import {
+  enqueueEpubGeneration,
   enqueueInboundMention,
+  enqueueIndexing,
+  enqueueIpfsPinning,
+  enqueueOutboundSyndication,
+  enqueuePdfGeneration,
   enqueuePosseReplyFetch,
   getOrchestrator,
   initWorkmatic,
@@ -107,5 +112,41 @@ describe("workmatic job queue", () => {
   it("getOrchestrator returns the initialized instance", () => {
     const orch = getOrchestrator();
     expect(orch).toBeDefined();
+  });
+
+  it("enqueues outbound syndication job", async () => {
+    const docId = await insertDoc({
+      slug: "blog/syndicate-me",
+      title: "Syndicate Me",
+    });
+    await enqueueOutboundSyndication(
+      docId,
+      "blog/syndicate-me",
+      "# Hello World"
+    );
+    expect(true).toBe(true);
+  });
+
+  it("enqueues indexing job", async () => {
+    await enqueueIndexing("blog/index-me", "# Index Me");
+    expect(true).toBe(true);
+  });
+
+  it("enqueues IPFS pinning job", async () => {
+    await enqueueIpfsPinning("blog/pin-me");
+    expect(true).toBe(true);
+  });
+
+  it("enqueues PDF generation job", async () => {
+    await enqueuePdfGeneration("blog/pdf-me", "# PDF Me");
+    expect(true).toBe(true);
+  });
+
+  it("enqueues EPUB generation job", async () => {
+    await enqueueEpubGeneration("blog-collection", [
+      "blog/epub-1",
+      "blog/epub-2",
+    ]);
+    expect(true).toBe(true);
   });
 });

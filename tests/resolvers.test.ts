@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { closeOrm, initOrm, insertDoc } from "../src/database/index.js";
+import type { IrNode } from "../src/parser/ir.js";
 import { resolveComponent } from "../src/parser/resolver.js";
 import type { HypernextConfig } from "../src/types/config.js";
 
@@ -261,6 +262,15 @@ describe("PostNav", () => {
     const nodes = await resolveComponent("PostNav", {}, { config: testConfig });
     expect(nodes).toHaveLength(0);
   });
+
+  it("returns empty when slug not found in docs", async () => {
+    const nodes = await resolveComponent(
+      "PostNav",
+      {},
+      { config: testConfig, currentSlug: "blog/nonexistent" }
+    );
+    expect(nodes).toHaveLength(0);
+  });
 });
 
 describe("SyndicationLinks", () => {
@@ -278,6 +288,16 @@ describe("Include", () => {
   it("returns empty when no src", async () => {
     const nodes = await resolveComponent("Include", {}, { config: testConfig });
     expect(nodes).toHaveLength(0);
+  });
+
+  it("returns not found message for missing doc", async () => {
+    const nodes = await resolveComponent(
+      "Include",
+      { src: "/nonexistent/doc" },
+      { config: testConfig }
+    );
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0]?.children?.[0]?.value).toContain("Include not found");
   });
 });
 
@@ -302,5 +322,242 @@ describe("ContactForm", () => {
     );
     expect(nodes).toHaveLength(1);
     expect(nodes[0]?.type).toBe("paragraph");
+  });
+});
+
+describe("NavMenu", () => {
+  it("returns nav element with home link", async () => {
+    const nodes = await resolveComponent("NavMenu", {}, { config: testConfig });
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0]?.type).toBe("nav");
+    expect(nodes[0]?.className).toBe("nav-menu");
+  });
+});
+
+describe("RecentPosts", () => {
+  it("returns no posts message when empty", async () => {
+    const nodes = await resolveComponent(
+      "RecentPosts",
+      { limit: 5 },
+      { config: testConfig }
+    );
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0]?.type).toBe("paragraph");
+    expect(nodes[0]?.children?.[0]?.value).toBe("No posts yet.");
+  });
+});
+
+describe("TableOfContents", () => {
+  it("returns empty when no body", async () => {
+    const nodes = await resolveComponent(
+      "TableOfContents",
+      {},
+      { config: testConfig }
+    );
+    expect(nodes).toHaveLength(0);
+  });
+
+  it("returns empty when body has no headings", async () => {
+    const nodes = await resolveComponent(
+      "TableOfContents",
+      {},
+      { config: testConfig, body: "Just a paragraph." }
+    );
+    expect(nodes).toHaveLength(0);
+  });
+
+  it("returns list of headings from body", async () => {
+    const nodes = await resolveComponent(
+      "TableOfContents",
+      {},
+      {
+        config: testConfig,
+        body: "## Introduction\n\nHello\n\n## Details\n\nMore",
+      }
+    );
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0]?.type).toBe("list");
+    const items = nodes[0]?.children ?? [];
+    expect(items.length).toBeGreaterThanOrEqual(2);
+    expect(items[0]?.children?.[0]?.url).toContain("#");
+  });
+});
+
+describe("Footer", () => {
+  it("returns footer section with site info", async () => {
+    const nodes = await resolveComponent("Footer", {}, { config: testConfig });
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0]?.type).toBe("section");
+    expect(nodes[0]?.className).toBe("site-footer");
+    // URL is included
+    const urlParagraphs = nodes[0]?.children
+      ?.filter((c: IrNode) => c.type === "paragraph")
+      .slice(-1)[0];
+    expect(urlParagraphs).toBeDefined();
+  });
+});
+
+describe("Title", () => {
+  it("returns heading with slug-derived title when no frontmatter", async () => {
+    const nodes = await resolveComponent(
+      "Title",
+      {},
+      { config: testConfig, currentSlug: "blog/my-post" }
+    );
+    expect(nodes).toHaveLength(2);
+    expect(nodes[0]?.type).toBe("heading");
+    expect(nodes[0]?.className).toBe("p-name");
+    // Should use slug as fallback
+    expect(nodes[0]?.children?.[0]?.value).toBe("my-post");
+  });
+
+  it("returns heading with frontmatter title", async () => {
+    const nodes = await resolveComponent(
+      "Title",
+      {},
+      {
+        config: testConfig,
+        currentSlug: "blog/test",
+        frontmatter: { title: "My Custom Title" },
+      }
+    );
+    expect(nodes[0]?.children?.[0]?.value).toBe("My Custom Title");
+  });
+});
+
+describe("PostMeta", () => {
+  it("returns empty when no relevant frontmatter", async () => {
+    const nodes = await resolveComponent(
+      "PostMeta",
+      {},
+      {
+        config: { ...testConfig, author: {} },
+        currentSlug: "blog/post",
+        frontmatter: {},
+      }
+    );
+    expect(nodes).toHaveLength(0);
+  });
+
+  it("returns byline with author and date", async () => {
+    const nodes = await resolveComponent(
+      "PostMeta",
+      {},
+      {
+        config: testConfig,
+        currentSlug: "blog/post",
+        frontmatter: { date: "2026-07-20", tags: ["tag1", "tag2"] },
+      }
+    );
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0]?.type).toBe("paragraph");
+    expect(nodes[0]?.className).toBe("byline");
+  });
+
+  it("handles invalid date gracefully", async () => {
+    const nodes = await resolveComponent(
+      "PostMeta",
+      {},
+      {
+        config: testConfig,
+        currentSlug: "blog/post",
+        frontmatter: { date: "not-a-date", tags: [] },
+      }
+    );
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0]?.type).toBe("paragraph");
+  });
+});
+
+describe("Comments", () => {
+  it("returns empty when no slug", async () => {
+    const nodes = await resolveComponent(
+      "Comments",
+      {},
+      { config: testConfig }
+    );
+    expect(nodes).toHaveLength(0);
+  });
+
+  it("returns replies section with no replies message", async () => {
+    const nodes = await resolveComponent(
+      "Comments",
+      {},
+      { config: testConfig, currentSlug: "blog/test-comments" }
+    );
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0]?.type).toBe("section");
+    expect(nodes[0]?.className).toBe("h-feed comments");
+    // Should contain "No replies yet." heading + paragraph
+    const noReplies = nodes[0]?.children?.find(
+      (c: IrNode) => c.type === "paragraph"
+    );
+    expect(noReplies?.children?.[0]?.value).toBe("No replies yet.");
+  });
+});
+
+describe("Archive", () => {
+  it("returns no posts for year filter without matches", async () => {
+    const nodes = await resolveComponent(
+      "Archive",
+      { filter: "year:1999", limit: 10 },
+      { config: testConfig }
+    );
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0]?.children?.[0]?.value).toBe("No posts found.");
+  });
+
+  it("returns no posts for tag filter without matches", async () => {
+    const nodes = await resolveComponent(
+      "Archive",
+      { filter: "tag:nonexistent-tag" },
+      { config: testConfig }
+    );
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0]?.children?.[0]?.value).toBe("No posts found.");
+  });
+
+  it("returns no posts for taxonomy filter without matches", async () => {
+    const nodes = await resolveComponent(
+      "Archive",
+      { filter: "taxonomy:tags:nonexistent" },
+      { config: testConfig }
+    );
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0]?.children?.[0]?.value).toBe("No posts found.");
+  });
+
+  it("returns no posts for author filter without matches", async () => {
+    const nodes = await resolveComponent(
+      "Archive",
+      { filter: "author:ghost" },
+      { config: testConfig }
+    );
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0]?.children?.[0]?.value).toBe("No posts found.");
+  });
+});
+
+describe("PostList", () => {
+  it("returns no posts message for empty db", async () => {
+    const nodes = await resolveComponent(
+      "PostList",
+      { collection: "blog" },
+      { config: testConfig }
+    );
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0]?.type).toBe("paragraph");
+    expect(nodes[0]?.children?.[0]?.value).toBe("No posts found.");
+  });
+});
+
+describe("resolveComponent", () => {
+  it("returns empty for unknown component", async () => {
+    const nodes = await resolveComponent(
+      "UnknownComponent",
+      {},
+      { config: testConfig }
+    );
+    expect(nodes).toHaveLength(0);
   });
 });

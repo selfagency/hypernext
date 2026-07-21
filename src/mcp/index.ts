@@ -39,6 +39,8 @@ export function registerMcpSseTransport(
   // GET /api/v1/mcp — establish SSE stream
   fastify.get("/api/v1/mcp", async (_request, reply) => {
     const transport = new SSEServerTransport("/api/v1/mcp/message", reply.raw);
+    // Prevent Fastify from closing the response — SSE owns the socket
+    reply.hijack();
     console.log(`MCP server active (SSE, session ${transport.sessionId})`);
     // Track by session ID so POST handler can find it
     sseTransports.set(transport.sessionId, transport);
