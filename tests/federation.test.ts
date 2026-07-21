@@ -1,7 +1,33 @@
+import crypto from "node:crypto";
 import Fastify from "fastify";
-import { describe, expect, it } from "vitest";
-import { registerActivityPubRoutes } from "../src/federation/activitypub";
-import type { HypernextConfig } from "../src/types/config";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { Mention } from "../src/database/entities/mention.js";
+import { closeOrm, getEm, initOrm, insertDoc } from "../src/database/index.js";
+import { registerActivityPubRoutes } from "../src/federation/activitypub.js";
+import { getGlobalCommentConfig } from "../src/federation/config-resolver.js";
+import {
+  processContactForm,
+  processNewSubscription,
+  sendInstantNotification,
+  sendTestEmail,
+  sendWeeklyDigest,
+} from "../src/federation/email-tasks.js";
+import {
+  processInboundMention,
+  registerInboundRoutes,
+} from "../src/federation/inbound.js";
+import {
+  fetchBlueskyReplies,
+  fetchMastodonReplies,
+} from "../src/federation/posse-replies.js";
+import { validateSourceUrl } from "../src/federation/ssrf.js";
+import {
+  enqueueInboundMention,
+  enqueueOutboundSyndication,
+  initWorkmatic,
+  stopWorkmatic,
+} from "../src/federation/workmatic.js";
+import type { HypernextConfig } from "../src/types/config.js";
 
 const testConfig: HypernextConfig = {
   site: {
@@ -30,7 +56,39 @@ const testConfig: HypernextConfig = {
   mcp: { enabled: false, transport: "stdio" },
 };
 
+// ────────────────────────────────────────────────────────
+// Database-backed test config (used for mention / workmatic tests)
+// ────────────────────────────────────────────────────────
+
+const dbTestConfig: HypernextConfig = {
+  ...testConfig,
+  comments: {
+    enabled: true,
+    inbound: { webmention: true, pingback: true, trackback: true },
+    aggregation: { mastodon: true, bluesky: true, cacheTtl: 900 },
+    akismet: { enabled: true },
+    allowPrivateSources: false,
+  },
+  email: {
+    enabled: false,
+    from: { name: "Test", address: "test@example.com" },
+    contactForm: {
+      enabled: false,
+      captcha: false,
+      akismet: false,
+      recipient: "owner@example.com",
+    },
+    newsletter: { digestSchedule: "0 8 * * 1", digestTime: "08:00" },
+    replyTo: "noreply@example.com",
+    smtp: { host: "", pass: "", port: 587, secure: false, user: "" },
+    subjectPrefix: "[Test]",
+    transport: "smtp",
+  },
+};
+
 describe("federation", () => {
+  // ── Existing tests (preserved verbatim) ──
+
   it("serves WebFinger endpoint", async () => {
     const fastify = Fastify();
     registerActivityPubRoutes(fastify, testConfig);
@@ -75,5 +133,748 @@ describe("federation", () => {
     const body = JSON.parse(response.body);
     expect(body.type).toBe("OrderedCollection");
     await fastify.close();
+  });
+
+  // ══════════════════════════════════════════════════════
+  // NEW TEST SECTIONS
+  // ══════════════════════════════════════════════════════
+
+  // ── SSRF validation ──
+
+  describe("SSRF validation", () => {
+    it("allows public HTTPS URLs", () => {
+      expect(validateSourceUrl("https://example.com/article")).toBe(true);
+    });
+
+    it("allows public HTTP URLs", () => {
+      expect(validateSourceUrl("http://example.com/article")).toBe(true);
+    });
+
+    it("rejects non-http schemes", () => {
+      expect(validateSourceUrl("ftp://example.com/file")).toBe(false);
+      expect(validateSourceUrl("file:///etc/passwd")).toBe(false);
+      expect(validateSourceUrl("data:text/plain,hello")).toBe(false);
+    });
+
+    it("rejects malformed URLs", () => {
+      expect(validateSourceUrl("not a url")).toBe(false);
+      expect(validateSourceUrl("")).toBe(false);
+    });
+
+    it("rejects localhost", () => {
+      expect(validateSourceUrl("http://localhost:3000/article")).toBe(false);
+      expect(validateSourceUrl("http://127.0.0.1/article")).toBe(false);
+      expect(validateSourceUrl("http://0.0.0.0/article")).toBe(false);
+      expect(validateSourceUrl("http://[::1]/article")).toBe(false);
+    });
+
+    it("rejects private IPv4 ranges", () => {
+      expect(validateSourceUrl("http://10.0.0.1/article")).toBe(false);
+      expect(validateSourceUrl("http://172.16.0.1/article")).toBe(false);
+      expect(validateSourceUrl("http://192.168.1.1/article")).toBe(false);
+    });
+
+    it("allows private IPs when allowPrivate is true", () => {
+      expect(validateSourceUrl("http://127.0.0.1/article", true)).toBe(true);
+      expect(validateSourceUrl("http://10.0.0.1/article", true)).toBe(true);
+      expect(validateSourceUrl("http://192.168.1.1/article", true)).toBe(true);
+    });
+  });
+
+  // ── Comment config defaults ──
+
+  describe("Comment config defaults", () => {
+    it("returns defaults when no comments in config", () => {
+      const cfg = getGlobalCommentConfig(testConfig);
+      expect(cfg.enabled).toBe(true);
+      expect(cfg.inbound.webmention).toBe(true);
+      expect(cfg.inbound.pingback).toBe(true);
+      expect(cfg.inbound.trackback).toBe(false);
+      expect(cfg.aggregation.mastodon).toBe(true);
+      expect(cfg.aggregation.bluesky).toBe(true);
+      expect(cfg.aggregation.cacheTtl).toBe(900);
+      expect(cfg.akismet.enabled).toBe(true);
+      expect(cfg.allowPrivateSources).toBe(false);
+    });
+
+    it("merges user-supplied comment config over defaults", () => {
+      const cfg = getGlobalCommentConfig({
+        ...testConfig,
+        comments: {
+          enabled: false,
+          inbound: { webmention: false, pingback: false, trackback: false },
+          aggregation: { mastodon: false, bluesky: false, cacheTtl: 1800 },
+          akismet: { enabled: false },
+        },
+      });
+      expect(cfg.enabled).toBe(false);
+      expect(cfg.inbound.webmention).toBe(false);
+      expect(cfg.inbound.pingback).toBe(false);
+      expect(cfg.aggregation.cacheTtl).toBe(1800);
+      expect(cfg.akismet.enabled).toBe(false);
+    });
+  });
+
+  // ── Inbound mention routes ──
+
+  describe("Inbound mention routes", () => {
+    it("POST /webmention returns 202 for valid payload", async () => {
+      const fastify = Fastify();
+      registerInboundRoutes(fastify, testConfig);
+      const res = await fastify.inject({
+        method: "POST",
+        url: "/webmention",
+        payload: {
+          source: "https://example.com/article",
+          target: "http://localhost:8080/hello",
+        },
+      });
+      expect(res.statusCode).toBe(202);
+      expect(JSON.parse(res.body)).toEqual({ status: "accepted" });
+      await fastify.close();
+    });
+
+    it("POST /webmention returns 400 when source or target missing", async () => {
+      const fastify = Fastify();
+      registerInboundRoutes(fastify, testConfig);
+      const res = await fastify.inject({
+        method: "POST",
+        url: "/webmention",
+        payload: {},
+      });
+      expect(res.statusCode).toBe(400);
+      await fastify.close();
+    });
+
+    it("POST /pingback returns 200 (XML-RPC) for valid pingback", async () => {
+      const fastify = Fastify();
+      registerInboundRoutes(fastify, testConfig);
+      const res = await fastify.inject({
+        method: "POST",
+        url: "/pingback",
+        payload: {
+          methodName: "pingback.ping",
+          params: [
+            { value: { string: "https://source.example.com/post" } },
+            { value: { string: "http://localhost:8080/target" } },
+          ],
+        },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.headers["content-type"]).toContain("text/xml");
+      expect(res.body).toContain("Thanks");
+      await fastify.close();
+    });
+
+    it("POST /pingback returns 400 for invalid methodName", async () => {
+      const fastify = Fastify();
+      registerInboundRoutes(fastify, testConfig);
+      const res = await fastify.inject({
+        method: "POST",
+        url: "/pingback",
+        payload: { methodName: "system.listMethods", params: [] },
+      });
+      expect(res.statusCode).toBe(400);
+      await fastify.close();
+    });
+
+    it("POST /pingback returns 400 when params missing", async () => {
+      const fastify = Fastify();
+      registerInboundRoutes(fastify, testConfig);
+      const res = await fastify.inject({
+        method: "POST",
+        url: "/pingback",
+        payload: {},
+      });
+      expect(res.statusCode).toBe(400);
+      await fastify.close();
+    });
+
+    it("POST /trackback/* returns 202 for valid trackback", async () => {
+      const fastify = Fastify();
+      registerInboundRoutes(fastify, testConfig);
+      const res = await fastify.inject({
+        method: "POST",
+        url: "/trackback/my-post",
+        payload: {
+          url: "https://source.example.com/post",
+          title: "My Trackback",
+          excerpt: "An excerpt of the post",
+          blog_name: "Source Blog",
+        },
+      });
+      expect(res.statusCode).toBe(202);
+      expect(JSON.parse(res.body)).toEqual({ status: "accepted" });
+      await fastify.close();
+    });
+
+    it("POST /trackback/* returns 400 when url missing", async () => {
+      const fastify = Fastify();
+      registerInboundRoutes(fastify, testConfig);
+      const res = await fastify.inject({
+        method: "POST",
+        url: "/trackback/my-post",
+        payload: { title: "No URL" },
+      });
+      expect(res.statusCode).toBe(400);
+      await fastify.close();
+    });
+  });
+
+  // ── ActivityPub inbox ──
+
+  describe("ActivityPub inbox", () => {
+    it("POST /inbox returns 400 for invalid JSON body (malformed)", async () => {
+      const fastify = Fastify();
+      registerActivityPubRoutes(fastify, testConfig);
+      const res = await fastify.inject({
+        method: "POST",
+        url: "/inbox",
+        body: "not-json-at-all",
+        headers: { "content-type": "application/json" },
+      });
+      expect(res.statusCode).toBe(400);
+      await fastify.close();
+    });
+
+    it("POST /inbox accepts Follow activity and returns { status: accepted }", async () => {
+      const fastify = Fastify();
+      registerActivityPubRoutes(fastify, testConfig);
+      const res = await fastify.inject({
+        method: "POST",
+        url: "/inbox",
+        payload: {
+          "@context": "https://www.w3.org/ns/activitystreams",
+          type: "Follow",
+          actor: "https://remote.example/users/bob",
+          object: "http://localhost:8080/actor",
+        },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(JSON.parse(res.body)).toEqual({ status: "accepted" });
+      await fastify.close();
+    });
+
+    it("POST /inbox accepts unknown activity types without error", async () => {
+      const fastify = Fastify();
+      registerActivityPubRoutes(fastify, testConfig);
+      const res = await fastify.inject({
+        method: "POST",
+        url: "/inbox",
+        payload: {
+          "@context": "https://www.w3.org/ns/activitystreams",
+          type: "Like",
+          actor: "https://remote.example/users/bob",
+          object: "http://localhost:8080/post/1",
+        },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(JSON.parse(res.body)).toEqual({ status: "accepted" });
+      await fastify.close();
+    });
+  });
+
+  // ── Inbound mention processing (full database-backed flow) ──
+
+  describe("Inbound mention processing", () => {
+    const testSlug = "test-mention-post";
+    let originalFetch: typeof globalThis.fetch;
+
+    beforeAll(async () => {
+      await initOrm(":memory:");
+      await insertDoc({
+        slug: testSlug,
+        title: "Test Mention Post",
+        rawMdx: "# Hello\n\nThis is a test.",
+        metaJson: JSON.stringify({}),
+      });
+      originalFetch = globalThis.fetch;
+    });
+
+    afterAll(async () => {
+      globalThis.fetch = originalFetch;
+      await closeOrm();
+    });
+
+    afterEach(() => {
+      globalThis.fetch = originalFetch;
+    });
+
+    it("processes a valid webmention and stores a mention", async () => {
+      // Mock fetch so the source HTML is available and link verification passes
+      globalThis.fetch = (url: RequestInfo | URL) => {
+        const urlStr = String(url);
+        if (urlStr.startsWith("https://source.example.com/")) {
+          return new Response(
+            `<html><body><div class="h-entry">
+              <p class="p-name">Alice Commenter</p>
+              <div class="e-content"><p>Great post! Thanks for writing this.</p></div>
+              <a href="http://localhost:8080/${testSlug}" class="u-url">permalink</a>
+              <img src="https://source.example.com/avatar.jpg" class="u-photo" />
+              <time class="dt-published" datetime="2026-07-20T12:00:00Z">Jul 20</time>
+            </div></body></html>`,
+            { status: 200, headers: { "Content-Type": "text/html" } }
+          );
+        }
+        return new Response("Not Found", { status: 404 });
+      };
+
+      await expect(
+        processInboundMention(dbTestConfig, {
+          source: "https://source.example.com/reply-to-test",
+          target: `http://localhost:8080/${testSlug}`,
+          ip: "203.0.113.1",
+          userAgent: "Mozilla/5.0 (compatible; TestBot/1.0)",
+          type: "webmention",
+        })
+      ).resolves.toBeUndefined();
+
+      const em = getEm();
+      const mentions = await em.find(Mention, { targetSlug: testSlug });
+      expect(mentions.length).toBe(1);
+      expect(mentions[0].authorName).toBe("Alice Commenter");
+      expect(mentions[0].platform).toBe("webmention");
+      expect(mentions[0].spamStatus).toBe("pending");
+      expect(mentions[0].content).toContain("Great post");
+    });
+
+    it("updates an existing mention on duplicate webmention", async () => {
+      globalThis.fetch = (url: RequestInfo | URL) => {
+        const urlStr = String(url);
+        if (urlStr.startsWith("https://source.example.com/")) {
+          return new Response(
+            `<html><body><div class="h-entry">
+              <p class="p-name">Alice Commenter (updated)</p>
+              <div class="e-content"><p>Updated comment text.</p></div>
+              <a href="http://localhost:8080/${testSlug}" class="u-url">permalink</a>
+              <time class="dt-published" datetime="2026-07-21T12:00:00Z">Jul 21</time>
+            </div></body></html>`,
+            { status: 200, headers: { "Content-Type": "text/html" } }
+          );
+        }
+        return new Response("Not Found", { status: 404 });
+      };
+
+      // Process the same source URL again — should update rather than create
+      await expect(
+        processInboundMention(dbTestConfig, {
+          source: "https://source.example.com/reply-to-test",
+          target: `http://localhost:8080/${testSlug}`,
+          ip: "203.0.113.1",
+          userAgent: "Mozilla/5.0 (compatible; TestBot/1.0)",
+          type: "webmention",
+        })
+      ).resolves.toBeUndefined();
+
+      const em = getEm();
+      const mentions = await em.find(Mention, { targetSlug: testSlug });
+      // Still only one mention (updated, not duplicated)
+      expect(mentions.length).toBe(1);
+      expect(mentions[0].authorName).toBe("Alice Commenter (updated)");
+      expect(mentions[0].content).toContain("Updated comment text");
+    });
+
+    it("silently drops mentions when the source is unreachable", async () => {
+      // Let fetch throw (simulate network error)
+      globalThis.fetch = () => {
+        throw new Error("Network error");
+      };
+
+      await expect(
+        processInboundMention(dbTestConfig, {
+          source: "https://unreachable.example.com/article",
+          target: `http://localhost:8080/${testSlug}`,
+          ip: "198.51.100.1",
+          userAgent: "test-agent",
+          type: "webmention",
+        })
+      ).resolves.toBeUndefined();
+
+      // No new mention created
+      const em = getEm();
+      const mentions = await em.find(Mention, { targetSlug: testSlug });
+      expect(mentions.length).toBe(1); // Still just the one from earlier
+    });
+
+    it("silently drops mentions for non-matching canonical base", async () => {
+      await expect(
+        processInboundMention(dbTestConfig, {
+          source: "https://example.com/article",
+          target: "https://other-site.com/unrelated",
+          ip: "198.51.100.2",
+          userAgent: "test-agent",
+          type: "webmention",
+        })
+      ).resolves.toBeUndefined();
+    });
+
+    it("handles trackback payload with excerpt", async () => {
+      const trackbackSlug = "trackback-test-post";
+      await insertDoc({
+        slug: trackbackSlug,
+        title: "Trackback Test Post",
+        rawMdx: "# Trackback\n\nTest.",
+        metaJson: JSON.stringify({}),
+      });
+
+      globalThis.fetch = (url: RequestInfo | URL) => {
+        const urlStr = String(url);
+        if (urlStr.startsWith("https://trackback.example.com/")) {
+          // Must include target link for verifyLinkInHtml to pass
+          return new Response(
+            `<html><body>Some content here <a href="http://localhost:8080/${trackbackSlug}">post</a></body></html>`,
+            {
+              status: 200,
+              headers: { "Content-Type": "text/html" },
+            }
+          );
+        }
+        return new Response("Not Found", { status: 404 });
+      };
+
+      await expect(
+        processInboundMention(dbTestConfig, {
+          source: "https://trackback.example.com/article",
+          target: `http://localhost:8080/${trackbackSlug}`,
+          ip: "203.0.113.5",
+          userAgent: "trackback-client",
+          type: "trackback",
+          excerpt: "This is a trackback excerpt with interesting content",
+          blogName: "Remote Blog",
+        })
+      ).resolves.toBeUndefined();
+
+      const em = getEm();
+      const mentions = await em.find(Mention, { targetSlug: trackbackSlug });
+      expect(mentions.length).toBe(1);
+      // Trackback uses excerpt as content when available
+      expect(mentions[0].content).toContain("trackback excerpt");
+      expect(mentions[0].platform).toBe("trackback");
+    });
+  });
+
+  // ── Workmatic queue lifecycle ──
+
+  describe("Workmatic queue lifecycle", () => {
+    beforeAll(async () => {
+      await initOrm(":memory:");
+    });
+
+    afterAll(async () => {
+      await stopWorkmatic().catch(() => {
+        /* workmatic may not be running */
+      });
+    });
+
+    it("initialises without throwing", () => {
+      expect(() => initWorkmatic(dbTestConfig)).not.toThrow();
+    });
+
+    it("initWorkmatic is idempotent", () => {
+      // Calling a second time should be a no-op (orchestrator already set)
+      expect(() => initWorkmatic(dbTestConfig)).not.toThrow();
+    });
+
+    it("enqueues an inbound mention without throwing", async () => {
+      await expect(
+        enqueueInboundMention({
+          source: "https://remote.example/article",
+          target: "http://localhost:8080/some-post",
+          ip: "1.2.3.4",
+          userAgent: "Mastodon/4.0",
+          type: "webmention",
+        })
+      ).resolves.toBeUndefined();
+    });
+
+    it("enqueues outbound syndication without throwing", async () => {
+      await expect(
+        enqueueOutboundSyndication(1, "test-post", "Hello world")
+      ).resolves.toBeUndefined();
+    });
+
+    it("stopWorkmatic stops all workers gracefully", async () => {
+      await expect(stopWorkmatic()).resolves.toBeUndefined();
+    });
+
+    it("stopWorkmatic is safe to call when already stopped", async () => {
+      await expect(stopWorkmatic()).resolves.toBeUndefined();
+    });
+  });
+
+  // ── ActivityPub inbox with database (Create activity) ──
+
+  describe("ActivityPub inbox with database", () => {
+    const createSlug = "activitypub-create-test";
+    let originalFetch: typeof globalThis.fetch;
+
+    beforeAll(async () => {
+      await initOrm(":memory:");
+      await insertDoc({
+        slug: createSlug,
+        title: "ActivityPub Create Test",
+        rawMdx: "# Create Test",
+        metaJson: JSON.stringify({}),
+      });
+      originalFetch = globalThis.fetch;
+    });
+
+    afterAll(async () => {
+      globalThis.fetch = originalFetch;
+      await closeOrm();
+    });
+
+    afterEach(() => {
+      globalThis.fetch = originalFetch;
+    });
+
+    it("POST /inbox with Create activity stores a reply mention", async () => {
+      // Mock fetch for actor info and HTML source
+      globalThis.fetch = (url: RequestInfo | URL) => {
+        const urlStr = String(url);
+        // Actor info fetch (fetchActorInfo)
+        if (urlStr === "https://remote-actor.example/users/bob") {
+          return new Response(
+            JSON.stringify({
+              id: "https://remote-actor.example/users/bob",
+              name: "Bob Remote",
+              preferredUsername: "bob",
+              icon: { url: "https://remote-actor.example/avatar.jpg" },
+              url: "https://remote-actor.example/@bob",
+              inbox: "https://remote-actor.example/users/bob/inbox",
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/activity+json" },
+            }
+          );
+        }
+        // Signature key fetch — return a dummy key (will fail verification gracefully)
+        if (urlStr.includes("#main-key")) {
+          return new Response(
+            JSON.stringify({
+              id: urlStr,
+              publicKey: {
+                publicKeyPem:
+                  "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAw==\n-----END PUBLIC KEY-----",
+              },
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/activity+json" },
+            }
+          );
+        }
+        return new Response("Not Found", { status: 404 });
+      };
+
+      const fastify = Fastify();
+      registerActivityPubRoutes(fastify, dbTestConfig);
+
+      const res = await fastify.inject({
+        method: "POST",
+        url: "/inbox",
+        payload: {
+          "@context": "https://www.w3.org/ns/activitystreams",
+          type: "Create",
+          actor: "https://remote-actor.example/users/bob",
+          object: {
+            id: "https://remote-actor.example/posts/123",
+            type: "Note",
+            content: "<p>Great post! Really enjoyed reading it.</p>",
+            inReplyTo: `http://localhost:8080/${createSlug}`,
+            attributedTo: "https://remote-actor.example/users/bob",
+            published: "2026-07-21T10:00:00Z",
+            url: "https://remote-actor.example/@bob/123",
+          },
+        },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(JSON.parse(res.body)).toEqual({ status: "accepted" });
+
+      // Verify the mention was stored
+      const em = getEm();
+      const mentions = await em.find(Mention, { targetSlug: createSlug });
+      expect(mentions.length).toBe(1);
+      expect(mentions[0].authorName).toBe("Bob Remote");
+      expect(mentions[0].platform).toBe("activitypub");
+      expect(mentions[0].content).toContain("Great post");
+      expect(mentions[0].spamStatus).toBe("ham");
+
+      await fastify.close();
+    });
+
+    it("POST /inbox with Create activity ignores non-matching inReplyTo", async () => {
+      globalThis.fetch = (url: RequestInfo | URL) => {
+        const urlStr = String(url);
+        if (urlStr === "https://other-actor.example/users/carol") {
+          return new Response(
+            JSON.stringify({
+              id: "https://other-actor.example/users/carol",
+              name: "Carol",
+              preferredUsername: "carol",
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/activity+json" },
+            }
+          );
+        }
+        return new Response("Not Found", { status: 404 });
+      };
+
+      const fastify = Fastify();
+      registerActivityPubRoutes(fastify, dbTestConfig);
+
+      const res = await fastify.inject({
+        method: "POST",
+        url: "/inbox",
+        payload: {
+          "@context": "https://www.w3.org/ns/activitystreams",
+          type: "Create",
+          actor: "https://other-actor.example/users/carol",
+          object: {
+            id: "https://other-actor.example/posts/456",
+            type: "Note",
+            content: "<p>Random reply</p>",
+            inReplyTo: "https://unrelated.example.com/post",
+            attributedTo: "https://other-actor.example/users/carol",
+          },
+        },
+      });
+
+      // Still accepted (no error), but no mention stored
+      expect(res.statusCode).toBe(200);
+      await fastify.close();
+    });
+
+    it("POST /inbox handles Create activity without object content", async () => {
+      const fastify = Fastify();
+      registerActivityPubRoutes(fastify, dbTestConfig);
+
+      const res = await fastify.inject({
+        method: "POST",
+        url: "/inbox",
+        payload: {
+          "@context": "https://www.w3.org/ns/activitystreams",
+          type: "Create",
+          actor: "https://remote.example/users/dave",
+          object: "https://remote.example/posts/789", // string reference, not object
+        },
+      });
+
+      expect(res.statusCode).toBe(200);
+      await fastify.close();
+    });
+  });
+
+  // ── Email task early returns ──
+
+  describe("Email task early returns", () => {
+    beforeAll(async () => {
+      await initOrm(":memory:");
+    });
+
+    afterAll(async () => {
+      await closeOrm();
+    });
+
+    it("processNewSubscription returns early when email not configured", async () => {
+      await expect(
+        processNewSubscription(testConfig, {
+          email: "test@example.com",
+          frequency: "instant",
+        })
+      ).resolves.toBeUndefined();
+    });
+
+    it("sendInstantNotification returns early when email not enabled", async () => {
+      const sub = {
+        id: crypto.randomUUID(),
+        email: "test@example.com",
+        unsubscribeToken: "abc123",
+      };
+      await expect(
+        sendInstantNotification(
+          {
+            ...testConfig,
+            email: (dbTestConfig.email ?? {
+              smtp: { host: "", port: 0, user: "", pass: "" },
+              from: "",
+            }) as EmailConfig,
+            enabled: false,
+          },
+          sub,
+          { slug: "test-post", title: "Test" }
+        )
+      ).resolves.toBeUndefined();
+    });
+
+    it("sendWeeklyDigest returns early when email not enabled", async () => {
+      const sub = {
+        id: crypto.randomUUID(),
+        email: "test@example.com",
+        unsubscribeToken: "abc123",
+      };
+      await expect(
+        sendWeeklyDigest(
+          {
+            ...testConfig,
+            email: (dbTestConfig.email ?? {
+              smtp: { host: "", port: 0, user: "", pass: "" },
+              from: "",
+            }) as EmailConfig,
+            enabled: false,
+          },
+          sub,
+          [{ slug: "test", title: "Test Post" }]
+        )
+      ).resolves.toBeUndefined();
+    });
+
+    it("processContactForm returns early when contact form not enabled", async () => {
+      await expect(
+        processContactForm(testConfig, {
+          name: "Tester",
+          email: "tester@example.com",
+          message: "Hello",
+          ip: "1.2.3.4",
+          userAgent: "test",
+        })
+      ).resolves.toBeUndefined();
+    });
+
+    it("sendTestEmail throws when email not configured", async () => {
+      await expect(
+        sendTestEmail(testConfig, "test@example.com")
+      ).rejects.toThrow("Email not configured");
+    });
+  });
+
+  // ── POSSE reply fetching early returns ──
+
+  describe("POSSE reply fetching", () => {
+    it("fetchMastodonReplies returns early when mastodon not configured", async () => {
+      await expect(
+        fetchMastodonReplies(
+          testConfig,
+          "test-post",
+          "https://mastodon.social/@user/12345"
+        )
+      ).resolves.toBeUndefined();
+    });
+
+    it("fetchBlueskyReplies handles network errors gracefully", async () => {
+      // Without mocking fetch, this will attempt to reach bsky.social
+      // and fail with a network error, which is caught internally.
+      await expect(
+        fetchBlueskyReplies(
+          testConfig,
+          "test-post",
+          "at://did:plc:test/app.bsky.feed.post/1"
+        )
+      ).resolves.toBeUndefined();
+    });
   });
 });

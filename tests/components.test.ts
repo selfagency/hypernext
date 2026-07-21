@@ -143,4 +143,119 @@ describe("component resolvers", () => {
       );
     });
   });
+
+  describe("Title component", () => {
+    it("returns heading with slug-based title when no frontmatter", async () => {
+      const nodes = await resolveComponent(
+        "Title",
+        {},
+        { config: testConfig, currentSlug: "blog/test-post" }
+      );
+      expect(nodes).toHaveLength(2);
+      expect(nodes[0]?.type).toBe("heading");
+      expect(nodes[0]?.depth).toBe(1);
+      expect(nodes[0]?.className).toBe("p-name");
+      expect(nodes[0]?.children?.[0]?.value).toBe("test-post");
+    });
+
+    it("returns heading with frontmatter title when available", async () => {
+      const nodes = await resolveComponent(
+        "Title",
+        {},
+        {
+          config: testConfig,
+          currentSlug: "blog/my-post",
+          frontmatter: { title: "My Post" },
+        }
+      );
+      expect(nodes[0]?.children?.[0]?.value).toBe("My Post");
+    });
+
+    it("includes permalink link", async () => {
+      const nodes = await resolveComponent(
+        "Title",
+        {},
+        { config: testConfig, currentSlug: "blog/my-post" }
+      );
+      expect(nodes[1]?.type).toBe("paragraph");
+      expect(nodes[1]?.children?.[0]?.type).toBe("link");
+      expect(nodes[1]?.children?.[0]?.url).toBe("/blog/my-post");
+      expect(nodes[1]?.children?.[0]?.className).toBe("u-url");
+    });
+  });
+
+  describe("PostMeta component", () => {
+    it("returns empty when no author, date, or tags", async () => {
+      const noAuthConfig = { ...testConfig, author: {} };
+      const nodes = await resolveComponent(
+        "PostMeta",
+        {},
+        { config: noAuthConfig, currentSlug: "test", frontmatter: {} }
+      );
+      expect(nodes).toHaveLength(0);
+    });
+
+    it("renders author from config", async () => {
+      const cfg = { ...testConfig, author: { name: "Test Author" } };
+      const nodes = await resolveComponent(
+        "PostMeta",
+        {},
+        { config: cfg, currentSlug: "test", frontmatter: {} }
+      );
+      expect(nodes).toHaveLength(1);
+      expect(nodes[0]?.type).toBe("paragraph");
+      expect(nodes[0]?.className).toBe("byline");
+      expect(nodes[0]?.children?.[0]?.value).toBe("by Test Author");
+    });
+
+    it("renders date when present", async () => {
+      const cfg = { ...testConfig, author: { name: "Author" } };
+      const nodes = await resolveComponent(
+        "PostMeta",
+        {},
+        {
+          config: cfg,
+          currentSlug: "test",
+          frontmatter: { date: "2026-07-20" },
+        }
+      );
+      const byline = nodes[0]?.children ?? [];
+      const timeNode = byline.find((n) => n.type === "time");
+      expect(timeNode?.value).toBe("2026-07-20");
+      expect(timeNode?.datetime).toBe("2026-07-20");
+      expect(timeNode?.className).toBe("dt-published");
+    });
+
+    it("renders tags as links", async () => {
+      const cfg = { ...testConfig, author: { name: "A" } };
+      const nodes = await resolveComponent(
+        "PostMeta",
+        {},
+        {
+          config: cfg,
+          currentSlug: "test",
+          frontmatter: { tags: ["hypernext", "testing"] },
+        }
+      );
+      const links = nodes[0]?.children?.filter((n) => n.type === "link") ?? [];
+      expect(links.length).toBe(2);
+      expect(links[0]?.url).toBe("/tags/hypernext");
+      expect(links[1]?.url).toBe("/tags/testing");
+    });
+
+    it("handles invalid date gracefully", async () => {
+      const cfg = { ...testConfig, author: { name: "A" } };
+      const nodes = await resolveComponent(
+        "PostMeta",
+        {},
+        {
+          config: cfg,
+          currentSlug: "test",
+          frontmatter: { date: "not-a-date" },
+        }
+      );
+      const timeNode = nodes[0]?.children?.find((n) => n.type === "time");
+      expect(timeNode?.value).toBe("not-a-date");
+    });
+  });
 });
