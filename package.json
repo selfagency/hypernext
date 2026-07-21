@@ -41,7 +41,7 @@
     "format": "biome format --write .",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage --reporter=junit --outputFile=test-report.junit.xml",
+    "test:coverage": "vitest run --exclude 'tests/e2e/**' --coverage --reporter=junit --outputFile=test-report.junit.xml",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "check": "ultracite check",
     "fix": "ultracite fix",
