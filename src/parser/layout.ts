@@ -115,7 +115,7 @@ function wrapSkeleton(
   let mainContent: IrNode[] = [componentNode("Breadcrumbs")];
   if (slug) {
     mainContent.push({
-      type: "section",
+      type: "article",
       className: "h-entry",
       id: slug.replaceAll("/", "-"),
       children: [

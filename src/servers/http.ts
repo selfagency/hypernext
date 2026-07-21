@@ -236,6 +236,12 @@ export async function createHttpServer(config: HypernextConfig) {
     async (request, reply) => {
       const { collection } = request.params;
 
+      // Redirect /index to /
+      if (collection === "index") {
+        reply.code(301).header("Location", "/").send();
+        return;
+      }
+
       // Check if this is a known collection
       if (Object.hasOwn(config.collections, collection)) {
         const slug = collection;

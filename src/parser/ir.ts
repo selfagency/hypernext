@@ -27,7 +27,8 @@ export type IrNodeType =
   | "main"
   | "time"
   | "mention"
-  | "nav";
+  | "nav"
+  | "article";
 
 export interface IrNode {
   align?: ("left" | "center" | "right")[];

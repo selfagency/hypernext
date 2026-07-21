@@ -62,6 +62,9 @@ const MD_RENDERERS: Record<string, MdRenderer> = {
   section(node) {
     return (node.children ?? []).map(renderMdNode).join("\n\n");
   },
+  article(node) {
+    return (node.children ?? []).map(renderMdNode).join("\n\n");
+  },
   header(node) {
     return (node.children ?? []).map(renderMdNode).join("\n\n");
   },

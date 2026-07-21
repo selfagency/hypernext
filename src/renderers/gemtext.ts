@@ -76,6 +76,7 @@ function renderGemtextNode(node: IrNode, depth = 0): string {
     case "aside":
     case "footer":
     case "nav":
+    case "article":
       return (node.children ?? [])
         .map((c) => renderGemtextNode(c, depth))
         .join("\n");

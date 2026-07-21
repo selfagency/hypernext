@@ -135,6 +135,13 @@ const RENDERERS: Record<string, Renderer> = {
     const idAttr = node.id ? ` id="${escapeAttr(node.id)}"` : "";
     return `<footer${classAttr}${idAttr}>${renderChildren(node)}</footer>`;
   },
+  article(node) {
+    const classAttr = node.className
+      ? ` class="${escapeAttr(node.className)}"`
+      : "";
+    const idAttr = node.id ? ` id="${escapeAttr(node.id)}"` : "";
+    return `<article${classAttr}${idAttr}>${renderChildren(node)}</article>`;
+  },
   thematicBreak() {
     return "<hr />";
   },
