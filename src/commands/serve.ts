@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import { Command, Flags } from "@oclif/core";
 import { startAllServers } from "../app.js";
 import { getConfig } from "../config.js";
@@ -12,6 +14,12 @@ export default class Serve extends Command {
     port: Flags.integer({
       summary: "Override HTTP server port",
       env: "HYPERNEXT_PORT",
+    }),
+    "serve-from": Flags.string({
+      summary: "Project root directory",
+      description:
+        "Project root directory containing config.yml (default: current directory)",
+      env: "HYPERNEXT_SERVE_FROM",
     }),
     http: Flags.boolean({
       summary: "Enable HTTP",
@@ -77,8 +85,12 @@ export default class Serve extends Command {
       mcp: flags.mcp,
     };
 
+    const rootDir = flags["serve-from"]
+      ? path.resolve(flags["serve-from"])
+      : process.cwd();
+
     try {
-      const config = getConfig(process.cwd(), cliOptions);
+      const config = getConfig(rootDir, cliOptions);
       await startAllServers(config);
     } catch (error) {
       this.error(error instanceof Error ? error.message : String(error));

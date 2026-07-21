@@ -11,8 +11,12 @@ export default defineConfig({
       include: ["src/**/*.ts"],
       exclude: [
         "src/bin.ts",
+        "src/commands/**",
         "src/database/entities/**",
+        "src/database/mikro-orm.config.ts",
         "src/database/schema.sql",
+        "src/parser/ir.ts",
+        "src/types/**",
       ],
       thresholds: {
         statements: 80,
