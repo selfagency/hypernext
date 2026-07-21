@@ -22,6 +22,7 @@ export function startMcpServer(config: HypernextConfig): void {
   if (config.mcp.transport === "stdio") {
     const transport = new StdioServerTransport();
     server.connect(transport);
+    console.log("MCP server active (stdio)");
   }
 }
 
@@ -38,6 +39,7 @@ export function registerMcpSseTransport(
   // GET /api/v1/mcp — establish SSE stream
   fastify.get("/api/v1/mcp", async (_request, reply) => {
     const transport = new SSEServerTransport("/api/v1/mcp/message", reply.raw);
+    console.log(`MCP server active (SSE, session ${transport.sessionId})`);
     // Track by session ID so POST handler can find it
     sseTransports.set(transport.sessionId, transport);
     transport.onclose = () => {

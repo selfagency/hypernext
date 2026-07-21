@@ -60,16 +60,25 @@ const RENDERERS: Record<string, Renderer> = {
   },
   heading(node) {
     const tag = `h${node.depth ?? 2}`;
-    return `<${tag}>${renderChildren(node)}</${tag}>`;
+    const classAttr = node.className
+      ? ` class="${escapeAttr(node.className)}"`
+      : "";
+    return `<${tag}${classAttr}>${renderChildren(node)}</${tag}>`;
   },
   paragraph(node) {
-    return `<p>${renderChildren(node)}</p>`;
+    const classAttr = node.className
+      ? ` class="${escapeAttr(node.className)}"`
+      : "";
+    return `<p${classAttr}>${renderChildren(node)}</p>`;
   },
   text(node) {
     return escapeHtml(node.value ?? "");
   },
   link(node) {
-    return `<a href="${escapeAttr(node.url ?? "")}">${renderChildren(node)}</a>`;
+    const classAttr = node.className
+      ? ` class="${escapeAttr(node.className)}"`
+      : "";
+    return `<a href="${escapeAttr(node.url ?? "")}"${classAttr}>${renderChildren(node)}</a>`;
   },
   image(node) {
     return `<img src="${escapeAttr(node.url ?? "")}" alt="${escapeAttr(node.alt ?? "")}" />`;
@@ -94,6 +103,40 @@ const RENDERERS: Record<string, Renderer> = {
       : "";
     const idAttr = node.id ? ` id="${escapeAttr(node.id)}"` : "";
     return `<section${classAttr}${idAttr}>${renderChildren(node)}</section>`;
+  },
+  nav(node) {
+    const classAttr = node.className
+      ? ` class="${escapeAttr(node.className)}"`
+      : "";
+    return `<nav${classAttr}>${renderChildren(node)}</nav>`;
+  },
+  header(node) {
+    const classAttr = node.className
+      ? ` class="${escapeAttr(node.className)}"`
+      : "";
+    const idAttr = node.id ? ` id="${escapeAttr(node.id)}"` : "";
+    return `<header${classAttr}${idAttr}>${renderChildren(node)}</header>`;
+  },
+  main(node) {
+    const classAttr = node.className
+      ? ` class="${escapeAttr(node.className)}"`
+      : "";
+    const idAttr = node.id ? ` id="${escapeAttr(node.id)}"` : "";
+    return `<main${classAttr}${idAttr}>${renderChildren(node)}</main>`;
+  },
+  aside(node) {
+    const classAttr = node.className
+      ? ` class="${escapeAttr(node.className)}"`
+      : "";
+    const idAttr = node.id ? ` id="${escapeAttr(node.id)}"` : "";
+    return `<aside${classAttr}${idAttr}>${renderChildren(node)}</aside>`;
+  },
+  footer(node) {
+    const classAttr = node.className
+      ? ` class="${escapeAttr(node.className)}"`
+      : "";
+    const idAttr = node.id ? ` id="${escapeAttr(node.id)}"` : "";
+    return `<footer${classAttr}${idAttr}>${renderChildren(node)}</footer>`;
   },
   thematicBreak() {
     return "<hr />";
@@ -127,6 +170,14 @@ const RENDERERS: Record<string, Renderer> = {
   },
   component(node) {
     return `<!-- component: ${node.componentName} -->`;
+  },
+  time(node) {
+    const date = node.value ?? "";
+    const datetime = node.datetime ?? date;
+    const classAttr = node.className
+      ? ` class="${escapeAttr(node.className)}"`
+      : "";
+    return `<time${classAttr} datetime="${escapeAttr(datetime)}">${escapeHtml(date)}</time>`;
   },
   mention: renderMention,
 };
@@ -451,22 +502,6 @@ function resolveMeta(
   return cfg as string | undefined;
 }
 
-function renderFeaturedImage(frontmatter: Record<string, unknown>): string {
-  const src = frontmatter.featuredImage as string | undefined;
-  if (!src) {
-    return "";
-  }
-  const alt = escapeAttr(
-    (frontmatter.featuredImageAlt as string) ?? "Featured image"
-  );
-  const caption = frontmatter.featuredImageCaption as string | undefined;
-  const img = `<img class="featured-image u-featured" src="${escapeAttr(src)}" alt="${alt}" />`;
-  if (caption) {
-    return `<figure class="featured-image">${img}<figcaption>${escapeHtml(caption)}</figcaption></figure>`;
-  }
-  return img;
-}
-
 function buildIpfsMetaTags(contentCid?: string, htmlCid?: string): string {
   if (!(contentCid || htmlCid)) {
     return "";
@@ -503,6 +538,11 @@ function buildViewTransitionCss(config: HypernextConfig): string {
   </style>`;
 }
 
+/** Render just the IR body without HTML shell */
+export function renderHTMLBody(ir: IrNode): string {
+  return renderNode(ir);
+}
+
 export function renderHTML(
   result: ParseResult,
   config: HypernextConfig,
@@ -518,16 +558,9 @@ export function renderHTML(
     (frontmatter.canonicalUrl as string) ?? config.site.canonicalBase;
   const cssPath = config.site.theme?.cssPath ?? "";
   const body = renderNode(ir);
-  const date = frontmatter.date as string | undefined;
-  const publishedTime = date
-    ? `<time class="dt-published" datetime="${escapeAttr(date)}">${escapeHtml(date)}</time>`
-    : "";
   const postUrl = slug
     ? `${config.site.canonicalBase}/${slug}`
     : config.site.canonicalBase;
-  const postPermalink = slug
-    ? `<a class="u-url" href="${escapeAttr(postUrl)}">Permalink</a>`
-    : "";
 
   // OG meta resolution
   const ogTitle =
@@ -561,7 +594,6 @@ export function renderHTML(
     }
   }
 
-  const featuredImage = renderFeaturedImage(frontmatter);
   const ipfsMetaTags = buildIpfsMetaTags(cids?.contentCid, cids?.htmlCid);
 
   const agentDirective = buildAgentDirective(config);
@@ -581,16 +613,7 @@ export function renderHTML(
   ${viewTransitionCss}
 </head>
 <body>${agentDirective}
-  <article class="h-entry">
-    <h1 class="p-name">${escapeHtml(title)}</h1>
-    ${publishedTime}
-    ${frontmatter.author ? `<p class="p-author h-card">${escapeHtml(String(frontmatter.author))}</p>` : ""}
-    ${featuredImage}
-    <div class="e-content">
-      ${body}
-    </div>
-    ${postPermalink}
-  </article>
+  ${body}
 </body>
 </html>`;
 }

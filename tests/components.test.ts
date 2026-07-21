@@ -28,10 +28,15 @@ describe("component resolvers", () => {
   });
 
   describe("NavMenu component", () => {
-    it("returns navigation links", () => {
-      const nodes = resolveComponent("NavMenu", {}, { config: testConfig });
+    it("returns navigation links", async () => {
+      const nodes = await resolveComponent(
+        "NavMenu",
+        {},
+        { config: testConfig }
+      );
       expect(nodes).toHaveLength(1);
-      expect(nodes[0]?.type).toBe("paragraph");
+      expect(nodes[0]?.type).toBe("nav");
+      expect(nodes[0]?.className).toBe("nav-menu");
     });
   });
 

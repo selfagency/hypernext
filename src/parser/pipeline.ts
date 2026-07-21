@@ -218,34 +218,64 @@ export function parseToIR(content: string, _slug?: string): ParseResult {
   };
 }
 
+function copyIrNode(target: IrNode, source: IrNode | undefined): void {
+  if (!source) {
+    return;
+  }
+  target.type = source.type;
+  target.children = source.children;
+  target.value = source.value;
+  target.depth = source.depth;
+  target.url = source.url;
+  target.alt = source.alt;
+  target.lang = source.lang;
+  target.ordered = source.ordered;
+  target.className = source.className;
+  target.id = source.id;
+  target.authorName = source.authorName;
+  target.authorUrl = source.authorUrl;
+  target.authorPhoto = source.authorPhoto;
+  target.content = source.content;
+  target.sourceUrl = source.sourceUrl;
+  target.publishedAt = source.publishedAt;
+  target.platform = source.platform;
+  target.componentName = source.componentName;
+  target.componentProps = source.componentProps;
+}
+
 export async function resolveComponentNodes(
   ir: IrNode,
   config: HypernextConfig,
-  slug?: string
+  ctxOrSlug?: string | ComponentContext
 ): Promise<void> {
-  const ctx: ComponentContext = {
-    config,
-    currentSlug: slug,
-  };
+  const ctx: ComponentContext =
+    typeof ctxOrSlug === "string"
+      ? { config, currentSlug: ctxOrSlug }
+      : { config, ...ctxOrSlug };
 
   // Clone the IR tree to avoid mutating cached parse results
   const clone = JSON.parse(JSON.stringify(ir)) as IrNode;
 
   async function walk(node: IrNode): Promise<void> {
+    if (node.children) {
+      for (const child of node.children) {
+        await walk(child);
+      }
+    }
+
     if (node.type === "component" && node.componentName) {
       const resolved = await resolveComponent(
         node.componentName,
         node.componentProps ?? {},
         ctx
       );
-      node.type = "root";
-      node.children = resolved;
-      return;
-    }
-
-    if (node.children) {
-      for (const child of node.children) {
-        await walk(child);
+      if (resolved.length === 1) {
+        copyIrNode(node, resolved[0]);
+      } else {
+        node.type = "root";
+        node.children = resolved;
+        node.componentName = undefined;
+        node.componentProps = undefined;
       }
     }
   }

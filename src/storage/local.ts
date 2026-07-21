@@ -1,10 +1,12 @@
-import fs from "node:fs/promises";
+import fs from "node:fs";
+import fsPromises from "node:fs/promises";
 import path from "node:path";
+
 import type { StorageProvider } from "./types.js";
 
 const LEADING_SLASH_REGEX = /^\/+/;
 const BACKSLASH_REGEX = /\\/g;
-const MDX_EXTENSION_REGEX = /\.mdx$/;
+const MD_EXTENSION_REGEX = /\.mdx?$/;
 
 function resolveSafeSlug(basePath: string, slug: string): string {
   const normalized = path.normalize(slug).replace(LEADING_SLASH_REGEX, "");
@@ -25,26 +27,37 @@ export class LocalStorageProvider implements StorageProvider {
     this.basePath = path.resolve(basePath);
   }
 
+  private resolveFilePath(slug: string): string {
+    const base = resolveSafeSlug(this.basePath, slug);
+    for (const ext of [".mdx", ".md"]) {
+      const candidate = `${base}${ext}`;
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
+    }
+    return `${base}.mdx`;
+  }
+
   read(slug: string): Promise<string> {
-    const filePath = resolveSafeSlug(this.basePath, `${slug}.mdx`);
-    return fs.readFile(filePath, "utf-8");
+    const filePath = this.resolveFilePath(slug);
+    return fsPromises.readFile(filePath, "utf-8");
   }
 
   async write(slug: string, content: string): Promise<void> {
     const filePath = resolveSafeSlug(this.basePath, `${slug}.mdx`);
-    await fs.mkdir(path.dirname(filePath), { recursive: true });
-    await fs.writeFile(filePath, content, "utf-8");
+    await fsPromises.mkdir(path.dirname(filePath), { recursive: true });
+    await fsPromises.writeFile(filePath, content, "utf-8");
   }
 
   async delete(slug: string): Promise<void> {
-    const filePath = resolveSafeSlug(this.basePath, `${slug}.mdx`);
-    await fs.unlink(filePath);
+    const filePath = this.resolveFilePath(slug);
+    await fsPromises.unlink(filePath);
   }
 
   async exists(slug: string): Promise<boolean> {
-    const filePath = resolveSafeSlug(this.basePath, `${slug}.mdx`);
+    const filePath = this.resolveFilePath(slug);
     try {
-      await fs.access(filePath);
+      await fsPromises.access(filePath);
       return true;
     } catch {
       return false;
@@ -60,13 +73,15 @@ export class LocalStorageProvider implements StorageProvider {
     return files
       .map((file) => path.relative(this.basePath, file))
       .map((relative) => relative.replace(BACKSLASH_REGEX, "/"))
-      .filter((relative) => relative.endsWith(".mdx"))
-      .map((relative) => relative.replace(MDX_EXTENSION_REGEX, ""))
+      .filter(
+        (relative) => relative.endsWith(".mdx") || relative.endsWith(".md")
+      )
+      .map((relative) => relative.replace(MD_EXTENSION_REGEX, ""))
       .sort();
   }
 
   private async walk(dir: string, files: string[]): Promise<void> {
-    const entries = await fs.readdir(dir, { withFileTypes: true });
+    const entries = await fsPromises.readdir(dir, { withFileTypes: true });
     for (const entry of entries) {
       const fullPath = path.join(dir, entry.name);
       if (entry.isDirectory()) {

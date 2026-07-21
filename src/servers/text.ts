@@ -8,7 +8,7 @@ import {
   isFutureDated,
   isFutureDatedFrontmatter,
 } from "../parser/frontmatter.js";
-import { parseToIR, resolveComponentNodes } from "../parser/pipeline.js";
+import { resolveLayoutWithComponents } from "../parser/layout.js";
 import { renderMarkdown } from "../renderers/markdown.js";
 import type { HypernextConfig } from "../types/config.js";
 
@@ -71,8 +71,11 @@ async function handleTextRequest(
     return;
   }
 
-  const result = parseToIR(rawMdx, slug);
-  await resolveComponentNodes(result.ir, config, slug);
+  const result = await resolveLayoutWithComponents(
+    config,
+    { rawMdx, layout: doc.layout as string | undefined },
+    { slug, currentDocId: Number(doc.id) || undefined }
+  );
   setCachedParse(slug, result);
   socket.end(`20 OK\n${renderMarkdown(result.ir)}\n`);
 

@@ -5,6 +5,7 @@ import {
   getTermsForDoc,
   listDocSlugs,
 } from "../database/index.js";
+import { buildNav } from "../nav.js";
 import type { HypernextConfig } from "../types/config.js";
 import type { IrNode } from "./ir.js";
 
@@ -65,47 +66,61 @@ export const ALLOWED_COMPONENTS = new Set([
   "Archive",
   "PostList",
   "IPFSLink",
+  "Header",
+  "Main",
+  "Sidebar",
+  "Footer",
   "slot",
 ]);
 
 export const COMPONENT_RESOLVERS: Record<string, ComponentResolver> = {
-  NavMenu() {
+  async NavMenu(_props, ctx) {
+    const nav = await buildNav(ctx.config);
+    if (nav.length === 0) {
+      return [linkNode("/", [textNode("Home")])];
+    }
+    const items: IrNode[] = [];
+    for (const entry of nav) {
+      items.push(listItemNode([linkNode(entry.href, [textNode(entry.label)])]));
+    }
     return [
-      paragraphNode([
-        linkNode("/", [textNode("Home")]),
-        textNode(" · "),
-        linkNode("/blog/", [textNode("Blog")]),
-        textNode(" · "),
-        linkNode("/library/", [textNode("Library")]),
-      ]),
+      {
+        type: "nav",
+        className: "nav-menu",
+        children: [listNode(false, items)],
+      },
     ];
   },
 
   Breadcrumbs(_props, ctx) {
-    if (!ctx.currentSlug) {
+    if (!ctx.currentSlug || ctx.currentSlug === "index") {
       return [];
     }
     const parts = ctx.currentSlug.split("/");
     const crumbs: IrNode[] = [];
     let accumulated = "";
-    for (const part of parts) {
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i] ?? "";
       accumulated += `/${part}`;
-      crumbs.push(linkNode(accumulated, [textNode(part)]));
-      crumbs.push(textNode(" / "));
+      const label = i === 0 ? "Home" : part;
+      crumbs.push(listItemNode([linkNode(accumulated, [textNode(label)])]));
     }
-    crumbs.pop();
-    return [paragraphNode(crumbs)];
+    return [
+      {
+        type: "nav",
+        className: "breadcrumbs",
+        children: [listNode(false, crumbs)],
+      },
+    ];
   },
 
   Search() {
     return [
-      paragraphNode([
-        {
-          type: "component",
-          componentName: "Search",
-          componentProps: {},
-        } as IrNode,
-      ]),
+      {
+        type: "section",
+        className: "search",
+        children: [linkNode("/search", [textNode("Search")])],
+      },
     ];
   },
 
@@ -134,22 +149,32 @@ export const COMPONENT_RESOLVERS: Record<string, ComponentResolver> = {
 
   async RecentPosts(props) {
     const limit = Number(props.limit) || 5;
-    const slugs = (await listDocSlugs()).slice(0, limit);
-    if (slugs.length === 0) {
+    const em = getEm();
+    const docs = await em
+      .getConnection()
+      .execute<{ slug: string; title: string; date: string | null }[]>(
+        `SELECT slug, title, date FROM docs_meta WHERE type = 'post' ORDER BY date DESC LIMIT ?`,
+        [limit]
+      );
+    if (docs.length === 0) {
       return [paragraphNode([textNode("No posts yet.")])];
     }
     const items: IrNode[] = [];
-    for (const slug of slugs) {
-      const doc = await getDocBySlug(slug);
+    for (const doc of docs) {
+      const linkText = doc.date
+        ? `${doc.title} (${doc.date.slice(0, 10)})`
+        : doc.title;
       items.push(
-        listItemNode([
-          linkNode(`/${slug}`, [
-            textNode((doc?.title as string | undefined) ?? slug),
-          ]),
-        ])
+        listItemNode([linkNode(`/${doc.slug}`, [textNode(linkText)])])
       );
     }
-    return [listNode(false, items)];
+    return [
+      {
+        type: "section",
+        className: "recent-posts",
+        children: [listNode(false, items)],
+      },
+    ];
   },
 
   async PostNav(_props, ctx) {
@@ -288,19 +313,26 @@ export const COMPONENT_RESOLVERS: Record<string, ComponentResolver> = {
 
   AuthorBio(_props, ctx) {
     const { author } = ctx.config;
-    const bio: IrNode[] = [];
+    const children: IrNode[] = [];
     if (author.photo) {
-      bio.push({ type: "image", url: author.photo, alt: author.name });
+      children.push({ type: "image", url: author.photo, alt: author.name });
     }
-    bio.push(textNode(author.name));
+    if (author.name) {
+      children.push({
+        type: "heading",
+        depth: 2,
+        children: [textNode(author.name)],
+      });
+    }
     if (author.bio) {
-      bio.push(textNode(` — ${author.bio}`));
+      children.push(paragraphNode([textNode(author.bio)]));
     }
     if (author.url) {
-      bio.push(textNode(" "));
-      bio.push(linkNode(author.url, [textNode("Website")]));
+      children.push(
+        paragraphNode([linkNode(author.url, [textNode("Website")])])
+      );
     }
-    return [paragraphNode(bio)];
+    return [{ type: "section", className: "h-card author-bio", children }];
   },
 
   async SyndicationLinks(_props, ctx) {
@@ -438,29 +470,130 @@ export const COMPONENT_RESOLVERS: Record<string, ComponentResolver> = {
   async PostList(props, _ctx) {
     const collection = String(props.collection ?? "");
     const limit = Number(props.limit) || 10;
+    const em = getEm();
 
-    let slugs: string[];
+    let docs: { slug: string; title: string; date: string | null }[];
     if (collection) {
-      const { getCollectionDocs } = await import("../router.js");
-      slugs = await getCollectionDocs(collection);
+      docs = await em
+        .getConnection()
+        .execute<{ slug: string; title: string; date: string | null }[]>(
+          "SELECT slug, title, date FROM docs_meta WHERE slug LIKE ? ORDER BY date DESC LIMIT ?",
+          [`${collection}/%`, limit]
+        );
     } else {
-      slugs = await listDocSlugs();
+      docs = await em
+        .getConnection()
+        .execute<{ slug: string; title: string; date: string | null }[]>(
+          "SELECT slug, title, date FROM docs_meta ORDER BY date DESC LIMIT ?",
+          [limit]
+        );
     }
 
-    slugs = slugs.slice(0, limit);
-
-    if (slugs.length === 0) {
+    if (docs.length === 0) {
       return [paragraphNode([textNode("No posts found.")])];
     }
 
+    const items: IrNode[] = docs.map((doc) => {
+      const text = doc.date
+        ? `${doc.title} — ${doc.date.slice(0, 10)}`
+        : doc.title;
+      return listItemNode([linkNode(`/${doc.slug}`, [textNode(text)])]);
+    });
+
     return [
-      listNode(
-        false,
-        slugs.map((s) => {
-          const display = s.split("/").pop() ?? s;
-          return listItemNode([linkNode(`/${s}`, [textNode(display)])]);
-        })
-      ),
+      {
+        type: "section",
+        className: "post-list",
+        children: [listNode(false, items)],
+      },
+    ];
+  },
+
+  async Header(_props, ctx) {
+    const nav = await buildNav();
+    const navItems = nav.map((entry) =>
+      listItemNode([linkNode(entry.href, [textNode(entry.label)])])
+    );
+    return [
+      {
+        type: "section",
+        className: "site-header",
+        children: [
+          {
+            type: "heading",
+            depth: 1,
+            children: [linkNode("/", [textNode(ctx.config.site.meta.title)])],
+          },
+          { type: "component", componentName: "NavMenu", componentProps: {} },
+          { type: "component", componentName: "Search", componentProps: {} },
+          listNode(false, navItems),
+        ],
+      },
+    ];
+  },
+
+  Main() {
+    return [
+      {
+        type: "main",
+        className: "main-content",
+        children: [
+          {
+            type: "component",
+            componentName: "Breadcrumbs",
+            componentProps: {},
+          },
+          { type: "component", componentName: "slot", componentProps: {} },
+        ],
+      },
+    ];
+  },
+
+  Sidebar() {
+    return [
+      {
+        type: "aside",
+        className: "sidebar",
+        children: [
+          { type: "heading", depth: 2, children: [textNode("Recent Posts")] },
+          {
+            type: "component",
+            componentName: "RecentPosts",
+            componentProps: {},
+          },
+          { type: "heading", depth: 2, children: [textNode("Tags")] },
+          { type: "component", componentName: "TagCloud", componentProps: {} },
+        ],
+      },
+    ];
+  },
+
+  Footer(_props, ctx) {
+    const year = new Date().getFullYear();
+    const site = ctx.config.site.meta.title;
+    const url = ctx.config.site.canonicalBase;
+    const author = ctx.config.author?.name;
+    const bio = ctx.config.author?.bio;
+    const lines: string[] = [site];
+    if (author && author !== site) {
+      lines.push(author);
+    }
+    const footerText = lines.join(" — ");
+    const children: IrNode[] = [
+      paragraphNode([textNode(`© ${year} ${footerText}`)]),
+    ];
+    if (bio) {
+      children.push(paragraphNode([textNode(bio)]));
+    }
+    if (url) {
+      children.push(paragraphNode([linkNode(url, [textNode(url)])]));
+    }
+    return [
+      {
+        type: "section",
+        className: "site-footer",
+        children,
+      },
     ];
   },
 

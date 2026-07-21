@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 
+import path from "node:path";
 import cac from "cac";
 import { startAllServers } from "./app.js";
 import { getConfig } from "./config.js";
 import { ingestUrl } from "./ingest/ingest-manager.js";
+import { scaffoldInit } from "./init.js";
 import { pushToRemote, syncTwoWay } from "./sync/sync-manager.js";
 import type { CliOptions } from "./types/config.js";
 
@@ -17,27 +19,6 @@ cli
   .option("--no-gopher", "Disable Gopher server")
   .help()
   .version("0.1.0");
-
-// Edit command
-cli
-  .command("edit", "Launch the TUI editor (default: local mode)")
-  .option(
-    "--remote",
-    "Run in remote mode (requires remote.url and remote.token in config)"
-  )
-  .action((options: { remote?: boolean }) => {
-    const mode = options.remote ? "remote" : "local";
-    const config = getConfig(process.cwd(), {} as CliOptions);
-    if (mode === "remote" && !config.remote?.url) {
-      console.error(
-        "Remote mode requires remote.url and remote.token in config.yml or .env"
-      );
-      process.exit(1);
-    }
-    import("./tui/index.js").then(({ startEditor }) => {
-      startEditor(config, mode);
-    });
-  });
 
 // Push command
 cli.command("push", "One-way upload to production server").action(() => {
@@ -56,6 +37,24 @@ cli.command("sync", "Two-way sync with production server").action(() => {
     process.exit(1);
   });
 });
+
+// Init command — scaffold a new Hypernext project
+cli
+  .command("init", "Scaffold a new Hypernext project")
+  .option("--path <dir>", "Project directory (default: current directory)")
+  .option("--force", "Overwrite existing files")
+  .option("--no-agent-skill", "Skip OpenCode agent skill setup")
+  .action(
+    (options: { path?: string; force?: boolean; agentSkill?: boolean }) => {
+      const projectDir = options.path
+        ? path.resolve(options.path)
+        : process.cwd();
+      scaffoldInit(projectDir, {
+        force: options.force ?? false,
+        skipAgentSkill: options.agentSkill === false,
+      });
+    }
+  );
 
 // Ingest command
 cli

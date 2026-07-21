@@ -1,0 +1,94 @@
+site:
+  canonicalBase: "http://localhost:8080"
+  meta:
+    title: "My Hypernext Site"
+    description: "A multi-protocol blog and static content library."
+    lang: "en"
+  theme:
+    cssPath: "./assets/style.css"
+  pdf:
+    enabled: true
+    cssPath: "./assets/pdf-style.css"
+  ebooks:
+    enabled: true
+
+author:
+  name: "Anonymous"
+  bio: "Hypernext author."
+
+storage:
+  type: local
+  local:
+    path: "./content"
+
+database:
+  type: sqlite
+  path: "./hypernext.db"
+
+api:
+  enabled: true
+
+collections:
+  blog:
+    path: "/blog/"
+    syndicate: true
+    rss: true
+    layout: "blog.mdx"
+  library:
+    path: "/library/"
+    syndicate: false
+    rss: false
+    layout: "library.mdx"
+
+taxonomies:
+  - name: tags
+    plural: tags
+    singular: tag
+  - name: categories
+    plural: categories
+    singular: category
+
+protocols:
+  http:
+    enabled: true
+    port: 8080
+  gemini:
+    enabled: true
+    port: 1965
+  gopher:
+    enabled: true
+    port: 70
+  spartan:
+    enabled: true
+    port: 300
+  nex:
+    enabled: true
+    port: 1900
+  finger:
+    enabled: true
+    port: 79
+  text:
+    enabled: true
+    port: 5011
+
+micropub:
+  enabled: true
+
+syndication: {}
+
+comments:
+  enabled: true
+  inbound:
+    webmention: true
+    pingback: true
+    trackback: false
+  aggregation:
+    mastodon: true
+    bluesky: true
+    cacheTtl: 900
+  akismet:
+    enabled: true
+
+mcp:
+  enabled: true
+  transport: stdio

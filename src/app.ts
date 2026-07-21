@@ -1,3 +1,8 @@
+import fs from "node:fs";
+import type net from "node:net";
+import path from "node:path";
+import type tls from "node:tls";
+import type { FastifyInstance } from "fastify";
 import { registerAiRoutes } from "./api/ai.js";
 import { registerApiAuthGuard } from "./api/auth.js";
 import { registerModerationRoutes } from "./api/moderation.js";
@@ -22,29 +27,37 @@ import { initLogger } from "./utils/logger.js";
 
 export async function startAllServers(config: HypernextConfig): Promise<void> {
   const { protocols } = config;
+  const servers: (net.Server | tls.Server | FastifyInstance)[] = [];
 
   // Initialize logger
   initLogger(config);
 
+  // Ensure database directory exists before any database operations
+  const dbPath = config.database.path;
+  if (dbPath && dbPath !== ":memory:") {
+    fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+  }
+
   // Start MCP server (stdio transport)
   startMcpServer(config);
 
-  // Initialize workmatic job queue
-  initWorkmatic(config);
-
-  // Initialize database
-  const { initOrm } = await import("./database/index.js");
+  // Initialize database first so MikroORM sets up WAL/busy_timeout pragmas
+  const { initOrm, closeOrm } = await import("./database/index.js");
   await initOrm(config.database.path);
 
+  // Initialize workmatic job queue (second connection to same file, WAL-safe)
+  initWorkmatic(config);
+
   // Start weekly digest cron if email is enabled
+  let digestInterval: ReturnType<typeof setInterval> | null = null;
   if (config.email?.enabled && config.email.newsletter) {
-    startDigestCron(config);
+    digestInterval = startDigestCron(config);
   }
 
   // Index all documents and watch for changes
   const { reindexAll, watchStorage } = await import("./indexer/index.js");
   await reindexAll(config);
-  watchStorage(config);
+  const unwatch = watchStorage(config);
 
   // Initialize vector table if AI is enabled
   if (config.ai?.enabled) {
@@ -54,6 +67,7 @@ export async function startAllServers(config: HypernextConfig): Promise<void> {
 
   if (protocols.http.enabled) {
     const fastify = await createHttpServer(config);
+    servers.push(fastify);
     registerIndieAuthRoutes(fastify, config);
     registerApiAuthGuard(fastify);
     registerApiRoutes(fastify, config);
@@ -65,40 +79,75 @@ export async function startAllServers(config: HypernextConfig): Promise<void> {
     registerInboundRoutes(fastify, config);
     registerMicropubEndpoint(fastify, config);
     registerAiRoutes(fastify, config);
-    fastify.listen({ port: protocols.http.port, host: "0.0.0.0" });
+    await fastify.listen({ port: protocols.http.port, host: "0.0.0.0" });
+    const addr = fastify.addresses();
+    console.log(
+      `HTTP server listening on ${addr.map((a) => `${a.address}:${a.port}`).join(", ")}`
+    );
   }
 
   if (protocols.gemini.enabled) {
-    startGeminiServer(config);
+    servers.push(startGeminiServer(config));
   }
 
   if (protocols.gopher.enabled) {
-    startGopherServer(config);
+    servers.push(startGopherServer(config));
   }
 
   if (protocols.spartan.enabled) {
-    startSpartanServer(config);
+    servers.push(startSpartanServer(config));
   }
 
   if (protocols.nex.enabled) {
-    startNexServer(config);
+    servers.push(startNexServer(config));
   }
 
   if (protocols.text.enabled) {
-    startTextServer(config);
+    servers.push(startTextServer(config));
   }
 
   if (protocols.finger.enabled) {
-    startFingerServer(config);
+    servers.push(startFingerServer(config));
   }
 
   // Graceful shutdown on SIGTERM/SIGINT
-  process.on("SIGTERM", () => {
+  const shutdown = async () => {
+    console.log("\nShutting down gracefully...");
+
+    // Stop file watcher
+    if (unwatch) {
+      unwatch();
+    }
+
+    // Stop digest cron
+    if (digestInterval) {
+      clearInterval(digestInterval);
+    }
+
+    // Close all servers
+    await Promise.allSettled(
+      servers.map((s) => {
+        if ("close" in s && typeof s.close === "function") {
+          return new Promise<void>((resolve) => {
+            s.close(() => resolve());
+          });
+        }
+        return Promise.resolve();
+      })
+    );
+
+    // Stop workmatic
+    const { stopWorkmatic } = await import("./federation/workmatic.js");
+    await stopWorkmatic();
+
+    // Close ORM
+    await closeOrm();
+
     process.exit(0);
-  });
-  process.on("SIGINT", () => {
-    process.exit(0);
-  });
+  };
+
+  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", shutdown);
 }
 
 const DAY_NAMES = [
@@ -111,10 +160,12 @@ const DAY_NAMES = [
   "saturday",
 ];
 
-function startDigestCron(config: HypernextConfig): void {
+function startDigestCron(
+  config: HypernextConfig
+): ReturnType<typeof setInterval> | null {
   const email = config.email;
   if (!email?.newsletter) {
-    return;
+    return null;
   }
   const schedule = email.newsletter.digestSchedule?.toLowerCase() ?? "friday";
   const timeStr = email.newsletter.digestTime ?? "09:00";
@@ -124,7 +175,7 @@ function startDigestCron(config: HypernextConfig): void {
   const targetDay = DAY_NAMES.indexOf(schedule);
 
   // Check every 60 seconds
-  setInterval(async () => {
+  return setInterval(async () => {
     const now = new Date();
     const dayName = DAY_NAMES[now.getDay()] ?? "";
     const matchesDay = targetDay === -1 || dayName === schedule;

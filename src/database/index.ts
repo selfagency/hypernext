@@ -32,8 +32,15 @@ export async function initOrm(dbName?: string): Promise<MikroORM> {
     dbName: resolvedDbName,
   });
   await ormInstance.schema.ensureDatabase();
-  const createSql = await ormInstance.schema.getCreateSchemaSQL();
-  await ormInstance.em.getConnection().executeDump(createSql);
+  try {
+    await ormInstance.schema.create();
+  } catch {
+    // Tables already exist — schema is up to date
+  }
+  // Set pragmas for concurrent access (workmatic shares the same file)
+  await ormInstance.em.getConnection().execute("PRAGMA busy_timeout = 5000");
+  await ormInstance.em.getConnection().execute("PRAGMA journal_mode = WAL");
+  await ormInstance.em.getConnection().execute("PRAGMA synchronous = NORMAL");
   // FTS5 virtual table + triggers (MikroORM doesn't support FTS5)
   await ormInstance.em.getConnection().executeDump(FTS5_SQL);
   return ormInstance;

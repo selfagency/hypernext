@@ -19,7 +19,7 @@ import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 import underPressure from "@fastify/under-pressure";
 import urlData from "@fastify/url-data";
-import Fastify from "fastify";
+import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import httpErrorsEnhanced from "fastify-http-errors-enhanced";
 import { recordPageview } from "../analytics/stats-manager.js";
 import { getCachedParse, setCachedParse } from "../cache.js";
@@ -30,7 +30,8 @@ import {
   isFutureDated,
   isFutureDatedFrontmatter,
 } from "../parser/frontmatter.js";
-import { parseToIR, resolveComponentNodes } from "../parser/pipeline.js";
+import { resolveLayoutWithComponents } from "../parser/layout.js";
+import { parseToIR } from "../parser/pipeline.js";
 import { registerWellKnownEndpoints } from "../renderers/agent-readiness.js";
 import { addContentSignalHeader } from "../renderers/content-signals.js";
 import { renderHTML } from "../renderers/html.js";
@@ -38,13 +39,66 @@ import { addLinkHeaders } from "../renderers/link-headers.js";
 import { renderLlmsTxt } from "../renderers/llms-txt.js";
 import { handleMarkdownNegotiation } from "../renderers/markdown-negotiation.js";
 import { renderRobotsTxt } from "../renderers/robots-txt.js";
+
 import { renderSecurityTxt } from "../renderers/security-txt.js";
 import { renderSitemap } from "../renderers/sitemap.js";
-import { getArchiveDocs, getAuthorDocs, getTaxonomyDocs } from "../router.js";
 import type { HypernextConfig } from "../types/config.js";
 
 const NOT_FOUND_HTML = "<h1>404 Not Found</h1>";
 const INDEX_MD_REGEX = /\/index\.md$/;
+
+async function handlePageRoute(
+  config: HypernextConfig,
+  request: FastifyRequest,
+  reply: FastifyReply,
+  slug: string
+): Promise<void> {
+  const fullSlug = slug;
+  const cached = getCachedParse(fullSlug);
+  if (cached) {
+    if (
+      isDocPrivateFrontmatter(cached.frontmatter) ||
+      isFutureDatedFrontmatter(cached.frontmatter)
+    ) {
+      reply.code(404).type("text/html").send(NOT_FOUND_HTML);
+      return;
+    }
+    addLinkHeaders(reply, config, fullSlug);
+    reply.type("text/html").send(renderHTML(cached, config, fullSlug));
+    return;
+  }
+
+  const doc = await getDocBySlug(fullSlug);
+  if (!doc) {
+    reply.code(404).type("text/html").send(NOT_FOUND_HTML);
+    return;
+  }
+  const rawMdx = (doc.rawMdx as string | undefined) ?? "";
+  if (isDocPrivate(rawMdx) || isFutureDated(rawMdx)) {
+    reply.code(404).type("text/html").send(NOT_FOUND_HTML);
+    return;
+  }
+  if (handleMarkdownNegotiation(request, reply, config, fullSlug, rawMdx)) {
+    return;
+  }
+  const result = await resolveLayoutWithComponents(
+    config,
+    { rawMdx, layout: doc.layout as string | undefined },
+    {
+      collection: undefined,
+      slug: fullSlug,
+      currentDocId: doc.id as number | undefined,
+    }
+  );
+  setCachedParse(fullSlug, result);
+  addLinkHeaders(reply, config, fullSlug);
+  reply.type("text/html").send(
+    renderHTML(result, config, fullSlug, {
+      contentCid: (doc.contentCid as string | undefined) ?? undefined,
+      htmlCid: (doc.htmlCid as string | undefined) ?? undefined,
+    })
+  );
+}
 
 export async function createHttpServer(config: HypernextConfig) {
   const fastify = Fastify({ logger: false });
@@ -152,20 +206,54 @@ export async function createHttpServer(config: HypernextConfig) {
   });
 
   // Home page
-  fastify.get("/", (_request, reply) => {
+  fastify.get("/", async (_request, reply) => {
     const cached = getCachedParse("index");
     if (cached) {
       addLinkHeaders(reply, config);
       reply.type("text/html").send(renderHTML(cached, config));
       return;
     }
-    const result = parseToIR(
-      `# ${config.site.meta.title}\n\n${config.site.meta.description}`
+    const rawMdx = `# ${config.site.meta.title}\n\n${config.site.meta.description}\n\n<PostList collection="blog" limit={20} />`;
+    const result = await resolveLayoutWithComponents(
+      config,
+      { rawMdx },
+      { slug: "index", currentDocId: undefined }
     );
     setCachedParse("index", result);
     addLinkHeaders(reply, config);
     reply.type("text/html").send(renderHTML(result, config));
   });
+
+  // Collection root routes (e.g., /blog/, /library/)
+  fastify.get<{ Params: { collection: string } }>(
+    "/:collection",
+    async (request, reply) => {
+      const { collection } = request.params;
+
+      // Check if this is a known collection
+      if (config.collections[collection]) {
+        const slug = collection;
+        const cached = getCachedParse(slug);
+        if (cached) {
+          addLinkHeaders(reply, config, slug);
+          reply.type("text/html").send(renderHTML(cached, config));
+          return;
+        }
+        const rawMdx = `<PostList collection="${collection}" limit={50} />`;
+        const result = await resolveLayoutWithComponents(
+          config,
+          { rawMdx },
+          { collection, slug, currentDocId: undefined }
+        );
+        setCachedParse(slug, result);
+        addLinkHeaders(reply, config, slug);
+        reply.type("text/html").send(renderHTML(result, config));
+        return;
+      }
+
+      return handlePageRoute(config, request, reply, collection);
+    }
+  );
 
   // Blog/library slug routes
   fastify.get<{ Params: { collection: string; slug: string } }>(
@@ -206,8 +294,15 @@ export async function createHttpServer(config: HypernextConfig) {
         return;
       }
 
-      const result = parseToIR(rawMdx, fullSlug);
-      await resolveComponentNodes(result.ir, config, fullSlug);
+      const result = await resolveLayoutWithComponents(
+        config,
+        { rawMdx, layout: doc.layout as string | undefined },
+        {
+          collection: collection as string | undefined,
+          slug: fullSlug,
+          currentDocId: doc.id as number | undefined,
+        }
+      );
       setCachedParse(fullSlug, result);
       addLinkHeaders(reply, config, fullSlug);
       reply.type("text/html").send(
@@ -233,7 +328,7 @@ export async function createHttpServer(config: HypernextConfig) {
   fastify.get<{ Params: { collection: string; year: string; month?: string } }>(
     "/:collection/archive/:year/:month?",
     async (request, reply) => {
-      const { year, month } = request.params;
+      const { year, month, collection } = request.params;
       const yearNum = Number(year);
       const monthNum = month ? Number(month) : undefined;
 
@@ -242,17 +337,17 @@ export async function createHttpServer(config: HypernextConfig) {
         return;
       }
 
-      const slugs = await getArchiveDocs(yearNum, monthNum);
-      const title = monthNum
-        ? `Archive: ${yearNum}/${String(monthNum).padStart(2, "0")}`
-        : `Archive: ${yearNum}`;
-      const body = slugs
-        .map((s) => `<li><a href="/${s}">${s}</a></li>`)
-        .join("\n");
-
-      reply.type("text/html").send(`<!DOCTYPE html>
-<html><head><title>${title}</title></head>
-<body><h1>${title}</h1><ul>${body}</ul></body></html>`);
+      const rawMdx = `<Archive filter="year:${yearNum}${monthNum ? `:${String(monthNum).padStart(2, "0")}` : ""}" limit={50} />`;
+      const result = await resolveLayoutWithComponents(
+        config,
+        { rawMdx },
+        {
+          collection,
+          slug: `${collection}/archive/${year}${month ? `/${month}` : ""}`,
+          currentDocId: undefined,
+        }
+      );
+      reply.type("text/html").send(renderHTML(result, config));
     }
   );
 
@@ -277,8 +372,15 @@ export async function createHttpServer(config: HypernextConfig) {
         reply.code(404).type("text/html").send(NOT_FOUND_HTML);
         return;
       }
-      const result = parseToIR(rawMdx, fullSlug);
-      await resolveComponentNodes(result.ir, config, fullSlug);
+      const result = await resolveLayoutWithComponents(
+        config,
+        { rawMdx, layout: doc.layout as string | undefined },
+        {
+          collection: collection as string | undefined,
+          slug: fullSlug,
+          currentDocId: doc.id as number | undefined,
+        }
+      );
       setCachedParse(fullSlug, result);
       addLinkHeaders(reply, config, fullSlug);
       reply.type("text/html").send(
@@ -290,31 +392,35 @@ export async function createHttpServer(config: HypernextConfig) {
       return;
     }
 
-    const slugs = await getTaxonomyDocs(taxonomy, term);
-    const title = `${taxConfig.singular}: ${term}`;
-    const body = slugs
-      .map((s) => `<li><a href="/${s}">${s}</a></li>`)
-      .join("\n");
-
-    reply.type("text/html").send(`<!DOCTYPE html>
-<html><head><title>${title}</title></head>
-<body><h1>${title}</h1><ul>${body}</ul></body></html>`);
+    const rawMdx = `<Archive filter="taxonomy:${taxonomy}:${term}" limit={50} />`;
+    const result = await resolveLayoutWithComponents(
+      config,
+      { rawMdx },
+      {
+        collection,
+        slug: `${collection}/${taxonomy}/${term}`,
+        currentDocId: undefined,
+      }
+    );
+    reply.type("text/html").send(renderHTML(result, config));
   });
 
   // Author routes
   fastify.get<{ Params: { collection: string; author: string } }>(
     "/:collection/authors/:author",
     async (request, reply) => {
-      const { author } = request.params;
-      const slugs = await getAuthorDocs(author);
-      const title = `Author: ${author}`;
-      const body = slugs
-        .map((s) => `<li><a href="/${s}">${s}</a></li>`)
-        .join("\n");
-
-      reply.type("text/html").send(`<!DOCTYPE html>
-<html><head><title>${title}</title></head>
-<body><h1>${title}</h1><ul>${body}</ul></body></html>`);
+      const { collection, author } = request.params;
+      const rawMdx = `<Archive filter="author:${author}" limit={50} />`;
+      const result = await resolveLayoutWithComponents(
+        config,
+        { rawMdx },
+        {
+          collection,
+          slug: `${collection}/authors/${author}`,
+          currentDocId: undefined,
+        }
+      );
+      reply.type("text/html").send(renderHTML(result, config));
     }
   );
 

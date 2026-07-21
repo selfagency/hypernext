@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+
 import { invalidateAll } from "../cache.js";
 import { DocMeta } from "../database/entities/doc-meta.js";
 import { Term } from "../database/entities/term.js";
@@ -14,7 +15,7 @@ import { parseToIR } from "../parser/pipeline.js";
 import { createStorage } from "../storage/index.js";
 import type { HypernextConfig } from "../types/config.js";
 
-const MDX_EXT_REGEX = /\.mdx$/;
+const MD_EXT_REGEX = /\.mdx?$/;
 const BACKSLASH_REGEX = /\\/g;
 
 export async function indexDocument(
@@ -90,12 +91,12 @@ export function watchStorage(config: HypernextConfig): () => void {
     storagePath,
     { recursive: true },
     (eventType, filename) => {
-      if (!filename?.endsWith(".mdx")) {
+      if (!(filename?.endsWith(".mdx") || filename?.endsWith(".md"))) {
         return;
       }
 
       const slug = filename
-        .replace(MDX_EXT_REGEX, "")
+        .replace(MD_EXT_REGEX, "")
         .replace(BACKSLASH_REGEX, "/");
       const fullPath = path.join(storagePath, filename);
 

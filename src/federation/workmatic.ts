@@ -10,16 +10,12 @@ import { fetchBlueskyReplies, fetchMastodonReplies } from "./posse-replies.js";
 
 let orchestrator: ReturnType<typeof createOrchestrator> | null = null;
 
-const DB_EXT_REGEX = /\.db$/;
-
 export function initWorkmatic(config: HypernextConfig): void {
   if (orchestrator) {
     return;
   }
 
-  const db = createDatabase({
-    filename: `${config.database.path.replace(DB_EXT_REGEX, "")}-jobs.db`,
-  });
+  const db = createDatabase({ filename: config.database.path });
 
   orchestrator = createOrchestrator({ db });
 

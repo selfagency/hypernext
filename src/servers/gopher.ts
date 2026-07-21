@@ -2,7 +2,7 @@ import net from "node:net";
 import { recordPageview } from "../analytics/stats-manager.js";
 import { getDocBySlug, listDocSlugs } from "../database/index.js";
 import { isDocPrivate, isFutureDated } from "../parser/frontmatter.js";
-import { parseToIR, resolveComponentNodes } from "../parser/pipeline.js";
+import { resolveLayoutWithComponents } from "../parser/layout.js";
 import { renderGemtext } from "../renderers/gemtext.js";
 import type { HypernextConfig } from "../types/config.js";
 
@@ -68,8 +68,11 @@ async function handleGopherRequest(
     return;
   }
 
-  const result = parseToIR(rawMdx, cleaned);
-  await resolveComponentNodes(result.ir, config, cleaned);
+  const result = await resolveLayoutWithComponents(
+    config,
+    { rawMdx, layout: doc.layout as string | undefined },
+    { slug: cleaned, currentDocId: doc.id as number | undefined }
+  );
 
   const text = renderGemtext(result.ir);
   socket.end(`${text}\r\n.\r\n`);

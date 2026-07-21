@@ -21,7 +21,13 @@ export type IrNodeType =
   | "inlineMath"
   | "component"
   | "section"
-  | "mention";
+  | "aside"
+  | "footer"
+  | "header"
+  | "main"
+  | "time"
+  | "mention"
+  | "nav";
 
 export interface IrNode {
   align?: ("left" | "center" | "right")[];
@@ -34,6 +40,7 @@ export interface IrNode {
   componentName?: string;
   componentProps?: Record<string, unknown>;
   content?: string;
+  datetime?: string;
   depth?: number;
   id?: string;
   lang?: string;
