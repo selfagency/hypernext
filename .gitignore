@@ -332,4 +332,8 @@ db/
 config.yml
 
 # Local development certificates
-certs/test-report.junit.xml
+certs/
+
+# Test reports and coverage
+test-report*.xml
+coverage/
