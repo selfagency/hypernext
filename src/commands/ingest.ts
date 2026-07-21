@@ -1,8 +1,8 @@
 import { Args, Flags } from "@oclif/core";
 import { getConfig } from "../config.js";
 import { ingestUrl } from "../ingest/ingest-manager.js";
+import BaseCommand from "../lib/base-command.js";
 import type { CliOptions } from "../types/config.js";
-import BaseCommand from "./base.js";
 
 export default class Ingest extends BaseCommand {
   static summary = "Fetch a URL and convert to MDX";

@@ -1,7 +1,7 @@
 import { getConfig } from "../config.js";
+import BaseCommand from "../lib/base-command.js";
 import { syncTwoWay } from "../sync/sync-manager.js";
 import type { CliOptions } from "../types/config.js";
-import BaseCommand from "./base.js";
 
 export default class Sync extends BaseCommand {
   static summary = "Sync with production server";

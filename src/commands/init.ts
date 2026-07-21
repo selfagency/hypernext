@@ -2,7 +2,7 @@ import path from "node:path";
 
 import { Flags } from "@oclif/core";
 import { scaffoldInit } from "../init.js";
-import BaseCommand from "./base.js";
+import BaseCommand from "../lib/base-command.js";
 
 export default class Init extends BaseCommand {
   static summary = "Scaffold a new project";

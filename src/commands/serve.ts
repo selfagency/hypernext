@@ -1,8 +1,8 @@
 import { Flags } from "@oclif/core";
 import { startAllServers } from "../app.js";
 import { getConfig } from "../config.js";
+import BaseCommand from "../lib/base-command.js";
 import type { CliOptions } from "../types/config.js";
-import BaseCommand from "./base.js";
 
 export default class Serve extends BaseCommand {
   static summary = "Start protocol servers";
