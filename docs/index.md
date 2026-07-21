@@ -41,7 +41,7 @@ Hypernext transforms MDX files into a unified interface accessible via HTTP, RES
 ```bash
 npx hypernext init
 cd my-site
-npx hypernext
+npx hypernext serve
 ```
 
 ## Supported Protocols

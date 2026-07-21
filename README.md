@@ -11,7 +11,7 @@ Hypernext transforms Markdown files (`.md` and `.mdx`) into a unified interface 
 ### npx (no install)
 
 ```bash
-npx @selfagency/hypernext
+npx @selfagency/hypernext serve
 ```
 
 This starts all protocol servers with sensible defaults, creating a `content/` directory and `config.yml` on first run.
@@ -19,7 +19,13 @@ This starts all protocol servers with sensible defaults, creating a `content/` d
 ### Docker
 
 ```bash
-docker run -p 8080:8080 -v ./content:/app/content -v ./config.yml:/app/config.yml ghcr.io/selfagency/hypernext
+docker run -p 8080:8080 -v ./content:/app/content -v ./config.yml:/app/config.yml ghcr.io/selfagency/hypernext serve
+```
+
+Use `--project` to specify a different project directory:
+
+```bash
+hypernext serve --project /path/to/my-site
 ```
 
 See [Deployment](docs/deployment.md) for Docker Compose variants (S3, env file).

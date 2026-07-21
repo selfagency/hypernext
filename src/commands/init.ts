@@ -1,13 +1,15 @@
 import path from "node:path";
 
-import { Command, Flags } from "@oclif/core";
+import { Flags } from "@oclif/core";
 import { scaffoldInit } from "../init.js";
+import BaseCommand from "./base.js";
 
-export default class Init extends Command {
+export default class Init extends BaseCommand {
   static summary = "Scaffold a new project";
   static description = "Create a new Hypernext project with default structure";
 
   static flags = {
+    ...BaseCommand.flags,
     path: Flags.string({
       summary: "Project directory",
       description: "Project directory (default: current directory)",

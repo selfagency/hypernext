@@ -1,9 +1,10 @@
-import { Args, Command, Flags } from "@oclif/core";
+import { Args, Flags } from "@oclif/core";
 import { getConfig } from "../config.js";
 import { ingestUrl } from "../ingest/ingest-manager.js";
 import type { CliOptions } from "../types/config.js";
+import BaseCommand from "./base.js";
 
-export default class Ingest extends Command {
+export default class Ingest extends BaseCommand {
   static summary = "Fetch a URL and convert to MDX";
   static description = "Fetch a remote URL and convert its content to MDX";
 
@@ -12,6 +13,7 @@ export default class Ingest extends Command {
   };
 
   static flags = {
+    ...BaseCommand.flags,
     collection: Flags.string({
       summary: "Target collection",
       default: "library",
@@ -24,7 +26,7 @@ export default class Ingest extends Command {
 
   async run(): Promise<void> {
     const { args, flags } = await this.parse(Ingest);
-    const config = getConfig(process.cwd(), {} as CliOptions);
+    const config = getConfig(this.getProjectDir(flags), {} as CliOptions);
     try {
       const slug = await ingestUrl(
         {

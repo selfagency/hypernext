@@ -17,4 +17,4 @@ COPY --from=builder /app/assets ./assets
 # Templates are bundled in dist via default-templates.ts
 EXPOSE 8080 1965 70 300 1900 79 5011
 USER node
-CMD ["node", "dist/bin.js"]
+CMD ["node", "dist/bin.js", "serve"]

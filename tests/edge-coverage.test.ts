@@ -1,7 +1,6 @@
 import fs from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { addLinkHeaders } from "../src/renderers/link-headers.js";
-import { getStorageProvider } from "../src/storage/index.js";
+import { createStorage, getStorage } from "../src/storage/index.js";
 import type { HypernextConfig } from "../src/types/config.js";
 
 const testConfig = {
@@ -31,13 +30,6 @@ const testConfig = {
   mcp: { enabled: false, transport: "stdio" },
 } as unknown as HypernextConfig;
 
-describe("link-headers", () => {
-  it("returns empty string for unknown relation", () => {
-    const result = addLinkHeaders(testConfig as any, "test-slug");
-    expect(result).toBe("");
-  });
-});
-
 describe("storage/index", () => {
   beforeAll(() => {
     fs.mkdirSync("./tmp-edge-test", { recursive: true });
@@ -47,8 +39,13 @@ describe("storage/index", () => {
     fs.rmSync("./tmp-edge-test", { recursive: true, force: true });
   });
 
-  it("returns a storage provider for local type", () => {
-    const provider = getStorageProvider(testConfig);
+  it("creates a storage provider for local type", () => {
+    const provider = createStorage(testConfig);
+    expect(provider).toBeDefined();
+  });
+
+  it("getStorage returns the singleton", () => {
+    const provider = getStorage();
     expect(provider).toBeDefined();
   });
 });

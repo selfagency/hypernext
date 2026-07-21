@@ -1,25 +1,19 @@
-import path from "node:path";
-
-import { Command, Flags } from "@oclif/core";
+import { Flags } from "@oclif/core";
 import { startAllServers } from "../app.js";
 import { getConfig } from "../config.js";
 import type { CliOptions } from "../types/config.js";
+import BaseCommand from "./base.js";
 
-export default class Serve extends Command {
+export default class Serve extends BaseCommand {
   static summary = "Start protocol servers";
   static description =
     "Start all Hypernext protocol servers (HTTP, Gemini, Gopher, Spartan, NEX, Finger, Text, MCP)";
 
   static flags = {
+    ...BaseCommand.flags,
     port: Flags.integer({
       summary: "Override HTTP server port",
       env: "HYPERNEXT_PORT",
-    }),
-    project: Flags.string({
-      summary: "Project root directory",
-      description:
-        "Project root directory containing config.yml (default: current directory)",
-      env: "HYPERNEXT_PROJECT",
     }),
     http: Flags.boolean({
       summary: "Enable HTTP",
@@ -85,7 +79,7 @@ export default class Serve extends Command {
       mcp: flags.mcp,
     };
 
-    const rootDir = flags.project ? path.resolve(flags.project) : process.cwd();
+    const rootDir = this.getProjectDir(flags);
 
     try {
       const config = getConfig(rootDir, cliOptions);
