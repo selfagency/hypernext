@@ -48,7 +48,7 @@ jobs:
           annotations: true
           comment: true
           review-comments: true
-          args: --coverage ${{ github.workspace }}/lcov.info
+          args: --coverage ${{ github.workspace }}/coverage/lcov.info
           max-annotations: 50
           gate: new-only
       
