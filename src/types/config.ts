@@ -225,6 +225,7 @@ export interface EmailConfig {
   contactForm: ContactFormConfig;
   enabled: boolean;
   from: EmailFromConfig;
+  mailpit?: boolean;
   newsletter: NewsletterConfig;
   replyTo: string;
   smtp: SmtpConfig;

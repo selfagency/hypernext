@@ -99,6 +99,30 @@ micropub:
 
 syndication: {}
 
+email:
+  enabled: true
+  mailpit: true
+  from:
+    name: "Hypernext"
+    address: "noreply@localhost"
+  replyTo: "noreply@localhost"
+  subjectPrefix: "[Hypernext]"
+  transport: smtp
+  smtp:
+    host: localhost
+    port: 1025
+    secure: false
+    user: ""
+    pass: ""
+  newsletter:
+    digestSchedule: "0 8 * * 1"
+    digestTime: "08:00"
+  contactForm:
+    enabled: false
+    recipient: ""
+    akismet: false
+    captcha: false
+
 comments:
   enabled: true
   inbound:

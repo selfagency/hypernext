@@ -11,6 +11,19 @@ function createTransport(config: HypernextConfig): SmtpTransport {
   if (!emailCfg) {
     throw new Error("Email not configured");
   }
+
+  // When mailpit mode is enabled, override SMTP to Mailpit defaults
+  // (localhost:1025, no auth, no TLS) so developers don't need to manually
+  // configure SMTP for local testing.
+  if (emailCfg.mailpit) {
+    return new SmtpTransport({
+      host: "localhost",
+      port: 1025,
+      secure: false,
+      auth: { user: "", pass: "" },
+    });
+  }
+
   return new SmtpTransport({
     host: emailCfg.smtp.host,
     port: emailCfg.smtp.port,
