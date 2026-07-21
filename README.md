@@ -2,7 +2,7 @@
 
 **Multi-Protocol Markdown Document Server and IndieWeb Publishing Engine**
 
-Hypernext transforms MD and MDX files into a unified interface accessible via HTTP, REST API, Gemini, Gopher, Spartan, NEX, Text Protocol, Finger, RSS, PDF, and EPUB. It runs as a single Node.js process with zero external daemons — designed for a $5 VPS.
+Hypernext transforms Markdown files (`.md` and `.mdx`) into a unified interface accessible via HTTP, REST API, Gemini, Gopher, Spartan, NEX, Text Protocol, Finger, RSS, PDF, and EPUB. It runs as a single Node.js process with zero external daemons — designed for a $5 VPS.
 
 [![CI](https://github.com/selfagency/hypernext/actions/workflows/ci.yml/badge.svg)](https://github.com/selfagency/hypernext/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/selfagency/hypernext/graph/badge.svg?token=UcOYEBhPq8)](https://codecov.io/gh/selfagency/hypernext) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/910ea1fed1da4965abed0b211350e95b)](https://app.codacy.com/gh/selfagency/hypernext/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade) [![Quality gate status](https://sonarcloud.io/api/project_badges/measure?project=selfagency_hypernext&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=selfagency_hypernext)
 

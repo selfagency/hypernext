@@ -126,7 +126,7 @@ function setupAgentSkill(projectDir: string, force: boolean): void {
     path.join(agentDir, "core", "project-intelligence", "architecture.md"),
     `# Architecture
 
-Hypernext is a TypeScript-based, multi-protocol MDX document server. It transforms MDX files into a unified interface accessible via HTTP, Gemini, Gopher, Spartan, NEX, Text Protocol, Finger, RSS, PDF, and EPUB.
+Hypernext is a TypeScript-based, multi-protocol Markdown document server. It transforms Markdown files (.md and .mdx) into a unified interface accessible via HTTP, Gemini, Gopher, Spartan, NEX, Text Protocol, Finger, RSS, PDF, and EPUB.
 
 ## Key directories
 
