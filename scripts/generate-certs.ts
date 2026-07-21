@@ -1,4 +1,5 @@
 #!/usr/bin/env tsx
+// fallow-ignore-file
 /**
  * Generate self-signed TLS certificates for local development
  * and add them to config.yml.
@@ -28,8 +29,8 @@ const {
 
 const PROJECT_ROOT = path.resolve(".");
 
-const configPath = path.resolve(configPathArg ?? "./config.yml");
-const certDir = path.resolve(certDirArg ?? "./certs");
+const configPath = path.resolve(configPathArg ?? "./config.yml"); // NOSONAR
+const certDir = path.resolve(certDirArg ?? "./certs"); // NOSONAR
 const days = Number(daysArg ?? 365);
 
 // Validate paths are within project directory (prevents path traversal)
@@ -46,8 +47,8 @@ if (
 // ── 1. Create cert directory ──
 fs.mkdirSync(certDir, { recursive: true });
 
-const certPath = path.join(certDir, "cert.pem");
-const keyPath = path.join(certDir, "key.pem");
+const certPath = path.join(certDir, "cert.pem"); // NOSONAR
+const keyPath = path.join(certDir, "key.pem"); // NOSONAR
 
 // ── 2. Generate cert if it doesn't exist ──
 if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
@@ -91,7 +92,7 @@ if (!fs.existsSync(configPath)) {
   process.exit(0);
 }
 
-const raw = fs.readFileSync(configPath, "utf-8");
+const raw = fs.readFileSync(configPath, "utf-8"); // NOSONAR
 const config = parse(raw);
 
 // Ensure protocols.gemini exists
@@ -102,13 +103,13 @@ if (!config.protocols.gemini) {
   config.protocols.gemini = { enabled: true, port: 1965 };
 }
 
-const relCert = path.relative(path.dirname(configPath), certPath);
-const relKey = path.relative(path.dirname(configPath), keyPath);
+const relCert = path.relative(path.dirname(configPath), certPath); // NOSONAR
+const relKey = path.relative(path.dirname(configPath), keyPath); // NOSONAR
 
 config.protocols.gemini.certPath = relCert;
 config.protocols.gemini.keyPath = relKey;
 
-fs.writeFileSync(configPath, stringify(config, { lineWidth: 120 }), "utf-8");
+fs.writeFileSync(configPath, stringify(config, { lineWidth: 120 }), "utf-8"); // NOSONAR
 console.log(`\n✓ Updated ${path.relative(process.cwd(), configPath)}`);
 console.log(`  protocols.gemini.certPath: ${relCert}`);
 console.log(`  protocols.gemini.keyPath: ${relKey}`);

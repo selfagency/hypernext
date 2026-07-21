@@ -1,4 +1,4 @@
-// fallow-ignore-file circular-dependency — dynamic imports of pipeline.ts are safe; they execute after module initialization
+// fallow-ignore-file circular-dependency
 import {
   getDocBySlug,
   getEm,

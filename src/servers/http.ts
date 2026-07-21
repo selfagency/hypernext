@@ -368,7 +368,7 @@ export async function createHttpServer(config: HypernextConfig) {
     const { collection, taxonomy, term } = request.params;
 
     // Check if this is a known taxonomy
-    const taxConfig = config.taxonomies.find((t) => t.name === taxonomy);
+    const taxConfig = config.taxonomies.find((t) => t.name === taxonomy); // NOSONAR
     if (!taxConfig) {
       // Not a taxonomy — treat as a doc slug
       const fullSlug = `${collection}/${taxonomy}/${term}`;

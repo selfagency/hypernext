@@ -5,6 +5,7 @@ Pipeline: `loadYAML → envSubst → parse → validate → mergeCliOverrides`
 Env var substitution uses `${VAR}` syntax in YAML values.
 
 Required keys (throws at startup if missing):
+
 - `site.canonicalBase`, `site.meta.title`, `storage`, `database`
 
 ## Sections

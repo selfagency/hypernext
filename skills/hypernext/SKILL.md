@@ -1,5 +1,6 @@
 ---
 name: hypernext
+author: Hypernext Team
 description: Configuration, deployment, and management for the Hypernext multi-protocol MDX document server. All renderers (HTTP, Gemini, Gopher, Spartan, NEX, Text, Finger) consume the same MDX content parsed into a common Intermediate Representation (IR) and translate it into each protocol's format. Use when the user asks to: (1) set up or modify config.yml, (2) deploy with Docker Compose or Node.js, (3) configure HTTP/Gemini/Gopher/Spartan/NEX/Text/Finger protocol servers, (4) set up local/S3/IPFS storage, (5) connect a database, (6) configure the REST API, (7) enable POSSE syndication to Mastodon or Bluesky, (8) set up ActivityPub federation, (9) configure the MCP server for AI agent access, (10) enable agent-readiness features (llms.txt, sitemap, robots.txt), (11) set up email newsletter and SMTP, (12) configure comment moderation and blocklists, (13) enable AI features (semantic search, RAG, auto-tagging), (14) configure IPFS pinning, (15) set up remote push/sync, (16) manage content collections and taxonomies, (17) set up OpenTelemetry and logging, (18) configure IndieAuth and Micropub, (19) schedule content publishing, or (20) configure security.txt and content signals.
 ---
 

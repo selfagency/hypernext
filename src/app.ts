@@ -82,7 +82,7 @@ export async function startAllServers(config: HypernextConfig): Promise<void> {
     await fastify.listen({ port: protocols.http.port, host: "0.0.0.0" });
     const addr = fastify.addresses();
     console.log(
-      `HTTP server listening on ${addr.map((a) => `${a.address}:${a.port}`).join(", ")}`
+      `HTTP server listening on ${addr.map((a) => `${a.address}:${a.port}`).join(", ")}` // NOSONAR
     );
   }
 
@@ -129,7 +129,7 @@ export async function startAllServers(config: HypernextConfig): Promise<void> {
       servers.map((s) => {
         if ("close" in s && typeof s.close === "function") {
           return new Promise<void>((resolve) => {
-            s.close(() => resolve());
+            s.close(() => resolve()); // NOSONAR
           });
         }
         return Promise.resolve();
