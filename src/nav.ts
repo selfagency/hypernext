@@ -16,7 +16,7 @@ export async function buildNav(config?: HypernextConfig): Promise<NavEntry[]> {
   // Show non-post pages (no collection slug, not type=post)
   const visible = rows
     .filter((row) => {
-      const hasCollection = row.slug.indexOf("/") !== -1;
+      const hasCollection = row.slug.includes("/");
       if (hasCollection) {
         return false;
       }

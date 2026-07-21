@@ -117,7 +117,7 @@ function wrapSkeleton(
     mainContent.push({
       type: "section",
       className: "h-entry",
-      id: slug.replace(/\//g, "-"),
+      id: slug.replaceAll("/", "-"),
       children: [
         componentNode("Title"),
         componentNode("PostMeta"),

@@ -343,13 +343,17 @@ export async function createHttpServer(config: HypernextConfig) {
         return;
       }
 
-      const rawMdx = `<Archive filter="year:${yearNum}${monthNum ? `:${String(monthNum).padStart(2, "0")}` : ""}" limit={50} />`;
+      const filterSuffix = monthNum
+        ? `:${String(monthNum).padStart(2, "0")}`
+        : "";
+      const rawMdx = `<Archive filter="year:${yearNum}${filterSuffix}" limit={50} />`;
+      const slugSuffix = month ? `/${month}` : "";
       const result = await resolveLayoutWithComponents(
         config,
         { rawMdx },
         {
           collection,
-          slug: `${collection}/archive/${year}${month ? `/${month}` : ""}`,
+          slug: `${collection}/archive/${year}${slugSuffix}`,
           currentDocId: undefined,
         }
       );
