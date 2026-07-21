@@ -32,4 +32,23 @@ jobs:
         uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3 # v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+      - if: always() && hashFiles('packages/*/test-report.junit.xml') != ''
+        uses: dorny/test-reporter@4a2e97665d5fa767581ef38eca97b9694bd4eef4 # v2
+        with:
+          path: "test-report.junit.xml"
+          reporter: java-junit
+          name: Vitest Tests
+          use-actions-summary: "true"
+          fail-on-empty: "false"
+      - uses: fallow-rs/fallow@v3
+        if: always() && hashFiles('coverage/lcov.info') != ''
+        with:
+          command: audit
+          format: sarif
+          annotations: true
+          comment: true
+          review-comments: true
+          args: --coverage ${{ github.workspace }}/lcov.info
+          max-annotations: 50
+          gate: new-only
       
