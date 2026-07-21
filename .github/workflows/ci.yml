@@ -40,7 +40,7 @@ jobs:
           name: Vitest Tests
           use-actions-summary: "true"
           fail-on-empty: "false"
-      - uses: fallow-rs/fallow@v3
+      - uses: fallow-rs/fallow@5988b978230134388b89060a39707a501211085a # v3
         if: always() && hashFiles('coverage/lcov.info') != ''
         with:
           command: audit
