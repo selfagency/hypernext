@@ -48,9 +48,26 @@ describe("scaffoldInit", () => {
   it("creates sample content", () => {
     scaffoldInit(tmpDir, { force: false, skipAgentSkill: true });
     expect(
-      fs.existsSync(path.join(tmpDir, "content", "blog", "hello-world.mdx"))
+      fs.existsSync(path.join(tmpDir, "content", "blog", "getting-started.mdx"))
+    ).toBe(true);
+    expect(
+      fs.existsSync(path.join(tmpDir, "content", "blog", "markdown-basics.mdx"))
+    ).toBe(true);
+    expect(
+      fs.existsSync(path.join(tmpDir, "content", "blog", "using-templates.mdx"))
     ).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, "content", "about.mdx"))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, "content", "projects.mdx"))).toBe(
+      true
+    );
+    expect(
+      fs.existsSync(
+        path.join(tmpDir, "content", "notes", "protocol-overview.mdx")
+      )
+    ).toBe(true);
+    expect(
+      fs.existsSync(path.join(tmpDir, "content", "notes", "cli-reference.mdx"))
+    ).toBe(true);
   });
 
   it("does not overwrite existing files without force", () => {
