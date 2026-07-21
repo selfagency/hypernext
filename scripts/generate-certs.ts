@@ -26,9 +26,20 @@ const {
   },
 });
 
+const PROJECT_ROOT = path.resolve(".");
+
+function isWithinProject(filePath: string): boolean {
+  return path.resolve(filePath).startsWith(PROJECT_ROOT);
+}
+
 const configPath = path.resolve(configPathArg ?? "./config.yml");
 const certDir = path.resolve(certDirArg ?? "./certs");
 const days = Number(daysArg ?? 365);
+
+if (!(isWithinProject(configPath) && isWithinProject(certDir))) {
+  console.error("Error: paths must be within the project directory");
+  process.exit(1);
+}
 
 // ── 1. Create cert directory ──
 fs.mkdirSync(certDir, { recursive: true });
@@ -42,7 +53,22 @@ if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
 } else {
   console.log(`Generating self-signed certificate (${days} days)...`);
   execSync(
-    `openssl req -x509 -newkey rsa:2048 -keyout ${keyPath} -out ${certPath} -days ${days} -nodes -subj "/CN=localhost"`,
+    "openssl",
+    [
+      "req",
+      "-x509",
+      "-newkey",
+      "rsa:2048",
+      "-keyout",
+      keyPath,
+      "-out",
+      certPath,
+      "-days",
+      String(days),
+      "-nodes",
+      "-subj",
+      "/CN=localhost",
+    ],
     { stdio: "inherit" }
   );
   console.log(`✓ Created ${certPath}`);
