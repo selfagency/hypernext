@@ -85,6 +85,7 @@
     "@opentelemetry/exporter-trace-otlp-proto": "^0.220.0",
     "@opentelemetry/sdk-trace-base": "^2.9.0",
     "@opentelemetry/sdk-trace-node": "^2.9.0",
+    "@picocss/pico": "^2.1.1",
     "@upyo/core": "^0.5.1",
     "@upyo/smtp": "^0.5.1",
     "better-sqlite3": "^12.11.1",

@@ -1,7 +1,7 @@
 import type { MikroORM } from "@mikro-orm/sqlite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { closeOrm, getDocBySlug, initOrm, insertDoc } from "../src/database";
-import { resolveComponent } from "../src/parser/components";
+import { resolveComponent } from "../src/parser/resolver";
 import type { HypernextConfig } from "../src/types/config";
 
 const testConfig: HypernextConfig = {

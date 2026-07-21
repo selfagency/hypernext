@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { getEm, initOrm } from "../src/database/index.js";
-import { resolveComponent } from "../src/parser/components.js";
+import { resolveComponent } from "../src/parser/resolver.js";
 import type { HypernextConfig } from "../src/types/config.js";
 
 const testConfig: HypernextConfig = {

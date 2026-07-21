@@ -609,11 +609,14 @@ export function renderHTML(
   <link rel="canonical" href="${escapeAttr(canonicalUrl)}" />${ipfsMetaTags}
   ${ogTags.join("\n  ")}
   ${buildJsonLd(config, frontmatter, slug)}
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
   ${cssPath ? `<link rel="stylesheet" href="${escapeAttr(cssPath)}" />` : ""}
   ${viewTransitionCss}
 </head>
 <body>${agentDirective}
-  ${body}
+  <main class="container">
+    ${body}
+  </main>
 </body>
 </html>`;
 }

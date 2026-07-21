@@ -101,6 +101,9 @@ importers:
       '@opentelemetry/sdk-trace-node':
         specifier: ^2.9.0
         version: 2.9.0(@opentelemetry/api@1.9.1)
+      '@picocss/pico':
+        specifier: ^2.1.1
+        version: 2.1.1
       '@upyo/core':
         specifier: ^0.5.1
         version: 0.5.1
@@ -1345,6 +1348,9 @@ packages:
 
   '@oxc-project/types@0.139.0':
     resolution: {integrity: sha512-r9gHphtCs+1M7J0pw6Sn/hh/Wpa/iQrOOkrNAlVLF/gHq+/CJmHIWKKUUhdWjcD6CIa8idarspCsASiXCXvFUw==}
+
+  '@picocss/pico@2.1.1':
+    resolution: {integrity: sha512-kIDugA7Ps4U+2BHxiNHmvgPIQDWPDU4IeU6TNRdvXQM1uZX+FibqDQT2xUOnnO2yq/LUHcwnGlu1hvf4KfXnMg==}
 
   '@pinojs/redact@0.4.0':
     resolution: {integrity: sha512-k2ENnmBugE/rzQfEcdWHcCY+/FM3VLzH9cYEsbdsoqrvzAKRhUZeRNhAZvB8OitQJ1TBed3yqWtdjzS6wJKBwg==}
@@ -6061,6 +6067,8 @@ snapshots:
   '@opentelemetry/semantic-conventions@1.43.0': {}
 
   '@oxc-project/types@0.139.0': {}
+
+  '@picocss/pico@2.1.1': {}
 
   '@pinojs/redact@0.4.0': {}
 
