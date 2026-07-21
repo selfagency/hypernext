@@ -3,9 +3,9 @@ import path from "node:path";
 import { Command, Flags } from "@oclif/core";
 
 export default abstract class BaseCommand extends Command {
-  static hidden = true;
+  static readonly hidden = true;
 
-  static flags = {
+  static readonly flags = {
     project: Flags.string({
       summary: "Project root directory",
       description:

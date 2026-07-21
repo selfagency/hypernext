@@ -5,10 +5,11 @@ import { scaffoldInit } from "../init.js";
 import BaseCommand from "../lib/base-command.js";
 
 export default class Init extends BaseCommand {
-  static summary = "Scaffold a new project";
-  static description = "Create a new Hypernext project with default structure";
+  static readonly summary = "Scaffold a new project";
+  static readonly description =
+    "Create a new Hypernext project with default structure";
 
-  static flags = {
+  static readonly flags = {
     ...BaseCommand.flags,
     path: Flags.string({
       summary: "Project directory",

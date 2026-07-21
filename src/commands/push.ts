@@ -4,7 +4,7 @@ import { pushToRemote } from "../sync/sync-manager.js";
 import type { CliOptions } from "../types/config.js";
 
 export default class Push extends BaseCommand {
-  static summary = "Upload to production server";
+  static readonly summary = "Upload to production server";
 
   async run(): Promise<void> {
     const { flags } = await this.parse(Push);

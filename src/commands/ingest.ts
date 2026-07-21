@@ -5,14 +5,15 @@ import BaseCommand from "../lib/base-command.js";
 import type { CliOptions } from "../types/config.js";
 
 export default class Ingest extends BaseCommand {
-  static summary = "Fetch a URL and convert to MDX";
-  static description = "Fetch a remote URL and convert its content to MDX";
+  static readonly summary = "Fetch a URL and convert to MDX";
+  static readonly description =
+    "Fetch a remote URL and convert its content to MDX";
 
-  static args = {
+  static readonly args = {
     url: Args.string({ description: "URL to fetch", required: true }),
   };
 
-  static flags = {
+  static readonly flags = {
     ...BaseCommand.flags,
     collection: Flags.string({
       summary: "Target collection",

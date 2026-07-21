@@ -3,14 +3,14 @@ import { buildJsonLd } from "./json-ld.js";
 
 function escapeHtml(text: string): string {
   return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
 }
 
 function escapeAttr(text: string): string {
-  return text.replace(/"/g, "&quot;").replace(/&/g, "&amp;");
+  return text.replaceAll('"', "&quot;").replaceAll("&", "&amp;");
 }
 
 function resolveMeta(

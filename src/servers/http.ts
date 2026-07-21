@@ -219,7 +219,7 @@ export async function createHttpServer(config: HypernextConfig) {
       reply.type("text/html").send(renderHTML(cached, config));
       return;
     }
-    const rawMdx = `# ${config.site.meta.title}\n\n${config.site.meta.description}\n\n<PostList collection="blog" limit={20} />`;
+    const rawMdx = `# ${config.site.meta.title}\n\n${config.site.meta.description}\n\nBrowse [blog](/blog), [notes](/notes), or view [about](/about) to learn more.`;
     const result = await resolveLayoutWithComponents(
       config,
       { rawMdx },

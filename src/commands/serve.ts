@@ -5,11 +5,11 @@ import BaseCommand from "../lib/base-command.js";
 import type { CliOptions } from "../types/config.js";
 
 export default class Serve extends BaseCommand {
-  static summary = "Start protocol servers";
-  static description =
+  static readonly summary = "Start protocol servers";
+  static readonly description =
     "Start all Hypernext protocol servers (HTTP, Gemini, Gopher, Spartan, NEX, Finger, Text, MCP)";
 
-  static flags = {
+  static readonly flags = {
     ...BaseCommand.flags,
     port: Flags.integer({
       summary: "Override HTTP server port",

@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
-import type { MikroORM } from "@mikro-orm/sqlite";
-import { getOrm } from "../database/index.js";
+
+import { Pageview } from "../database/entities/pageview.js";
+import { getEm } from "../database/index.js";
 import { logger } from "../utils/logger.js";
 
 interface StatsQuery {
@@ -32,25 +33,23 @@ export async function recordPageview(
   ip: string,
   referrer?: string
 ): Promise<void> {
-  let orm: MikroORM;
+  let em: ReturnType<typeof getEm> | null = null;
   try {
-    orm = getOrm();
+    em = getEm();
   } catch {
     // ORM not initialized (e.g. remote mode) — skip analytics
     return;
   }
   try {
-    const connection = orm.em.getConnection();
-    // @ts-expect-error — getKnex() is available on SqliteConnection at runtime
-    const knex = connection.getKnex();
-
-    await knex("pageviews").insert({
+    const pv = em.create(Pageview, {
       slug,
       protocol,
-      visitor_hash: hashVisitor(ip),
+      visitorHash: hashVisitor(ip),
       referrer: referrer ?? null,
       timestamp: Date.now(),
     });
+    em.persist(pv);
+    await em.flush();
   } catch (err) {
     // Analytics should never crash the server
     logger.warn(`Failed to record pageview: ${err}`);
@@ -58,29 +57,29 @@ export async function recordPageview(
 }
 
 export async function getStats(query: StatsQuery): Promise<StatsResult> {
-  const orm = getOrm();
-  // @ts-expect-error — getKnex() is available on SqliteConnection at runtime
-  const knex = orm.em.getConnection().getKnex();
+  const em = getEm();
 
   const days = query.days ?? 7;
   const since = Date.now() - days * 86_400_000;
 
-  let q = knex("pageviews").where("timestamp", ">=", since);
+  const where: Record<string, unknown> = { timestamp: { $gte: since } };
   if (query.slug) {
-    q = q.where("slug", query.slug);
+    where.slug = query.slug;
   }
   if (query.protocol) {
-    q = q.where("protocol", query.protocol);
+    where.protocol = query.protocol;
   }
 
-  const rows = await q;
+  const rows = await em.find(Pageview, where);
 
   // Total views
   const totalViews = rows.length;
 
   // Unique visitors
   const uniqueVisitors = new Set(
-    rows.map((r: Record<string, unknown>) => r.visitor_hash as string)
+    rows.map(
+      (r) => (r as unknown as Record<string, unknown>).visitorHash as string
+    )
   ).size;
 
   // By protocol
@@ -107,7 +106,9 @@ export async function getStats(query: StatsQuery): Promise<StatsResult> {
     const day = dailyMap.get(date);
     if (day) {
       day.views++;
-      day.visitors.add(row.visitor_hash as string);
+      day.visitors.add(
+        (row as unknown as Record<string, unknown>).visitorHash as string
+      );
     }
   }
 

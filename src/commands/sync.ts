@@ -4,7 +4,7 @@ import { syncTwoWay } from "../sync/sync-manager.js";
 import type { CliOptions } from "../types/config.js";
 
 export default class Sync extends BaseCommand {
-  static summary = "Sync with production server";
+  static readonly summary = "Sync with production server";
 
   async run(): Promise<void> {
     const { flags } = await this.parse(Sync);

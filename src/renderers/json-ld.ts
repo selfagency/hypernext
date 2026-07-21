@@ -139,17 +139,30 @@ function personJsonLd(
   return person;
 }
 
-function pageJsonLd(
-  siteUrl: string,
-  postUrl: string,
-  title: string,
-  description: string,
-  slug: string | undefined,
-  date: string | undefined,
-  featuredImage: string | undefined,
-  frontmatter: Record<string, unknown>,
-  hasAuthor: boolean
-): Record<string, unknown> {
+interface PageJsonLdOptions {
+  date: string | undefined;
+  description: string;
+  featuredImage: string | undefined;
+  frontmatter: Record<string, unknown>;
+  hasAuthor: boolean;
+  postUrl: string;
+  siteUrl: string;
+  slug: string | undefined;
+  title: string;
+}
+
+function pageJsonLd(options: PageJsonLdOptions): Record<string, unknown> {
+  const {
+    siteUrl,
+    postUrl,
+    title,
+    description,
+    slug,
+    date,
+    featuredImage,
+    frontmatter,
+    hasAuthor,
+  } = options;
   const pageType = slug === undefined ? "WebPage" : "BlogPosting";
   const page: Record<string, unknown> = {
     "@type": pageType,
@@ -264,7 +277,7 @@ export function buildJsonLd(
   }
 
   graph.push(
-    pageJsonLd(
+    pageJsonLd({
       siteUrl,
       postUrl,
       title,
@@ -273,8 +286,8 @@ export function buildJsonLd(
       date,
       featuredImage,
       frontmatter,
-      hasAuthor
-    ),
+      hasAuthor,
+    }),
     breadcrumbJsonLd(siteUrl, postUrl, title, slug)
   );
 
@@ -305,17 +318,17 @@ export function buildJsonLdPage(
   const postUrl = `${siteUrl}/${slug}`;
   const hasAuthor = !!config.author?.name;
 
-  const page = pageJsonLd(
+  const page = pageJsonLd({
     siteUrl,
     postUrl,
     title,
     description,
     slug,
     date,
-    image,
-    { featuredImageAlt: imageAlt },
-    hasAuthor
-  );
+    featuredImage: image,
+    frontmatter: { featuredImageAlt: imageAlt },
+    hasAuthor,
+  });
 
   return `<script type="application/ld+json">
 ${JSON.stringify({ "@context": "https://schema.org", ...page }, null, 2)}

@@ -6,11 +6,11 @@ import BaseCommand from "../lib/base-command.js";
 import type { CliOptions } from "../types/config.js";
 
 export default class Token extends BaseCommand {
-  static summary = "Generate an API access token";
-  static description =
+  static readonly summary = "Generate an API access token";
+  static readonly description =
     "Generate a long-lived JWT access token for API authentication. The token is valid for 1 year and grants full API access (create, update, delete, media, upload).";
 
-  static flags = {
+  static readonly flags = {
     ...BaseCommand.flags,
     name: Flags.string({
       summary: "Token name/description",
