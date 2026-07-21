@@ -119,6 +119,10 @@ export interface CommentConfig {
   inbound: CommentInboundConfig;
 }
 
+export interface IndieAuthConfig {
+  enabled: boolean;
+}
+
 export interface ApiConfig {
   enabled: boolean;
 }
@@ -349,6 +353,7 @@ export interface HypernextConfig {
   database: DatabaseConfig;
   editor?: EditorConfig;
   email?: EmailConfig;
+  indieauth: IndieAuthConfig;
   ipfs?: IpfsConfig;
   jwtSecret?: string;
   logging?: LoggingConfig;

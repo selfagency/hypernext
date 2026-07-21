@@ -97,6 +97,9 @@ protocols:
 micropub:
   enabled: true
 
+indieauth:
+  enabled: true
+
 syndication: {}
 
 email:

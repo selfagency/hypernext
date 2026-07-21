@@ -11,6 +11,9 @@ export function registerIndieAuthRoutes(
   fastify: FastifyInstance,
   config: HypernextConfig
 ): void {
+  if (config.indieauth?.enabled === false) {
+    return;
+  }
   // /.well-known/oauth-authorization-server
   fastify.get("/.well-known/oauth-authorization-server", (_request, reply) => {
     reply.send({
