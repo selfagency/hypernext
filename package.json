@@ -1,7 +1,7 @@
 {
   "name": "@selfagency/hypernext",
   "version": "0.1.0",
-  "description": "Multi-Protocol MDX Document Server",
+  "description": "Multi-Protocol Markdown Document Server",
   "type": "module",
   "license": "GPL-3.0-or-later",
   "author": "Daniel Sieradski <daniel@self.agency>",
