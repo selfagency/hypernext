@@ -33,10 +33,16 @@
   "bin": {
     "hypernext": "dist/bin.js"
   },
+  "oclif": {
+    "bin": "hypernext",
+    "dirname": "hypernext",
+    "commands": "./dist/commands",
+    "topicSeparator": " "
+  },
   "scripts": {
-    "dev": "tsx watch src/bin.ts serve",
+    "dev": "tsx watch src/bin.ts",
     "build": "tsup",
-    "start": "node dist/bin.js serve",
+    "start": "node dist/bin.js",
     "lint": "biome check .",
     "format": "biome format --write .",
     "test": "vitest",
@@ -81,6 +87,7 @@
     "@mikro-orm/core": "^7.1.6",
     "@mikro-orm/sqlite": "^7.1.6",
     "@modelcontextprotocol/sdk": "^1.15.0",
+    "@oclif/core": "^4.12.0",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/exporter-trace-otlp-proto": "^0.220.0",
     "@opentelemetry/sdk-trace-base": "^2.9.0",
@@ -89,7 +96,6 @@
     "@upyo/core": "^0.5.1",
     "@upyo/smtp": "^0.5.1",
     "better-sqlite3": "^12.11.1",
-    "cac": "^6.7.14",
     "fastify": "^5.3.2",
     "fastify-http-errors-enhanced": "^7.0.1",
     "kubo-rpc-client": "^7.1.0",

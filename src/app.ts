@@ -13,7 +13,7 @@ import { registerIndieAuthRoutes } from "./auth/indieauth.js";
 import { registerInboundRoutes } from "./federation/inbound.js";
 import { registerFederationRoutes } from "./federation/index.js";
 import { initWorkmatic } from "./federation/workmatic.js";
-import { registerMcpSseTransport, startMcpServer } from "./mcp/index.js";
+import { registerMcpSseTransport } from "./mcp/index.js";
 import { registerMicropubEndpoint } from "./micropub/index.js";
 import { startFingerServer } from "./servers/finger.js";
 import { startGeminiServer } from "./servers/gemini.js";
@@ -38,10 +38,7 @@ export async function startAllServers(config: HypernextConfig): Promise<void> {
     fs.mkdirSync(path.dirname(dbPath), { recursive: true });
   }
 
-  // Start MCP server (stdio transport)
-  startMcpServer(config);
-
-  // Initialize database first so MikroORM sets up WAL/busy_timeout pragmas
+  // Database initialisation is handled by the modules below
   const { initOrm, closeOrm } = await import("./database/index.js");
   await initOrm(config.database.path);
 
