@@ -35,7 +35,11 @@ function findLayout(
   if (explicitLayout) {
     return explicitLayout;
   }
-  if (collection && config.collections[collection]?.layout) {
+  if (
+    collection &&
+    Object.hasOwn(config.collections, collection) &&
+    config.collections[collection]?.layout
+  ) {
     return config.collections[collection]?.layout ?? DEFAULT_LAYOUT;
   }
   return DEFAULT_LAYOUT;

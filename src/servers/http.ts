@@ -46,6 +46,12 @@ import type { HypernextConfig } from "../types/config.js";
 
 const NOT_FOUND_HTML = "<h1>404 Not Found</h1>";
 const INDEX_MD_REGEX = /\/index\.md$/;
+const ALPHANUMERIC_REGEX = /[^\w-]/g;
+
+/** Escape a string for safe use in MDX attribute values */
+function esc(value: string): string {
+  return value.replace(ALPHANUMERIC_REGEX, "");
+}
 
 async function handlePageRoute(
   config: HypernextConfig,
@@ -231,7 +237,7 @@ export async function createHttpServer(config: HypernextConfig) {
       const { collection } = request.params;
 
       // Check if this is a known collection
-      if (config.collections[collection]) {
+      if (Object.hasOwn(config.collections, collection)) {
         const slug = collection;
         const cached = getCachedParse(slug);
         if (cached) {
@@ -239,7 +245,7 @@ export async function createHttpServer(config: HypernextConfig) {
           reply.type("text/html").send(renderHTML(cached, config));
           return;
         }
-        const rawMdx = `<PostList collection="${collection}" limit={50} />`;
+        const rawMdx = `<PostList collection="${esc(collection)}" limit={50} />`;
         const result = await resolveLayoutWithComponents(
           config,
           { rawMdx },
@@ -392,7 +398,7 @@ export async function createHttpServer(config: HypernextConfig) {
       return;
     }
 
-    const rawMdx = `<Archive filter="taxonomy:${taxonomy}:${term}" limit={50} />`;
+    const rawMdx = `<Archive filter="taxonomy:${esc(taxonomy)}:${esc(term)}" limit={50} />`;
     const result = await resolveLayoutWithComponents(
       config,
       { rawMdx },
@@ -410,7 +416,7 @@ export async function createHttpServer(config: HypernextConfig) {
     "/:collection/authors/:author",
     async (request, reply) => {
       const { collection, author } = request.params;
-      const rawMdx = `<Archive filter="author:${author}" limit={50} />`;
+      const rawMdx = `<Archive filter="author:${esc(author)}" limit={50} />`;
       const result = await resolveLayoutWithComponents(
         config,
         { rawMdx },
