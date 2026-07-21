@@ -1,45 +1,56 @@
 site:
-  canonicalBase: "http://localhost:8080"
+  canonicalBase: http://localhost:8080
   meta:
-    title: "My Hypernext Site"
-    description: "A multi-protocol blog and static content library."
-    lang: "en"
+    title: My Hypernext Site
+    description: A multi-protocol blog and static content library.
+    lang: en
   theme:
-    cssPath: "./assets/style.css"
+    cssPath: ./assets/style.css
   pdf:
     enabled: true
-    cssPath: "./assets/pdf-style.css"
+    cssPath: ./assets/pdf-style.css
   ebooks:
     enabled: true
-
+  metadata:
+    - name: readTime
+      label: Reading Time
+      type: number
+    - name: difficulty
+      label: Difficulty
+      type: string
+      options:
+        - beginner
+        - intermediate
+        - advanced
+    - name: featured
+      label: Featured
+      type: boolean
+    - name: series
+      label: Series
+      type: string
 author:
-  name: "Anonymous"
-  bio: "Hypernext author."
-
+  name: Anonymous
+  bio: Hypernext author.
 storage:
   type: local
   local:
-    path: "./content"
-
+    path: ./content
 database:
   type: sqlite
-  path: "./hypernext.db"
-
+  path: ./db/hypernext.db
 api:
   enabled: true
-
 collections:
   blog:
-    path: "/blog/"
+    path: /blog/
     syndicate: true
     rss: true
-    layout: "blog.mdx"
+    layout: blog.mdx
   library:
-    path: "/library/"
+    path: /library/
     syndicate: false
     rss: false
-    layout: "library.mdx"
-
+    layout: library.mdx
 taxonomies:
   - name: tags
     plural: tags
@@ -47,7 +58,6 @@ taxonomies:
   - name: categories
     plural: categories
     singular: category
-
 protocols:
   http:
     enabled: true
@@ -55,6 +65,8 @@ protocols:
   gemini:
     enabled: true
     port: 1965
+    certPath: certs/cert.pem
+    keyPath: certs/key.pem
   gopher:
     enabled: true
     port: 70
@@ -70,12 +82,9 @@ protocols:
   text:
     enabled: true
     port: 5011
-
 micropub:
   enabled: true
-
 syndication: {}
-
 comments:
   enabled: true
   inbound:
@@ -88,7 +97,54 @@ comments:
     cacheTtl: 900
   akismet:
     enabled: true
-
 mcp:
   enabled: true
   transport: stdio
+ai:
+  enabled: false
+  openai:
+    baseUrl: http://localhost:11434/v1
+    apiKey: ""
+  models:
+    embedding: nomic-embed-text-v2-moe:latest
+    utility: llama3.2:1b
+    vision: llava:7b
+    reasoning: llama3.1:8b
+  vectorDimensions: 768
+  features:
+    altText: true
+    autoTagging: true
+    seoMeta: true
+    moderation: true
+robotsTxt:
+  enabled: true
+  aiCrawlers: block
+  rules: []
+contentSignals:
+  enabled: true
+  aiTrain: false
+  search: true
+  aiInput: false
+securityTxt:
+  contact: []
+  expires: ""
+agent:
+  enabled: false
+  markdownNegotiation: true
+  llmsTxt: true
+  sitemap: true
+  linkHeaders: true
+  wellKnown:
+    apiCatalog: true
+    agentSkills: true
+    mcpServerCard: true
+    webBotAuth: true
+    webmcp: true
+  hiddenAgentDirective: true
+  viewTransitions: true
+ipfs:
+  enabled: false
+  apiEndpoint: http://127.0.0.1:5001
+  gatewayUrl: https://ipfs.io/ipfs
+  pinning: true
+  cacheHtml: true

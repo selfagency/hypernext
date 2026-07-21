@@ -178,7 +178,6 @@ export function scaffoldDefaults(cwd: string): void {
   }
 
   fs.mkdirSync(path.join(cwd, "content/blog"), { recursive: true });
-  fs.mkdirSync(path.join(cwd, "content/library"), { recursive: true });
   fs.mkdirSync(path.join(cwd, "assets"), { recursive: true });
 
   const welcomePath = path.join(cwd, "content/blog/welcome.mdx");

@@ -7,14 +7,13 @@ Hypernext transforms MDX files into a unified interface accessible via HTTP, RES
 ## Features
 
 - **Multi-Protocol** — Serve content over HTTP, Gemini, Gopher, Spartan, NEX, Text, and Finger simultaneously
-- **MDX Powered** — Write in Markdown with JSX components, rendered to every protocol
+- **MDX Powered** — Write in Markdown with JSX components, parsed into a common IR that all renderers translate to their protocol format
 - **IndieWeb Ready** — IndieAuth OAuth2, Micropub, WebFinger, ActivityPub Actor/Outbox
 - **POSSE Syndication** — Auto-publish to Mastodon and Bluesky
 - **Full-Text Search** — FTS5-powered search across all documents
 - **PDF & EPUB** — Generate downloadable books and documents
 - **MCP Server** — Model Context Protocol tools for AI agent access
 - **IPFS Integration** — Content-addressed pinning and gateway links
-- **TUI Editor** — Terminal-based content editor with command palette
 - **Email Newsletter** — Subscriptions, digests, and contact forms
 - **AI Features** — Semantic search, auto-tagging, alt text generation
 - **Comment Moderation** — Spam detection, blocklist, hide/unhide
@@ -35,7 +34,6 @@ Hypernext transforms MDX files into a unified interface accessible via HTTP, RES
 - [Email & Newsletter](email.md) — Subscriptions, digests, contact forms
 - [AI Features](ai.md) — Semantic search, auto-tagging, moderation
 - [MCP Tools](mcp.md) — AI agent tool reference
-- [TUI Editor](tui.md) — Terminal-based content editor
 - [Deployment](deployment.md) — Docker Compose, CLI, CI/CD
 
 ## Quick Start

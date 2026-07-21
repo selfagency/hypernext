@@ -38,7 +38,6 @@ export function scaffoldInit(projectDir: string, options: InitOptions): void {
     path.join(projectDir, "templates"),
     path.join(projectDir, "content"),
     path.join(projectDir, "content", "blog"),
-    path.join(projectDir, "content", "library"),
     path.join(projectDir, "db"),
   ];
   for (const dir of dirs) {
@@ -174,11 +173,6 @@ collections:
     rss: true
     syndicate: false
     layout: "blog.mdx"
-  library:
-    path: "/library/"
-    rss: false
-    syndicate: false
-    layout: "library.mdx"
 
 taxonomies:
   - name: tags
@@ -249,6 +243,10 @@ dist/
 }
 
 function generateReadme(projectName: string): string {
+  const contentSection = `- **\`content/blog/\`** — Blog posts (appear in RSS, recent posts, date-indexed archives)
+- **\`content/\` root** — Standalone pages (appear in navigation, ordered by frontmatter order)
+- **Any named subfolder** — User-defined collections (add to \`collections\` in \`config.yml\`)`;
+
   return `# ${projectName}
 
 A Hypernext multi-protocol document server. Serves MDX content over HTTP, Gemini, Gopher, Spartan, NEX, Text, and Finger.
@@ -261,14 +259,11 @@ npx hypernext
 
 Open http://localhost:8080 in your browser.
 
-## Collections
-
-- **blog** — Blog posts at \`/blog/\`
-- **library** — Long-form content at \`/library/\`
-
 ## Content
 
-Add MDX files to \`content/blog/\` or \`content/library/\`. Each file can include frontmatter:
+${contentSection}
+
+Each file can include frontmatter:
 
 \`\`\`mdx
 ---

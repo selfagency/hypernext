@@ -5,7 +5,6 @@ export default defineConfig({
   format: "esm",
   target: "node24",
   clean: true,
-  external: ["react", "react/jsx-runtime", "ink", "@inkjs/ui"],
   outDir: "dist",
   sourcemap: true,
 });

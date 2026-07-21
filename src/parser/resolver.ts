@@ -14,6 +14,7 @@ export interface ComponentContext {
   config: HypernextConfig;
   currentDocId?: number;
   currentSlug?: string;
+  frontmatter?: Record<string, unknown>;
 }
 
 export type ComponentResolver = (
@@ -66,6 +67,8 @@ export const ALLOWED_COMPONENTS = new Set([
   "Archive",
   "PostList",
   "IPFSLink",
+  "PostMeta",
+  "Title",
   "Header",
   "Main",
   "Sidebar",
@@ -566,6 +569,81 @@ export const COMPONENT_RESOLVERS: Record<string, ComponentResolver> = {
         ],
       },
     ];
+  },
+
+  Title(_props, ctx) {
+    const slug = ctx.currentSlug;
+    const fm = ctx.frontmatter ?? {};
+    const title = (fm.title as string) ?? slug?.split("/").pop() ?? "Untitled";
+    const postUrl = slug ? `/${slug}` : "/";
+    return [
+      {
+        type: "heading",
+        depth: 1,
+        className: "p-name",
+        children: [textNode(title)],
+      },
+      {
+        type: "paragraph",
+        children: [
+          {
+            type: "link",
+            url: postUrl,
+            className: "u-url",
+            children: [textNode("Permalink")],
+          },
+        ],
+      },
+    ];
+  },
+
+  PostMeta(_props, ctx) {
+    const fm = ctx.frontmatter ?? {};
+    const parts: IrNode[] = [];
+    const author = ctx.config.author?.name;
+    const date = fm.date as string | undefined;
+    const tags = fm.tags as string[] | undefined;
+
+    if (author) {
+      parts.push({ type: "text", value: `by ${author}` });
+    }
+    if (author && (date || tags)) {
+      parts.push({ type: "text", value: " / " });
+    }
+    if (date) {
+      const d = new Date(date);
+      const display = Number.isNaN(d.getTime())
+        ? date
+        : d.toISOString().slice(0, 10);
+      parts.push({
+        type: "time",
+        value: display,
+        datetime: date,
+        className: "dt-published",
+      });
+    }
+    if (date && tags && tags.length > 0) {
+      parts.push({ type: "text", value: " / " });
+    }
+    if (tags && tags.length > 0) {
+      const tagLinks = tags
+        .map((tag, i) => {
+          const nodes: IrNode[] = [linkNode(`/tags/${tag}`, [textNode(tag)])];
+          if (i < tags.length - 1) {
+            nodes.push({ type: "text", value: ", " });
+          }
+          return nodes;
+        })
+        .flat();
+      for (const node of tagLinks) {
+        parts.push(node);
+      }
+    }
+
+    if (parts.length === 0) {
+      return [];
+    }
+    return [{ type: "paragraph", className: "byline", children: parts }];
   },
 
   Footer(_props, ctx) {

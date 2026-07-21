@@ -51,40 +51,14 @@ This is my first post using Hypernext.
 <AuthorBio />
 ```
 
-Built-in components: `NavMenu`, `RecentPosts`, `TableOfContents`, `Include`, `Mermaid`, `Latex`, `AuthorBio`, `Enclosure`, `Breadcrumbs`, `Search`, `TagCloud`, `PostNav`, `RelatedPosts`, `SyndicationLinks`, `Figure`, `Comments`, `Archive`, `PostList`, `IPFSLink`, `EmailSubscribe`, `ContactForm`.
+Built-in components (resolved at the parser level into the IR that all renderers consume): `NavMenu`, `RecentPosts`, `TableOfContents`, `Include`, `Mermaid`, `Latex`, `AuthorBio`, `Enclosure`, `Breadcrumbs`, `Search`, `TagCloud`, `PostNav`, `RelatedPosts`, `SyndicationLinks`, `Figure`, `Comments`, `Archive`, `PostList`, `IPFSLink`, `EmailSubscribe`, `ContactForm`.
 
-## TUI Editor
-
-Hypernext includes a terminal-based editor for managing content:
-
-```bash
-hypernext edit              # Edit local content directory (default)
-hypernext edit --remote     # Edit via API proxy to production server
-```
-
-Or via npm script:
-
-```bash
-pnpm dev:editor
-```
-
-Remote mode requires `remote.url` and `remote.token` in `config.yml` or environment variables.
-
-**Keybindings:**
-- `Ctrl+B` — Toggle file explorer
-- `Ctrl+P` — Toggle preview pane
-- `Ctrl+K` — Open command palette
-- `Ctrl+S` — Save file
-- `Ctrl+Q` — Quit
-
-The editor provides a structured frontmatter form, multi-line body editor, preview pane, and panes for moderation, subscribers, taxonomy, and system logs.
+*Layout templates (wrapping documents in `<NavMenu />`, `<slot />`, etc.) are planned but not yet implemented — all renderers will consume the same common MDX templates translated into their protocol format.*
 
 ## CLI Commands
 
 ```bash
 hypernext                    # Start all protocol servers
-hypernext edit               # Launch TUI editor (local mode by default)
-hypernext edit --remote      # Launch TUI editor in remote mode
 hypernext push               # Push content to production server
 hypernext sync               # Two-way sync with production
 hypernext ingest <url>       # Fetch a URL and convert to MDX

@@ -23,14 +23,6 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
 `,
   },
   {
-    filename: "library.mdx",
-    content: `---
----
-
-<slot />
-`,
-  },
-  {
     filename: "email.mdx",
     content: `---
 title: Newsletter

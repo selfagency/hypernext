@@ -105,71 +105,20 @@ function wrapSkeleton(
   content: IrNode[],
   config: HypernextConfig,
   _collection: string | undefined,
-  frontmatter: Record<string, unknown>,
+  _frontmatter: Record<string, unknown>,
   slug?: string
 ): IrNode {
-  const title = (frontmatter.title as string) ?? config.site.meta.title;
-  const date = frontmatter.date as string | undefined;
-  const author = config.author?.name;
-
-  // Wrap content in h-entry microformats when there's a title
   let mainContent: IrNode[] = [componentNode("Breadcrumbs")];
   if (slug) {
-    const postUrl = `/${slug}`;
-    const hEntry: IrNode[] = [];
-    hEntry.push({
-      type: "heading",
-      depth: 1,
-      className: "p-name",
-      children: [textNode(title)],
-    });
-    if (date) {
-      const d = new Date(date);
-      const display = Number.isNaN(d.getTime())
-        ? date
-        : d.toISOString().slice(0, 10);
-      hEntry.push({
-        type: "paragraph",
-        children: [
-          {
-            type: "time",
-            value: display,
-            datetime: date,
-            className: "dt-published",
-          },
-        ],
-      });
-    }
-    if (author) {
-      hEntry.push({
-        type: "paragraph",
-        className: "p-author h-card",
-        children: [textNode(author)],
-      });
-    }
-    // Document body
-    const wrapped: IrNode[] = [...content];
-    hEntry.push({
-      type: "section",
-      className: "e-content",
-      children: wrapped,
-    });
-    hEntry.push({
-      type: "paragraph",
-      children: [
-        {
-          type: "link",
-          url: postUrl,
-          className: "u-url",
-          children: [textNode("Permalink")],
-        },
-      ],
-    });
     mainContent.push({
       type: "section",
       className: "h-entry",
       id: slug.replace(/\//g, "-"),
-      children: hEntry,
+      children: [
+        componentNode("Title"),
+        componentNode("PostMeta"),
+        { type: "section", className: "e-content", children: [...content] },
+      ],
     });
   } else {
     mainContent = [...mainContent, ...content];
@@ -278,6 +227,7 @@ export async function resolveLayoutWithComponents(
     currentSlug: ctx.slug,
     currentDocId: ctx.currentDocId,
     body: rawBody || undefined,
+    frontmatter: result.frontmatter,
   });
 
   return result;

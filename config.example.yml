@@ -34,11 +34,6 @@ collections:
     syndicate: true
     rss: true
     layout: "blog.mdx"
-  library:
-    path: "/library/"
-    syndicate: false
-    rss: false
-    layout: "library.mdx"
 
 taxonomies:
   - name: tags

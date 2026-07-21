@@ -80,7 +80,6 @@ pnpm start
 
 ```bash
 hypernext                    # Start all protocol servers
-hypernext editor --local     # Launch TUI editor
 hypernext push               # Push content to production
 hypernext sync               # Two-way sync with production
 hypernext ingest <url>       # Ingest a URL as MDX
