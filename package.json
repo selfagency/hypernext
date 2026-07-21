@@ -34,9 +34,9 @@
     "hypernext": "dist/bin.js"
   },
   "scripts": {
-    "dev": "tsx watch src/bin.ts",
+    "dev": "tsx watch src/bin.ts serve",
     "build": "tsup",
-    "start": "node dist/bin.js",
+    "start": "node dist/bin.js serve",
     "lint": "biome check .",
     "format": "biome format --write .",
     "test": "vitest",

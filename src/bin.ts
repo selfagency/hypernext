@@ -20,6 +20,27 @@ cli.option("--config <path>", "Path to config file", {
 cli.help();
 cli.version("0.1.0");
 
+function envBool(name: string): boolean | undefined {
+  const v = process.env[name];
+  if (v === undefined || v === "") {
+    return;
+  }
+  return !(v === "0" || v === "false" || v === "no");
+}
+
+function envInt(name: string): number | undefined {
+  const v = process.env[name];
+  if (v === undefined || v === "") {
+    return;
+  }
+  const n = Number(v);
+  return Number.isNaN(n) ? undefined : n;
+}
+
+function envStr(name: string): string | undefined {
+  return process.env[name] || undefined;
+}
+
 // Serve command — start all protocol servers
 cli
   .command("serve", "Start protocol servers")
@@ -33,17 +54,27 @@ cli
   .option("--text", "Enable Text protocol (default: from config)")
   .option("--mcp", "Enable MCP (default: from config)")
   .action((options: Record<string, unknown>) => {
+    // CLI flags take precedence, then env vars, then config defaults
     const cliOptions: CliOptions = {
-      config: options.config as string | undefined,
-      port: options.port === undefined ? undefined : Number(options.port),
-      http: options.http as boolean | undefined,
-      gemini: options.gemini as boolean | undefined,
-      gopher: options.gopher as boolean | undefined,
-      spartan: options.spartan as boolean | undefined,
-      nex: options.nex as boolean | undefined,
-      finger: options.finger as boolean | undefined,
-      text: options.text as boolean | undefined,
-      mcp: options.mcp as boolean | undefined,
+      config:
+        (options.config as string | undefined) ?? envStr("HYPERNEXT_CONFIG"),
+      port:
+        options.port === undefined
+          ? envInt("HYPERNEXT_PORT")
+          : Number(options.port),
+      http: (options.http as boolean | undefined) ?? envBool("HYPERNEXT_HTTP"),
+      gemini:
+        (options.gemini as boolean | undefined) ?? envBool("HYPERNEXT_GEMINI"),
+      gopher:
+        (options.gopher as boolean | undefined) ?? envBool("HYPERNEXT_GOPHER"),
+      spartan:
+        (options.spartan as boolean | undefined) ??
+        envBool("HYPERNEXT_SPARTAN"),
+      nex: (options.nex as boolean | undefined) ?? envBool("HYPERNEXT_NEX"),
+      finger:
+        (options.finger as boolean | undefined) ?? envBool("HYPERNEXT_FINGER"),
+      text: (options.text as boolean | undefined) ?? envBool("HYPERNEXT_TEXT"),
+      mcp: (options.mcp as boolean | undefined) ?? envBool("HYPERNEXT_MCP"),
     };
 
     try {
