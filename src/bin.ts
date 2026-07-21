@@ -1,6 +1,7 @@
-#!/usr/bin/env node
+#! /usr/bin/env node
 
 import path from "node:path";
+
 import cac from "cac";
 import { startAllServers } from "./app.js";
 import { getConfig } from "./config.js";
@@ -12,16 +13,53 @@ import type { CliOptions } from "./types/config.js";
 // @ts-expect-error — cac ESM/CJS interop: the default export is callable at runtime
 const cli = cac("hypernext");
 
+// Global options
+cli.option("--config <path>", "Path to config file", {
+  default: "config.yml",
+});
+cli.help();
+cli.version("0.1.0");
+
+// Serve command — start all protocol servers
 cli
-  .option("--config <path>", "Path to config file", { default: "config.yml" })
+  .command("serve", "Start protocol servers")
   .option("--port <port>", "Override HTTP server port")
-  .option("--no-gemini", "Disable Gemini server")
-  .option("--no-gopher", "Disable Gopher server")
-  .help()
-  .version("0.1.0");
+  .option("--http", "Enable HTTP (default: from config)")
+  .option("--gemini", "Enable Gemini (default: from config)")
+  .option("--gopher", "Enable Gopher (default: from config)")
+  .option("--spartan", "Enable Spartan (default: from config)")
+  .option("--nex", "Enable NEX (default: from config)")
+  .option("--finger", "Enable Finger (default: from config)")
+  .option("--text", "Enable Text protocol (default: from config)")
+  .option("--mcp", "Enable MCP (default: from config)")
+  .action((options: Record<string, unknown>) => {
+    const cliOptions: CliOptions = {
+      config: options.config as string | undefined,
+      port: options.port === undefined ? undefined : Number(options.port),
+      http: options.http as boolean | undefined,
+      gemini: options.gemini as boolean | undefined,
+      gopher: options.gopher as boolean | undefined,
+      spartan: options.spartan as boolean | undefined,
+      nex: options.nex as boolean | undefined,
+      finger: options.finger as boolean | undefined,
+      text: options.text as boolean | undefined,
+      mcp: options.mcp as boolean | undefined,
+    };
+
+    try {
+      const config = getConfig(process.cwd(), cliOptions);
+      startAllServers(config).catch((err) => {
+        console.error("Server error:", err);
+        process.exit(1);
+      });
+    } catch (error) {
+      console.error(error);
+      process.exit(1);
+    }
+  });
 
 // Push command
-cli.command("push", "One-way upload to production server").action(() => {
+cli.command("push", "Upload to production server").action(() => {
   const config = getConfig(process.cwd(), {} as CliOptions);
   pushToRemote(config, (msg) => console.log(msg)).catch((err) => {
     console.error("Push failed:", err);
@@ -30,7 +68,7 @@ cli.command("push", "One-way upload to production server").action(() => {
 });
 
 // Sync command
-cli.command("sync", "Two-way sync with production server").action(() => {
+cli.command("sync", "Sync with production server").action(() => {
   const config = getConfig(process.cwd(), {} as CliOptions);
   syncTwoWay(config, (msg) => console.log(msg)).catch((err) => {
     console.error("Sync failed:", err);
@@ -40,7 +78,7 @@ cli.command("sync", "Two-way sync with production server").action(() => {
 
 // Init command — scaffold a new Hypernext project
 cli
-  .command("init", "Scaffold a new Hypernext project")
+  .command("init", "Scaffold a new project")
   .option("--path <dir>", "Project directory (default: current directory)")
   .option("--force", "Overwrite existing files")
   .option("--no-agent-skill", "Skip OpenCode agent skill setup")
@@ -59,9 +97,7 @@ cli
 // Ingest command
 cli
   .command("ingest <url>", "Fetch a URL and convert to MDX")
-  .option("--collection <name>", "Target collection (blog/library)", {
-    default: "library",
-  })
+  .option("--collection <name>", "Target collection", { default: "library" })
   .option("--filename <name>", "Output filename", { default: "ingested" })
   .action(
     (url: string, options: { collection?: string; filename?: string }) => {
@@ -83,25 +119,4 @@ cli
     }
   );
 
-const parsed = cli.parse();
-
-// Default: start all servers (when no subcommand matched)
-if (!parsed.command) {
-  const options: CliOptions = {
-    config: parsed.options.config,
-    port:
-      parsed.options.port === undefined
-        ? undefined
-        : Number(parsed.options.port),
-    gemini: parsed.options.gemini,
-    gopher: parsed.options.gopher,
-  };
-
-  try {
-    const config = getConfig(process.cwd(), options);
-    await startAllServers(config);
-  } catch (error) {
-    console.error(error);
-    process.exit(1);
-  }
-}
+cli.parse();

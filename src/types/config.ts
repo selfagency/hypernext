@@ -367,7 +367,13 @@ export interface HypernextConfig {
 
 export interface CliOptions {
   config?: string;
+  finger?: boolean;
   gemini?: boolean;
   gopher?: boolean;
+  http?: boolean;
+  mcp?: boolean;
+  nex?: boolean;
   port?: number;
+  spartan?: boolean;
+  text?: boolean;
 }

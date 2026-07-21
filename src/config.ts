@@ -284,17 +284,28 @@ export function mergeCliOverrides(
     };
   }
 
-  if (options.gemini !== undefined) {
-    overrides.protocols = {
-      ...(overrides.protocols ?? config.protocols),
-      gemini: { ...config.protocols.gemini, enabled: options.gemini },
-    };
+  for (const proto of [
+    "http",
+    "gemini",
+    "gopher",
+    "spartan",
+    "nex",
+    "finger",
+    "text",
+  ] as const) {
+    const val = options[proto];
+    if (val !== undefined) {
+      overrides.protocols = {
+        ...(overrides.protocols ?? config.protocols),
+        [proto]: { ...config.protocols[proto], enabled: val },
+      };
+    }
   }
 
-  if (options.gopher !== undefined) {
-    overrides.protocols = {
-      ...(overrides.protocols ?? config.protocols),
-      gopher: { ...config.protocols.gopher, enabled: options.gopher },
+  if (options.mcp !== undefined) {
+    overrides.mcp = {
+      ...config.mcp,
+      enabled: options.mcp,
     };
   }
 
