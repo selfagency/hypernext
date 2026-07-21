@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { DEFAULT_TEMPLATES } from "./templates/default-templates.js";
+import { DEFAULT_TEMPLATES } from "./constants/default-templates.js";
 
 export interface InitOptions {
   force: boolean;

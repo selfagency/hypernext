@@ -626,15 +626,13 @@ export const COMPONENT_RESOLVERS: Record<string, ComponentResolver> = {
       parts.push({ type: "text", value: " / " });
     }
     if (tags && tags.length > 0) {
-      const tagLinks = tags
-        .map((tag, i) => {
-          const nodes: IrNode[] = [linkNode(`/tags/${tag}`, [textNode(tag)])];
-          if (i < tags.length - 1) {
-            nodes.push({ type: "text", value: ", " });
-          }
-          return nodes;
-        })
-        .flat();
+      const tagLinks = tags.flatMap((tag, i) => {
+        const nodes: IrNode[] = [linkNode(`/tags/${tag}`, [textNode(tag)])];
+        if (i < tags.length - 1) {
+          nodes.push({ type: "text", value: ", " });
+        }
+        return nodes;
+      });
       for (const node of tagLinks) {
         parts.push(node);
       }

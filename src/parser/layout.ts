@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { DEFAULT_TEMPLATES } from "../templates/default-templates.js";
+import { DEFAULT_TEMPLATES } from "../constants/default-templates.js";
 import type { HypernextConfig } from "../types/config.js";
 import type { IrNode, ParseResult } from "./ir.js";
 import { parseToIR, resolveComponentNodes } from "./pipeline.js";
