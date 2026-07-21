@@ -15,11 +15,11 @@ export default class Serve extends Command {
       summary: "Override HTTP server port",
       env: "HYPERNEXT_PORT",
     }),
-    "serve-from": Flags.string({
+    project: Flags.string({
       summary: "Project root directory",
       description:
         "Project root directory containing config.yml (default: current directory)",
-      env: "HYPERNEXT_SERVE_FROM",
+      env: "HYPERNEXT_PROJECT",
     }),
     http: Flags.boolean({
       summary: "Enable HTTP",
@@ -85,9 +85,7 @@ export default class Serve extends Command {
       mcp: flags.mcp,
     };
 
-    const rootDir = flags["serve-from"]
-      ? path.resolve(flags["serve-from"])
-      : process.cwd();
+    const rootDir = flags.project ? path.resolve(flags.project) : process.cwd();
 
     try {
       const config = getConfig(rootDir, cliOptions);
