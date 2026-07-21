@@ -94,15 +94,9 @@ describe("scaffoldInit", () => {
     scaffoldInit(tmpDir, { force: false, skipAgentSkill: false });
     expect(
       fs.existsSync(
-        path.join(
-          tmpDir,
-          ".opencode",
-          "context",
-          "core",
-          "project-intelligence",
-          "navigation.md"
-        )
+        path.join(tmpDir, ".agents", "skills", "hypernext", "SKILL.md")
       )
     ).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, "AGENTS.md"))).toBe(true);
   });
 });

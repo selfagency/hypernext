@@ -145,28 +145,80 @@ export function scaffoldInit(projectDir: string, options: InitOptions): void {
 }
 
 function setupAgentSkill(projectDir: string, force: boolean): void {
-  const agentDir = path.join(projectDir, ".opencode", "context");
+  // AGENTS.md — root-level guidance for AI coding agents
   writeFile(
     projectDir,
-    path.join(agentDir, "core", "project-intelligence", "navigation.md"),
-    "# Hypernext Project\n\nThis is a Hypernext multi-protocol document server.",
+    path.join(projectDir, "AGENTS.md"),
+    generateProjectAgentsMd(),
+    force
+  );
+
+  // Skill files — placed in .agents/skills/hypernext/
+  const skillDir = path.join(projectDir, ".agents", "skills", "hypernext");
+  const refDir = path.join(skillDir, "references");
+
+  writeFile(projectDir, path.join(skillDir, "SKILL.md"), SKILL_CONTENT, force);
+  writeFile(
+    projectDir,
+    path.join(refDir, "cli.md"),
+    SKILL_CLI_REFERENCE,
     force
   );
   writeFile(
     projectDir,
-    path.join(agentDir, "core", "project-intelligence", "architecture.md"),
-    `# Architecture
+    path.join(refDir, "config.md"),
+    SKILL_CONFIG_REFERENCE,
+    force
+  );
+  writeFile(
+    projectDir,
+    path.join(refDir, "deploy.md"),
+    SKILL_DEPLOY_REFERENCE,
+    force
+  );
+}
 
-Hypernext is a TypeScript-based, multi-protocol Markdown document server. It transforms Markdown files (.md and .mdx) into a unified interface accessible via HTTP, Gemini, Gopher, Spartan, NEX, Text Protocol, Finger, RSS, PDF, and EPUB.
+function generateProjectAgentsMd(): string {
+  return `# Hypernext — Multi-Protocol Markdown Document Server
 
-## Key directories
+Hypernext is a TypeScript-based multi-protocol document server that transforms Markdown files (.md and .mdx) into a unified interface accessible via HTTP, Gemini, Gopher, Spartan, NEX, Text Protocol, Finger, RSS, PDF, and EPUB.
 
-- \`content/\` — MDX source files organized in collections (blog, library)
+## Project Structure
+
+- \`config.yml\` — Site configuration
+- \`content/\` — Markdown source files organized in collections
 - \`templates/\` — Layout templates with <slot /> for content injection
 - \`db/\` — SQLite database
-- \`config.yml\` — Site configuration`,
-    force
-  );
+- \`dist/\` — Built JavaScript output
+
+## Commands
+
+- \`hypernext serve\` — Start all protocol servers
+- \`hypernext init\` — Scaffold a new project
+- \`hypernext push\` — Upload to production server
+- \`hypernext sync\` — Two-way sync with production
+- \`hypernext ingest <url>\` — Fetch a URL and convert to MDX
+- \`hypernext token\` — Generate an API access token
+
+## Agent Skills
+
+This project includes a hypernext skill in \`.agents/skills/hypernext/\` that provides configuration reference, deployment guides, and CLI documentation for AI coding agents.
+
+## Key Constraints
+
+- **No arbitrary JS execution in MDX** — MDX is parsed to AST, not compiled to React
+- **Single process / no external daemons** — SQLite + in-memory cache only
+- **Protocol fidelity** — Each protocol served according to its spec
+- **Content as files** — Markdown files on disk, no database required for content
+
+## Tech Stack
+
+- TypeScript (strict mode)
+- Node.js with pnpm
+- SQLite via better-sqlite3 + MikroORM
+- Fastify for HTTP server
+- Raw TCP/TLS for smolnet protocols
+`;
 }
 
 function generateDefaultConfig(): string {
@@ -613,3 +665,129 @@ tags: [cli, reference]
 All flags can be set via \`HYPERNEXT_*\` environment variables.
 `;
 }
+
+const SKILL_CONTENT = `---
+name: hypernext
+author: Hypernext Team
+description: Configuration, deployment, and management for the Hypernext multi-protocol document server.
+---
+
+# Hypernext
+
+## Commands
+
+\`\`\`bash
+hypernext serve               # Start all protocol servers
+hypernext init                # Scaffold a new project
+hypernext push                # One-way upload to production
+hypernext sync                # Two-way sync with production
+hypernext ingest <url>        # Fetch a URL and convert to MDX
+hypernext token               # Generate an API access token
+\`\`\`
+
+## Config Pipeline
+
+config.yml → env var substitution → parse → validate → CLI override
+
+- \${VAR} in YAML resolves from environment
+- CLI flags override config values
+
+## Project Structure
+
+- \`config.yml\` — Site configuration
+- \`content/\` — Markdown source files organized in collections
+- \`templates/\` — Layout templates with <slot /> for content injection
+- \`db/\` — SQLite database
+
+See [cli.md](references/cli.md), [config.md](references/config.md), and [deploy.md](references/deploy.md) for detailed reference.
+`;
+
+const SKILL_CLI_REFERENCE = `# CLI Reference
+
+## Commands
+
+\`\`\`bash
+hypernext serve               # Start all protocol servers (default)
+hypernext push                # One-way upload to production
+hypernext sync                # Two-way sync with production
+hypernext init                # Scaffold a new project
+hypernext ingest <url>        # Fetch a URL and convert to MDX
+hypernext token               # Generate an API access token
+\`\`\`
+
+## Serve Flags
+
+| Flag | Env | Description |
+|------|-----|-------------|
+| --port <port> | HYPERNEXT_PORT | Override HTTP port |
+| --no-http | HYPERNEXT_HTTP | Disable HTTP |
+| --no-gemini | HYPERNEXT_GEMINI | Disable Gemini |
+| --no-gopher | HYPERNEXT_GOPHER | Disable Gopher |
+| --no-spartan | HYPERNEXT_SPARTAN | Disable Spartan |
+| --no-nex | HYPERNEXT_NEX | Disable NEX |
+| --no-finger | HYPERNEXT_FINGER | Disable Finger |
+| --no-text | HYPERNEXT_TEXT | Disable Text |
+| --no-mcp | HYPERNEXT_MCP | Disable MCP |
+| --project <dir> | HYPERNEXT_PROJECT | Project root directory |
+| --config <path> | HYPERNEXT_CONFIG | Config file path |
+`;
+
+const SKILL_CONFIG_REFERENCE = `# Config Schema Reference
+
+## Required Keys
+
+- site.canonicalBase
+- site.meta.title
+- storage
+- database
+
+## Protocol Ports
+
+| Protocol | Default Port | Config Path |
+|----------|-------------|-------------|
+| HTTP | 8080 | protocols.http.port |
+| Gemini | 1965 | protocols.gemini.port |
+| Gopher | 70 | protocols.gopher.port |
+| Spartan | 300 | protocols.spartan.port |
+| NEX | 1900 | protocols.nex.port |
+| Text | 5011 | protocols.text.port |
+| Finger | 79 | protocols.finger.port |
+
+Enable/disable any protocol with \`enabled: true|false\` in config.yml, or with \`--no-<protocol>\` flags at runtime.
+`;
+
+const SKILL_DEPLOY_REFERENCE = `# Deployment Reference
+
+## Docker Compose
+
+\`\`\`yaml
+services:
+  hypernext:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config.yml:/app/config.yml:ro
+      - ./content:/app/content
+      - ./db:/app/db
+    restart: unless-stopped
+\`\`\`
+
+## Node.js Production
+
+\`\`\`bash
+pnpm build
+pnpm start
+\`\`\`
+
+## Environment Variables
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| HYPERNEXT_DB_PATH | ./db/hypernext.db | SQLite database |
+| HYPERNEXT_JWT_SECRET | — | JWT signing secret |
+| HYPERNEXT_PORT | 8080 | HTTP port override |
+| HYPERNEXT_PROJECT | . | Project root directory |
+| AWS_* | — | S3 storage credentials |
+| REMOTE_TOKEN | — | Push/sync auth token |
+`;
