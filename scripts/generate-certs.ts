@@ -28,15 +28,17 @@ const {
 
 const PROJECT_ROOT = path.resolve(".");
 
-function isWithinProject(filePath: string): boolean {
-  return path.resolve(filePath).startsWith(PROJECT_ROOT);
-}
-
 const configPath = path.resolve(configPathArg ?? "./config.yml");
 const certDir = path.resolve(certDirArg ?? "./certs");
 const days = Number(daysArg ?? 365);
 
-if (!(isWithinProject(configPath) && isWithinProject(certDir))) {
+// Validate paths are within project directory (prevents path traversal)
+if (
+  !(
+    path.resolve(configPath).startsWith(PROJECT_ROOT) &&
+    path.resolve(certDir).startsWith(PROJECT_ROOT)
+  )
+) {
   console.error("Error: paths must be within the project directory");
   process.exit(1);
 }
@@ -69,7 +71,7 @@ if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
       "-subj",
       "/CN=localhost",
     ],
-    { stdio: "inherit" }
+    { stdio: "inherit", env: { ...process.env, PATH: "/usr/bin:/bin" } }
   );
   console.log(`✓ Created ${certPath}`);
   console.log(`✓ Created ${keyPath}`);
