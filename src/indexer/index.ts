@@ -12,15 +12,17 @@ import {
   upsertTerm,
 } from "../database/index.js";
 import { parseToIR } from "../parser/pipeline.js";
-import { createStorage } from "../storage/index.js";
+import { getStorage } from "../storage/index.js";
 import type { HypernextConfig } from "../types/config.js";
+import { logger } from "../utils/logger.js";
 
 const MD_EXT_REGEX = /\.mdx?$/;
 const BACKSLASH_REGEX = /\\/g;
 
 export async function indexDocument(
   slug: string,
-  rawMdx: string
+  rawMdx: string,
+  config?: HypernextConfig
 ): Promise<void> {
   const result = parseToIR(rawMdx, slug);
   const { frontmatter } = result;
@@ -36,6 +38,7 @@ export async function indexDocument(
     rawMdx,
     irJson: JSON.stringify(result.ir),
     publishedAt: frontmatter.publishedAt as string | undefined,
+    scheduledAt: frontmatter.scheduledAt as string | undefined,
     order: frontmatter.order as number | undefined,
     metaJson: JSON.stringify(frontmatter),
   });
@@ -59,20 +62,91 @@ export async function indexDocument(
   }
 
   invalidateAll(slug);
+
+  // Schedule AI features (auto-tagging, SEO meta) after indexing
+  if (config) {
+    await scheduleAiFeatures(slug, rawMdx, frontmatter, config);
+  }
 }
 
-export async function reindexAll(config: HypernextConfig): Promise<void> {
-  const storage = createStorage(config);
+// ── AI feature wiring (gated by agent.enabled + ai.enabled) ──
+
+async function scheduleAiFeatures(
+  slug: string,
+  rawMdx: string,
+  frontmatter: Record<string, unknown>,
+  config: HypernextConfig
+): Promise<void> {
+  if (!config.agent?.enabled || !config.ai?.enabled) {
+    return;
+  }
+
+  const { schedule } = await import("../jobs/queue.js");
+
+  // Auto-tagging: schedule if no tags are set
+  const tags = frontmatter.tags;
+  if (
+    config.ai.features?.autoTagging &&
+    (!Array.isArray(tags) || tags.length === 0)
+  ) {
+    await schedule("ai-text", {
+      op: "suggestTags",
+      slug,
+      rawMdx,
+      __config: config,
+    });
+  }
+
+  // SEO meta: schedule if description is blank
+  if (config.ai.features?.seoMeta && !frontmatter.description) {
+    await schedule("ai-text", {
+      op: "generateSeoMeta",
+      slug,
+      rawMdx,
+      __config: config,
+    });
+  }
+}
+
+export async function reindexAll(_config: HypernextConfig): Promise<void> {
+  const storage = getStorage();
   const em = getEm();
 
-  await em.nativeDelete(TermRelationship, {});
-  await em.nativeDelete(Term, {});
-  await em.nativeDelete(DocMeta, {});
+  // Run the entire reindex in a transaction so a partial failure rolls back
+  // to the previous good state rather than leaving the site empty.
+  await em.getConnection().execute("BEGIN IMMEDIATE");
+  try {
+    await em.nativeDelete(TermRelationship, {});
+    await em.nativeDelete(Term, {});
+    await em.nativeDelete(DocMeta, {});
 
-  const slugs = await storage.list();
-  for (const slug of slugs) {
-    const content = await storage.read(slug);
-    await indexDocument(slug, content);
+    const slugs = await storage.list();
+    let failedCount = 0;
+    for (const slug of slugs) {
+      try {
+        const content = await storage.read(slug);
+        await indexDocument(slug, content);
+      } catch (err) {
+        failedCount++;
+        logger.error(`Failed to index document: ${slug}`, {
+          slug,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
+    await em.getConnection().execute("COMMIT");
+
+    if (failedCount > 0) {
+      logger.warn(
+        `Reindex complete with ${failedCount} failure(s) out of ${slugs.length} document(s)`
+      );
+    }
+  } catch (err) {
+    await em.getConnection().execute("ROLLBACK");
+    throw new Error(
+      `Reindex failed and rolled back: ${err instanceof Error ? err.message : String(err)}`
+    );
   }
 }
 
@@ -105,11 +179,20 @@ export function watchStorage(config: HypernextConfig): () => void {
         return;
       }
 
+      let content: string;
       try {
-        const content = fs.readFileSync(fullPath, "utf-8");
-        indexDocument(slug, content);
+        content = fs.readFileSync(fullPath, "utf-8");
       } catch {
         // File may have been deleted between event and read
+        return;
+      }
+      try {
+        indexDocument(slug, content);
+      } catch (err) {
+        logger.error(`Failed to index document in watcher`, {
+          slug,
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
   );

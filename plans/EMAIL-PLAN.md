@@ -4,6 +4,14 @@
 **Status:** Proposed Supplementary Architecture  
 **Goal:** Provide a built-in, privacy-first email subsystem for Hypernext. This includes a newsletter subscription engine (instant and weekly digests) and an optional contact form. Both leverage the `@upyo/core` and `@upyo/smtp` libraries for SMTP delivery, `node-email-verifier` for validation, `ribaunt` for CAPTCHA, and the existing Akismet integration for spam filtering. All heavy I/O is offloaded to the `workmatic` worker pool.
 
+## Overriding Decisions
+
+| Area | Original Plan | Actual Implementation | See |
+|------|--------------|---------------------|-----|
+| Job/worker architecture | Workmatic worker pool | SQLite-persisted queue + piscina | REMEDIATION-PLAN.md §P1-1 |
+| Template syntax | `{#each docs as doc}` (Svelte) | `<RecentPosts limit={10} />` (MDX components) | `default-templates.ts` |
+| Public API auth | Unspecified | Public endpoints exempted via path allowlist | REMEDIATION-PLAN.md §P0-5 |
+
 ---
 
 ## 1. Core Architecture & Tooling

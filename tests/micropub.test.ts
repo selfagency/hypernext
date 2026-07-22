@@ -4,6 +4,7 @@ import Fastify from "fastify";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { closeOrm, initOrm } from "../src/database";
 import { registerMicropubEndpoint } from "../src/micropub/index";
+import { createStorage } from "../src/storage/index";
 import type { HypernextConfig } from "../src/types/config";
 
 const JWT_SECRET = "test-secret-for-jwt";
@@ -41,6 +42,7 @@ describe("micropub", () => {
 
   beforeAll(async () => {
     _orm = await initOrm(":memory:");
+    createStorage(testConfig);
   });
 
   afterAll(async () => {

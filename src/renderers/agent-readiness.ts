@@ -83,8 +83,8 @@ export function registerWellKnownEndpoints(
         description:
           "Manage documents, moderate comments, search content, and interact with a Hypernext publishing instance.",
         transport: {
-          type: config.mcp.transport === "sse" ? "streamable-http" : "stdio",
-          endpoint: config.mcp.transport === "sse" ? "/api/v1/mcp" : undefined,
+          type: "streamable-http",
+          endpoint: "/api/v1/mcp",
         },
         authentication: {
           required: true,
@@ -154,9 +154,8 @@ export function registerWellKnownEndpoints(
       reply.send({
         mcpServers: {
           hypernext: {
-            url:
-              config.mcp.transport === "sse" ? `${base}/api/v1/mcp` : undefined,
-            type: config.mcp.transport,
+            url: `${base}/api/v1/mcp`,
+            type: "sse",
           },
         },
       });

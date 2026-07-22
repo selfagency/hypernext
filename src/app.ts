@@ -12,11 +12,12 @@ import { registerStatsRoutes } from "./api/stats.js";
 import { registerIndieAuthRoutes } from "./auth/indieauth.js";
 import { registerInboundRoutes } from "./federation/inbound.js";
 import { registerFederationRoutes } from "./federation/index.js";
-import { initWorkmatic } from "./federation/workmatic.js";
-import { registerMcpSseTransport } from "./mcp/index.js";
+import { schedule as scheduleJob } from "./jobs/queue.js";
+import { registerMcpSseTransport, startMcpServer } from "./mcp/index.js";
 import { registerMicropubEndpoint } from "./micropub/index.js";
 import { startFingerServer } from "./servers/finger.js";
 import { startGeminiServer } from "./servers/gemini.js";
+import { createStorage } from "./storage/index.js";
 import { startGopherServer } from "./servers/gopher.js";
 import { createHttpServer } from "./servers/http.js";
 import { startNexServer } from "./servers/nex.js";
@@ -42,8 +43,19 @@ export async function startAllServers(config: HypernextConfig): Promise<void> {
   const { initOrm, closeOrm } = await import("./database/index.js");
   await initOrm(config.database.path);
 
-  // Initialize workmatic job queue (second connection to same file, WAL-safe)
-  initWorkmatic(config);
+  // Initialize SQLite-backed job queue
+  const { initJobsTable, recoverOrphanedJobs } = await import(
+    "./jobs/queue.js"
+  );
+  await initJobsTable();
+  await recoverOrphanedJobs();
+
+  // Initialize piscina worker pool for background jobs
+  const { startWorkerPool } = await import("./jobs/worker.js");
+  await startWorkerPool("config.yml", config.database.path);
+
+  // Initialize storage provider (must be available before any read/write operations)
+  createStorage(config);
 
   // Start weekly digest cron if email is enabled
   let digestInterval: ReturnType<typeof setInterval> | null = null;
@@ -56,17 +68,22 @@ export async function startAllServers(config: HypernextConfig): Promise<void> {
   await reindexAll(config);
   const unwatch = watchStorage(config);
 
-  // Initialize vector table if AI is enabled
-  if (config.ai?.enabled) {
+  // Initialize vector table if agent + AI are both enabled
+  if (config.agent?.enabled && config.ai?.enabled) {
     const { initVecTable } = await import("./database/index.js");
     await initVecTable(config.ai.vectorDimensions);
+  }
+
+  // Start MCP server (stdio transport) if agent features are enabled
+  if (config.agent?.enabled && config.mcp?.transport === "stdio") {
+    startMcpServer(config);
   }
 
   if (protocols.http.enabled) {
     const fastify = await createHttpServer(config);
     servers.push(fastify);
     registerIndieAuthRoutes(fastify, config);
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, config);
     registerApiRoutes(fastify, config);
     registerModerationRoutes(fastify, config);
     registerNewsletterRoutes(fastify);
@@ -133,9 +150,9 @@ export async function startAllServers(config: HypernextConfig): Promise<void> {
       })
     );
 
-    // Stop workmatic
-    const { stopWorkmatic } = await import("./federation/workmatic.js");
-    await stopWorkmatic();
+    // Stop worker pool
+    const { stopWorkerPool } = await import("./jobs/worker.js");
+    stopWorkerPool();
 
     // Close ORM
     await closeOrm();
@@ -186,7 +203,7 @@ function startDigestCron(
     try {
       const { getEm, listDocSlugs } = await import("./database/index.js");
       const { Subscriber } = await import("./database/entities/subscriber.js");
-      const { getOrchestrator } = await import("./federation/workmatic.js");
+      const { schedule } = await import("./jobs/queue.js");
 
       const em = getEm();
       const weeklySubs = await em.find(Subscriber, {
@@ -196,13 +213,11 @@ function startDigestCron(
       const slugs = await listDocSlugs();
       const docs = slugs.map((s: string) => ({ slug: s, title: s }));
 
-      const orch = getOrchestrator();
-      const client = orch.client("email-digest");
       for (const sub of weeklySubs) {
-        await client.add(
-          { subscriberId: (sub as Record<string, unknown>).id, docs },
-          { maxAttempts: 2 }
-        );
+        await schedule("email-digest", {
+          subscriberId: (sub as Record<string, unknown>).id,
+          docs,
+        });
       }
     } catch {
       // Digest cron failures are non-fatal

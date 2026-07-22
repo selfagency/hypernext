@@ -129,7 +129,7 @@ export function buildHead(
   ${ogTags.join("\n  ")}
   ${jsonLd}
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
-  ${cssPath ? `<link rel="stylesheet" href="${escapeAttr(cssPath)}" />` : ""}
+  ${cssPath ? `<link rel="stylesheet" href="${escapeAttr(cssPath.startsWith("/") ? cssPath : `/${cssPath}`)}" />` : ""}
   ${viewTransitionCss}
 </head>`;
 }

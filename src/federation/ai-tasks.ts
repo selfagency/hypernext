@@ -1,6 +1,30 @@
 import OpenAI from "openai";
 import type { AiConfig, HypernextConfig } from "../types/config.js";
 
+/**
+ * Safely extract the first choice from an OpenAI chat completion response.
+ * Throws if no choices are returned, replacing @ts-expect-error patterns.
+ */
+function firstChoice(
+  response: OpenAI.Chat.Completions.ChatCompletion
+): OpenAI.Chat.Completions.ChatCompletionMessage {
+  const choice = response.choices[0];
+  if (!choice?.message) {
+    throw new Error("OpenAI returned no choices");
+  }
+  return choice.message;
+}
+
+function firstEmbedding(
+  response: OpenAI.Embeddings.CreateEmbeddingResponse
+): number[] {
+  const item = response.data[0];
+  if (!item?.embedding) {
+    throw new Error("OpenAI returned no embeddings");
+  }
+  return item.embedding;
+}
+
 const FRONTMATTER_REGEX = /^---[\s\S]*?---\n?/;
 const JSX_TAG_REGEX = /<[A-Z][a-zA-Z]*\s*\/?>/g;
 const JSX_CLOSE_REGEX = /<\/[A-Z][a-zA-Z]*>/g;
@@ -49,8 +73,11 @@ export async function generateAndStoreEmbedding(
     input: plainText,
   });
 
-  // @ts-expect-error — OpenAI API always returns at least one embedding
-  const embedding = response.data[0].embedding;
+  const first = response.data[0];
+  if (!first) {
+    throw new Error("OpenAI returned no embeddings");
+  }
+  const embedding = first.embedding;
 
   const { getEm } = await import("../database/index.js");
   const em = getEm();
@@ -82,8 +109,7 @@ export async function generateSummary(
     ],
     temperature: 0.3,
   });
-  // @ts-expect-error — OpenAI API always returns at least one choice
-  return response.choices[0].message.content ?? "";
+  return firstChoice(response).content ?? "";
 }
 
 // ── Alt Text Generation ──
@@ -115,8 +141,7 @@ export async function generateAltText(
       },
     ],
   });
-  // @ts-expect-error — OpenAI API always returns at least one choice
-  return response.choices[0].message.content ?? "";
+  return firstChoice(response).content ?? "";
 }
 
 // ── Auto-Tagging ──
@@ -136,8 +161,7 @@ export async function suggestTags(
       },
     ],
   });
-  // @ts-expect-error — OpenAI API always returns at least one choice
-  const text = response.choices[0].message.content ?? "";
+  const text = firstChoice(response).content ?? "";
   return text
     .split(TAG_SPLIT_REGEX)
     .map((t) => t.trim().toLowerCase().replace(WHITESPACE_REGEX, "-"))
@@ -160,8 +184,7 @@ export async function generateSeoMeta(
       },
     ],
   });
-  // @ts-expect-error — OpenAI API always returns at least one choice
-  return response.choices[0].message.content ?? "";
+  return firstChoice(response).content ?? "";
 }
 
 // ── Semantic Spam Moderation ──
@@ -182,8 +205,7 @@ export async function aiModerateComment(
       },
     ],
   });
-  // @ts-expect-error — OpenAI API always returns at least one choice
-  const text = (response.choices[0].message.content ?? "").toLowerCase();
+  const text = (firstChoice(response).content ?? "").toLowerCase();
   return text.includes("ham") ? "ham" : "spam";
 }
 
@@ -200,8 +222,7 @@ export async function ragSearch(
     model: ai.models.embedding,
     input: query,
   });
-  // @ts-expect-error — OpenAI API always returns at least one embedding
-  const queryVector = queryResponse.data[0].embedding;
+  const queryVector = firstEmbedding(queryResponse);
 
   // 2. KNN search
   const { getEm } = await import("../database/index.js");
@@ -246,6 +267,5 @@ export async function ragSearch(
       },
     ],
   });
-  // @ts-expect-error — OpenAI API always returns at least one choice
-  return response.choices[0].message.content ?? "";
+  return firstChoice(response).content ?? "";
 }

@@ -3,6 +3,7 @@ import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { closeOrm, initOrm } from "../src/database/index.js";
 import { reindexAll } from "../src/indexer/index.js";
+import { createStorage } from "../src/storage/index.js";
 import { createHttpServer } from "../src/servers/http.js";
 import type { HypernextConfig } from "../src/types/config.js";
 
@@ -92,6 +93,7 @@ describe("HTTP server routes", () => {
 
     // Initialize ORM with in-memory database and reindex all content
     await initOrm(":memory:");
+    createStorage(testConfig);
     await reindexAll(testConfig);
 
     // Create the Fastify HTTP server (does not listen on a port)

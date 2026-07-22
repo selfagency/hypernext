@@ -148,9 +148,31 @@ function convertMdxJsxNode(
   if (node.attributes) {
     for (const attr of node.attributes) {
       if (attr.type === "mdxJsxAttribute") {
-        props[attr.name] = attr.value ?? true;
+        const val = attr.value;
+        if (val === null || val === undefined) {
+          props[attr.name] = true; // boolean attribute
+        } else if (typeof val === "object" && val !== null && "value" in val) {
+          // JSX expression: {50}, {true}, {"hello"}, {["a","b"]}
+          const exprVal = (val as { value?: string }).value;
+          props[attr.name] = tryParseJsxExpression(String(exprVal ?? ""));
+        } else {
+          props[attr.name] = val;
+        }
       }
     }
+  }
+
+  function tryParseJsxExpression(expr: string): unknown {
+    // Handle numeric literals
+    if (/^-?\d+(\.\d+)?$/.test(expr)) return Number(expr);
+    // Handle boolean literals
+    if (expr === "true") return true;
+    if (expr === "false") return false;
+    // Handle string literals
+    const strMatch = expr.match(/^"([^"]*)"$/);
+    if (strMatch) return strMatch[1]!;
+    // Default: return as string
+    return expr;
   }
 
   return {
@@ -218,30 +240,12 @@ export function parseToIR(content: string, _slug?: string): ParseResult {
   };
 }
 
-function copyIrNode(target: IrNode, source: IrNode | undefined): void {
-  if (!source) {
-    return;
-  }
-  target.type = source.type;
-  target.children = source.children;
-  target.value = source.value;
-  target.depth = source.depth;
-  target.url = source.url;
-  target.alt = source.alt;
-  target.lang = source.lang;
-  target.ordered = source.ordered;
-  target.className = source.className;
-  target.id = source.id;
-  target.authorName = source.authorName;
-  target.authorUrl = source.authorUrl;
-  target.authorPhoto = source.authorPhoto;
-  target.content = source.content;
-  target.sourceUrl = source.sourceUrl;
-  target.publishedAt = source.publishedAt;
-  target.platform = source.platform;
-  target.componentName = source.componentName;
-  target.componentProps = source.componentProps;
+function copyIrNode(target: IrNode, source: IrNode): void {
+  // Spread all source fields onto the target, preserving type identity
+  Object.assign(target, source);
 }
+
+const MAX_RESOLVE_DEPTH = 10;
 
 export async function resolveComponentNodes(
   ir: IrNode,
@@ -250,8 +254,8 @@ export async function resolveComponentNodes(
 ): Promise<void> {
   const ctx: ComponentContext =
     typeof ctxOrSlug === "string"
-      ? { config, currentSlug: ctxOrSlug }
-      : { config, ...ctxOrSlug };
+      ? { config, currentSlug: ctxOrSlug, includeStack: new Set<string>() }
+      : { config, includeStack: new Set<string>(), ...ctxOrSlug };
 
   // Clone the IR tree to avoid mutating cached parse results
   const clone = JSON.parse(JSON.stringify(ir)) as IrNode;
@@ -269,13 +273,25 @@ export async function resolveComponentNodes(
         node.componentProps ?? {},
         ctx
       );
-      if (resolved.length === 1) {
+      if (resolved.length === 1 && resolved[0]) {
         copyIrNode(node, resolved[0]);
+        // Recursively resolve any nested component nodes in the result
+        if (node.children) {
+          for (const child of node.children) {
+            await walk(child);
+          }
+        }
       } else {
         node.type = "root";
         node.children = resolved;
         node.componentName = undefined;
         node.componentProps = undefined;
+        // Recursively resolve nested components in multi-node results
+        if (node.children) {
+          for (const child of node.children) {
+            await walk(child);
+          }
+        }
       }
     }
   }

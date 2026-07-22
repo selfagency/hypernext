@@ -13,7 +13,13 @@ export async function syndicateToMastodon(
   }
 
   const url = `${config.site.canonicalBase}/${slug}`;
-  const status = `${content}\n\n${url}`;
+  // Mastodon default status limit is 500 chars; truncate content to fit
+  const maxContentLength = 500 - url.length - 2;
+  const truncated =
+    content.length > maxContentLength
+      ? `${content.slice(0, maxContentLength - 1)}…`
+      : content;
+  const status = `${truncated}\n\n${url}`;
 
   try {
     const response = await fetch(`${mastodonConfig.instance}/api/v1/statuses`, {

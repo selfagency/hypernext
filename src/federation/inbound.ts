@@ -27,7 +27,19 @@ function extractTargetSlug(
   config: HypernextConfig
 ): string | null {
   const base = config.site.canonicalBase.replace(TRAILING_SLASH_REGEX, "");
-  if (!target.startsWith(base)) {
+  // Parse both as URLs to prevent prefix-collision attacks
+  // e.g., http://localhost:8080.evil.com/blog/post should NOT match
+  try {
+    const targetUrl = new URL(target);
+    const baseUrl = new URL(base);
+    if (
+      targetUrl.protocol !== baseUrl.protocol ||
+      targetUrl.hostname !== baseUrl.hostname ||
+      targetUrl.port !== baseUrl.port
+    ) {
+      return null;
+    }
+  } catch {
     return null;
   }
   const path = target.slice(base.length).replace(LEADING_SLASH_REGEX, "");
@@ -117,7 +129,19 @@ async function fetchSourceHtml(source: string): Promise<string | null> {
 
 function verifyLinkInHtml(html: string, target: string): boolean {
   const escaped = target.replace(REGEX_ESCAPE_REGEX, "\\$&");
-  return new RegExp(escaped, "i").test(html);
+  // Webmention spec §3.2.1: source must contain a link (a, area, link href)
+  // to the target. A bare URL in a comment or non-link attribute is not a link.
+  const linkRegex = new RegExp(
+    `<[aA]\\s[^>]*href=["']${escaped}["']|` +
+      `<[aA][rR][eE][aA]\\s[^>]*href=["']${escaped}["']|` +
+      `<[lL][iI][nN][kK]\\s[^>]*href=["']${escaped}["']|` +
+      `<[iI][mM][gG]\\s[^>]*src=["']${escaped}["']|` +
+      `<[vV][iI][dD][eE][oO]\\s[^>]*src=["']${escaped}["']|` +
+      `<[aA][uU][dD][iI][oO]\\s[^>]*src=["']${escaped}["']|` +
+      `<[bB][lL][oO][cC][kK][qQ][uU][oO][tT][eE]\\s[^>]*cite=["']${escaped}["']`,
+    "i"
+  );
+  return linkRegex.test(html);
 }
 
 function isBlocked(
@@ -176,7 +200,12 @@ export async function processInboundMention(
   }
 
   // 3. SSRF protection
-  if (!validateSourceUrl(payload.source, commentConfig.allowPrivateSources)) {
+  if (
+    !(await validateSourceUrl(
+      payload.source,
+      commentConfig.allowPrivateSources
+    ))
+  ) {
     return;
   }
 
@@ -281,37 +310,94 @@ export function registerInboundRoutes(
     reply.code(202).send({ status: "accepted" });
   });
 
-  // POST /pingback (XML-RPC)
-  fastify.post<{
-    Body: {
-      methodName?: string;
-      params?: Array<{ value?: { string?: string } }>;
-    };
-  }>("/pingback", (request, reply) => {
-    const { methodName, params } = request.body;
-
-    if (methodName !== "pingback.ping" || !params || params.length < 2) {
-      reply.code(400).send({ error: "Invalid pingback request" });
-      return;
+  /**
+   * Parse a simple XML-RPC methodCall, extracting methodName and string params.
+   */
+  function parseXmlRpcMethodCall(
+    xml: string
+  ): { methodName: string; params: string[] } | null {
+    const methodMatch = xml.match(/<methodName>\s*([^<]+?)\s*<\/methodName>/i);
+    if (!methodMatch) return null;
+    const methodName = methodMatch[1]!.trim();
+    const params: string[] = [];
+    const valueRegex =
+      /<value>\s*<string>\s*([^<]*?)\s*<\/string>\s*<\/value>/gi;
+    let valMatch: RegExpExecArray | null;
+    while ((valMatch = valueRegex.exec(xml)) !== null) {
+      params.push(valMatch[1]!);
     }
+    return { methodName, params };
+  }
 
-    const source = params[0]?.value?.string;
-    const target = params[1]?.value?.string;
+  /**
+   * Extract source+target from a pingback request, supporting both
+   * XML-RPC (text/xml) and JSON (application/json) content types.
+   */
+  function extractPingbackParams(
+    body: unknown,
+    contentType: string
+  ): { source: string; target: string } | null {
+    const isXml =
+      contentType.includes("text/xml") ||
+      contentType.includes("application/xml");
+    if (isXml && typeof body === "string") {
+      const parsed = parseXmlRpcMethodCall(body);
+      if (
+        !parsed ||
+        parsed.methodName !== "pingback.ping" ||
+        parsed.params.length < 2
+      ) {
+        return null;
+      }
+      return { source: parsed.params[0]!, target: parsed.params[1]! };
+    }
+    // JSON fallback (used in tests and some clients)
+    const jsonBody = body as Record<string, unknown> | null;
+    if (jsonBody?.methodName === "pingback.ping") {
+      const params = jsonBody.params as
+        | Array<{ value?: { string?: string } }>
+        | undefined;
+      if (params && params.length >= 2) {
+        const source = params[0]?.value?.string;
+        const target = params[1]?.value?.string;
+        if (source && target) return { source, target };
+      }
+    }
+    return null;
+  }
 
-    if (!(source && target)) {
-      reply.code(400).send({ error: "Missing source or target" });
+  // POST /pingback (XML-RPC)
+  fastify.post("/pingback", (request, reply) => {
+    const contentType = (request.headers["content-type"] as string) ?? "";
+    const params = extractPingbackParams(request.body, contentType);
+
+    if (!params) {
+      const isXml =
+        contentType.includes("text/xml") ||
+        contentType.includes("application/xml");
+      // XML-RPC clients expect 200 with fault; JSON clients (tests) expect 400
+      if (isXml) {
+        reply
+          .type("text/xml")
+          .code(200)
+          .send(
+            `<?xml version="1.0"?><methodResponse><fault><value><struct><member><name>faultCode</name><value><int>0</int></value></member><member><name>faultString</name><value><string>Invalid pingback request</string></value></member></struct></value></fault></methodResponse>`
+          );
+      } else {
+        reply.code(400).send({ error: "Invalid pingback request" });
+      }
       return;
     }
 
     processInboundMention(config, {
-      source,
-      target,
+      source: params.source,
+      target: params.target,
       ip: request.ip,
       userAgent: (request.headers["user-agent"] as string) ?? "",
       type: "pingback",
     }).catch((err) => console.error("Pingback worker error:", err));
 
-    // XML-RPC response
+    // XML-RPC success response
     reply
       .type("text/xml")
       .code(200)

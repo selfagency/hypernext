@@ -12,25 +12,27 @@ import { createTools } from "./tools.js";
 // Track active SSE transports by session ID
 const sseTransports = new Map<string, SSEServerTransport>();
 
+/**
+ * Start the MCP server with stdio transport.
+ * Used by the `hypernext mcp` CLI subcommand and for Claude Desktop integration.
+ */
 export function startMcpServer(config: HypernextConfig): void {
-  if (!config.mcp.enabled) {
+  if (!config.agent?.enabled) {
     return;
   }
 
   const server = createMcpServer(config);
-
-  if (config.mcp.transport === "stdio") {
-    const transport = new StdioServerTransport();
-    server.connect(transport);
-    console.log("MCP server active (stdio)");
-  }
+  const transport = new StdioServerTransport();
+  server.connect(transport);
+  console.log("MCP server active (stdio)");
 }
 
 export function registerMcpSseTransport(
   fastify: FastifyInstance,
   config: HypernextConfig
 ): void {
-  if (!config.mcp.enabled || config.mcp.transport !== "sse") {
+  // MCP server only starts when agent features are enabled
+  if (!config.agent?.enabled) {
     return;
   }
 

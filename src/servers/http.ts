@@ -12,6 +12,7 @@ import formbody from "@fastify/formbody";
 import helmet from "@fastify/helmet";
 import jwt from "@fastify/jwt";
 import multipart from "@fastify/multipart";
+import rateLimit from "@fastify/rate-limit";
 import { FastifyOtelInstrumentation } from "@fastify/otel";
 import sensible from "@fastify/sensible";
 import staticFiles from "@fastify/static";
@@ -118,6 +119,11 @@ export async function createHttpServer(config: HypernextConfig) {
   fastify.register(cookie);
   fastify.register(etag);
   fastify.register(urlData);
+  fastify.register(rateLimit, {
+    global: true,
+    max: 100,
+    timeWindow: "1 minute",
+  });
   fastify.register(underPressure, {
     maxEventLoopDelay: 1000,
     maxHeapUsedBytes: 200_000_000,
@@ -525,6 +531,23 @@ export async function createHttpServer(config: HypernextConfig) {
       done();
     });
   }
+
+  // Global onResponse hook for pageview tracking on HTML responses
+  fastify.addHook("onResponse", (request, reply, done) => {
+    if (
+      reply.statusCode >= 200 &&
+      reply.statusCode < 400 &&
+      reply.getHeader("content-type")?.toString().includes("text/html")
+    ) {
+      const slug = (request.params as Record<string, string>).slug ?? "";
+      if (slug) {
+        recordPageview(slug, "http", request.ip).catch(() => {
+          /* non-fatal */
+        });
+      }
+    }
+    done();
+  });
 
   return fastify;
 }

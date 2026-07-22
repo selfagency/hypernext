@@ -22,8 +22,8 @@ import {
   initOrm,
   insertDoc,
 } from "../src/database/index.js";
-import { initWorkmatic, stopWorkmatic } from "../src/federation/workmatic.js";
 import { createStorage, getStorage } from "../src/storage/index.js";
+import { initJobsTable } from "../src/jobs/queue.js";
 import type { HypernextConfig } from "../src/types/config.js";
 
 // ── Mocks ──
@@ -173,14 +173,13 @@ let _orm: MikroORM;
 
 beforeAll(async () => {
   _orm = await initOrm(":memory:");
+  await initJobsTable();
   fs.mkdirSync(TMP_DIR, { recursive: true });
   createStorage(testConfig);
-  initWorkmatic(testConfig);
   await createPageviewsTable();
 });
 
 afterAll(async () => {
-  await stopWorkmatic();
   await closeOrm();
   fs.rmSync(TMP_DIR, { recursive: true, force: true });
 });
@@ -424,7 +423,9 @@ describe("newsletter API", () => {
 
   it("GET /api/v1/subscribers — lists subscribers (auth required)", async () => {
     const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, {
+      api: { enabled: true, requireAuthForPublicRead: false },
+    } as any);
     registerNewsletterRoutes(fastify);
     const res = await fastify.inject({
       method: "GET",
@@ -443,7 +444,9 @@ describe("newsletter API", () => {
 
   it("GET /api/v1/subscribers — filters by frequency", async () => {
     const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, {
+      api: { enabled: true, requireAuthForPublicRead: false },
+    } as any);
     registerNewsletterRoutes(fastify);
     const res = await fastify.inject({
       method: "GET",
@@ -460,7 +463,9 @@ describe("newsletter API", () => {
 
   it("POST /api/v1/subscribers — rejects invalid email", async () => {
     const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, {
+      api: { enabled: true, requireAuthForPublicRead: false },
+    } as any);
     registerNewsletterRoutes(fastify);
     const res = await fastify.inject({
       method: "POST",
@@ -477,7 +482,9 @@ describe("newsletter API", () => {
   it("POST /api/v1/subscribers — creates new subscriber", async () => {
     const freshEmail = `manual-${randomSuffix}@example.com`;
     const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, {
+      api: { enabled: true, requireAuthForPublicRead: false },
+    } as any);
     registerNewsletterRoutes(fastify);
     const res = await fastify.inject({
       method: "POST",
@@ -499,7 +506,9 @@ describe("newsletter API", () => {
 
   it("POST /api/v1/subscribers — 409 for duplicate email", async () => {
     const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, {
+      api: { enabled: true, requireAuthForPublicRead: false },
+    } as any);
     registerNewsletterRoutes(fastify);
     const res = await fastify.inject({
       method: "POST",
@@ -517,7 +526,9 @@ describe("newsletter API", () => {
 
   it("DELETE /api/v1/subscribers/:email — 404 for missing email", async () => {
     const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, {
+      api: { enabled: true, requireAuthForPublicRead: false },
+    } as any);
     registerNewsletterRoutes(fastify);
     const res = await fastify.inject({
       method: "DELETE",
@@ -548,7 +559,9 @@ describe("newsletter API", () => {
     );
 
     const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, {
+      api: { enabled: true, requireAuthForPublicRead: false },
+    } as any);
     registerNewsletterRoutes(fastify);
     const res = await fastify.inject({
       method: "DELETE",
@@ -730,6 +743,7 @@ describe("API routes — remaining coverage", () => {
 describe("AI routes", () => {
   const aiEnabledConfig: HypernextConfig = {
     ...testConfig,
+    agent: { enabled: true },
     ai: {
       enabled: true,
       features: {
@@ -792,10 +806,11 @@ describe("AI routes", () => {
       method: "GET",
       url: "/api/v1/docs/ai-test-doc/summary",
     });
-    // The AI call will fail because the API key is fake → 503
-    expect(res.statusCode).toBe(503);
+    // The AI call is now scheduled as a background job → 202
+    expect(res.statusCode).toBe(202);
     const body = JSON.parse(res.body);
-    expect(body.error).toMatch(AI_SERVICE_UNAVAILABLE_RE);
+    expect(body.status).toBe("processing");
+    expect(body.jobId).toBeTruthy();
     await fastify.close();
   });
 });
@@ -935,7 +950,9 @@ describe("moderation API — additional coverage", () => {
 
   it("GET /api/v1/comments — filters by status=spam", async () => {
     const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, {
+      api: { enabled: true, requireAuthForPublicRead: false },
+    } as any);
     registerModerationRoutes(fastify, testConfig);
     const res = await fastify.inject({
       method: "GET",
@@ -951,7 +968,9 @@ describe("moderation API — additional coverage", () => {
 
   it("GET /api/v1/comments — filters by status=hidden", async () => {
     const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, {
+      api: { enabled: true, requireAuthForPublicRead: false },
+    } as any);
     registerModerationRoutes(fastify, testConfig);
     const res = await fastify.inject({
       method: "GET",
@@ -964,7 +983,9 @@ describe("moderation API — additional coverage", () => {
 
   it("GET /api/v1/comments — filters by slug", async () => {
     const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, {
+      api: { enabled: true, requireAuthForPublicRead: false },
+    } as any);
     registerModerationRoutes(fastify, testConfig);
     const res = await fastify.inject({
       method: "GET",
@@ -979,7 +1000,9 @@ describe("moderation API — additional coverage", () => {
 
   it("PATCH /api/v1/comments/:id — rejects invalid spam_status", async () => {
     const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, {
+      api: { enabled: true, requireAuthForPublicRead: false },
+    } as any);
     registerModerationRoutes(fastify, testConfig);
     const res = await fastify.inject({
       method: "PATCH",
@@ -995,7 +1018,9 @@ describe("moderation API — additional coverage", () => {
 
   it("PATCH /api/v1/comments/:id — 404 for missing comment", async () => {
     const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, {
+      api: { enabled: true, requireAuthForPublicRead: false },
+    } as any);
     registerModerationRoutes(fastify, testConfig);
     const res = await fastify.inject({
       method: "PATCH",
@@ -1009,7 +1034,9 @@ describe("moderation API — additional coverage", () => {
 
   it("PATCH /api/v1/comments/:id — updates spam status", async () => {
     const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, {
+      api: { enabled: true, requireAuthForPublicRead: false },
+    } as any);
     registerModerationRoutes(fastify, testConfig);
     const res = await fastify.inject({
       method: "PATCH",
@@ -1025,7 +1052,9 @@ describe("moderation API — additional coverage", () => {
 
   it("POST /api/v1/comments/:id/hide — 404 for missing comment", async () => {
     const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, {
+      api: { enabled: true, requireAuthForPublicRead: false },
+    } as any);
     registerModerationRoutes(fastify, testConfig);
     const res = await fastify.inject({
       method: "POST",
@@ -1040,7 +1069,9 @@ describe("moderation API — additional coverage", () => {
 
   it("POST /api/v1/comments/:id/unhide — 404 for missing comment", async () => {
     const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, {
+      api: { enabled: true, requireAuthForPublicRead: false },
+    } as any);
     registerModerationRoutes(fastify, testConfig);
     const res = await fastify.inject({
       method: "POST",
@@ -1053,7 +1084,9 @@ describe("moderation API — additional coverage", () => {
 
   it("DELETE /api/v1/comments/:id — 404 for missing comment", async () => {
     const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, {
+      api: { enabled: true, requireAuthForPublicRead: false },
+    } as any);
     registerModerationRoutes(fastify, testConfig);
     const res = await fastify.inject({
       method: "DELETE",
@@ -1068,7 +1101,9 @@ describe("moderation API — additional coverage", () => {
 
   it("POST /api/v1/blocklist — rejects missing type or value", async () => {
     const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, {
+      api: { enabled: true, requireAuthForPublicRead: false },
+    } as any);
     registerModerationRoutes(fastify, testConfig);
     const res = await fastify.inject({
       method: "POST",
@@ -1084,7 +1119,9 @@ describe("moderation API — additional coverage", () => {
 
   it("POST /api/v1/blocklist — rejects invalid type", async () => {
     const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, {
+      api: { enabled: true, requireAuthForPublicRead: false },
+    } as any);
     registerModerationRoutes(fastify, testConfig);
     const res = await fastify.inject({
       method: "POST",
@@ -1100,7 +1137,9 @@ describe("moderation API — additional coverage", () => {
 
   it("POST /api/v1/blocklist — adds blocked item", async () => {
     const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, {
+      api: { enabled: true, requireAuthForPublicRead: false },
+    } as any);
     registerModerationRoutes(fastify, testConfig);
     const res = await fastify.inject({
       method: "POST",
@@ -1117,7 +1156,9 @@ describe("moderation API — additional coverage", () => {
 
   it("DELETE /api/v1/blocklist/:type/:value — removes blocked item", async () => {
     const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, {
+      api: { enabled: true, requireAuthForPublicRead: false },
+    } as any);
     registerModerationRoutes(fastify, testConfig);
     const res = await fastify.inject({
       method: "DELETE",
@@ -1132,7 +1173,9 @@ describe("moderation API — additional coverage", () => {
 
   it("DELETE /api/v1/blocklist/:type/:value — rejects invalid type", async () => {
     const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, {
+      api: { enabled: true, requireAuthForPublicRead: false },
+    } as any);
     registerModerationRoutes(fastify, testConfig);
     const res = await fastify.inject({
       method: "DELETE",
@@ -1149,7 +1192,9 @@ describe("moderation API — additional coverage", () => {
 
   it("GET /api/v1/mentions — lists mentions", async () => {
     const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, {
+      api: { enabled: true, requireAuthForPublicRead: false },
+    } as any);
     registerModerationRoutes(fastify, testConfig);
     const res = await fastify.inject({
       method: "GET",
@@ -1166,7 +1211,9 @@ describe("moderation API — additional coverage", () => {
   it("GET /api/v1/mentions — filters by status=ham and slug", async () => {
     // The seeded mention has spam_status = 'ham', so filter with 'ham'
     const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, {
+      api: { enabled: true, requireAuthForPublicRead: false },
+    } as any);
     registerModerationRoutes(fastify, testConfig);
     const res = await fastify.inject({
       method: "GET",
@@ -1181,7 +1228,9 @@ describe("moderation API — additional coverage", () => {
 
   it("PATCH /api/v1/mentions/:id — rejects invalid spam_status", async () => {
     const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, {
+      api: { enabled: true, requireAuthForPublicRead: false },
+    } as any);
     registerModerationRoutes(fastify, testConfig);
     const res = await fastify.inject({
       method: "PATCH",
@@ -1195,7 +1244,9 @@ describe("moderation API — additional coverage", () => {
 
   it("PATCH /api/v1/mentions/:id — 404 for missing mention", async () => {
     const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, {
+      api: { enabled: true, requireAuthForPublicRead: false },
+    } as any);
     registerModerationRoutes(fastify, testConfig);
     const res = await fastify.inject({
       method: "PATCH",
@@ -1211,7 +1262,9 @@ describe("moderation API — additional coverage", () => {
 
   it("PATCH /api/v1/mentions/:id — updates mention status", async () => {
     const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, {
+      api: { enabled: true, requireAuthForPublicRead: false },
+    } as any);
     registerModerationRoutes(fastify, testConfig);
     const res = await fastify.inject({
       method: "PATCH",
@@ -1227,7 +1280,9 @@ describe("moderation API — additional coverage", () => {
 
   it("DELETE /api/v1/mentions/:id — 404 for missing mention", async () => {
     const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, {
+      api: { enabled: true, requireAuthForPublicRead: false },
+    } as any);
     registerModerationRoutes(fastify, testConfig);
     const res = await fastify.inject({
       method: "DELETE",

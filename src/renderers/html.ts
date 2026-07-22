@@ -1,6 +1,20 @@
+import { createRequire } from "node:module";
 import type { IrNode, ParseResult } from "../parser/ir.js";
 import type { HypernextConfig } from "../types/config.js";
 import { buildHead } from "./head.js";
+
+// KaTeX for math rendering — loaded once at module init via createRequire (ESM-safe)
+const _require = createRequire(import.meta.url);
+let _katexRender:
+  | ((expr: string, opts: Record<string, unknown>) => string)
+  | null = null;
+try {
+  const katex = _require("katex");
+  _katexRender = (expr: string, opts: Record<string, unknown>) =>
+    katex.renderToString(expr, opts);
+} catch {
+  // KaTeX not available — fall back to plain text rendering
+}
 
 type Renderer = (node: IrNode) => string;
 
@@ -167,13 +181,46 @@ const RENDERERS: Record<string, Renderer> = {
     return `<td>${renderChildren(node)}</td>`;
   },
   math(node) {
-    return `<div class="math math-display">${escapeHtml(node.value ?? "")}</div>`;
+    const expr = node.value ?? "";
+    if (_katexRender) {
+      try {
+        return _katexRender(expr, { displayMode: true, throwOnError: false });
+      } catch {
+        // fall through to plain text
+      }
+    }
+    return `<div class="math math-display">${escapeHtml(expr)}</div>`;
   },
   inlineMath(node) {
-    return `<span class="math math-inline">${escapeHtml(node.value ?? "")}</span>`;
+    const expr = node.value ?? "";
+    if (_katexRender) {
+      try {
+        return _katexRender(expr, { displayMode: false, throwOnError: false });
+      } catch {
+        // fall through to plain text
+      }
+    }
+    return `<span class="math math-inline">${escapeHtml(expr)}</span>`;
   },
   component(node) {
-    return `<!-- component: ${node.componentName} -->`;
+    const name = node.componentName;
+    // Known HTML elements: render as native tags
+    if (name && /^[a-z]/.test(name)) {
+      const selfClosing = ["br", "hr", "img", "input", "link", "meta"];
+      const classAttr = node.componentProps?.className
+        ? ` class="${escapeAttr(String(node.componentProps.className))}"`
+        : "";
+      const idAttr = node.componentProps?.id
+        ? ` id="${escapeAttr(String(node.componentProps.id))}"`
+        : "";
+      const attrs = `${classAttr}${idAttr}`;
+      if (selfClosing.includes(name)) {
+        return `<${name}${attrs} />`;
+      }
+      return `<${name}${attrs}>${renderChildren(node)}</${name}>`;
+    }
+    // Unresolved component — emit placeholder comment
+    return `<!-- component: ${name} -->`;
   },
   time(node) {
     const date = node.value ?? "";

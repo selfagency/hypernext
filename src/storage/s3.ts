@@ -36,6 +36,10 @@ export class S3StorageProvider implements StorageProvider {
     this.client = new S3Client({
       region: config.region,
       endpoint: config.endpoint,
+      credentials: {
+        accessKeyId: config.accessKeyId,
+        secretAccessKey: config.secretAccessKey,
+      },
     });
     this.bucket = config.bucket;
     this.prefix = config.prefix ? sanitizeKey(config.prefix) : "";

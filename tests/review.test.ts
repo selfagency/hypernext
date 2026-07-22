@@ -29,13 +29,16 @@ tags: [test, mdx]
 describe("frontmatter SSRF validation", () => {
   it("prevents private IP addresses", async () => {
     const { validateSourceUrl } = await import("../src/federation/ssrf.js");
-    expect(validateSourceUrl("http://127.0.0.1/")).toBe(false);
-    expect(validateSourceUrl("http://10.0.0.1/")).toBe(false);
-    expect(validateSourceUrl("http://192.168.1.1/")).toBe(false);
-    expect(validateSourceUrl("http://localhost/")).toBe(false);
-    expect(validateSourceUrl("http://[::1]/")).toBe(false);
-    expect(validateSourceUrl("http://example.com/")).toBe(true);
-    expect(validateSourceUrl("https://api.example.com/data")).toBe(true);
+    await expect(validateSourceUrl("http://127.0.0.1/")).resolves.toBe(false);
+    await expect(validateSourceUrl("http://10.0.0.1/")).resolves.toBe(false);
+    await expect(validateSourceUrl("http://192.168.1.1/")).resolves.toBe(false);
+    await expect(validateSourceUrl("http://localhost/")).resolves.toBe(false);
+    await expect(validateSourceUrl("http://[::1]/")).resolves.toBe(false);
+    await expect(validateSourceUrl("http://example.com/")).resolves.toBe(true);
+    // Test with a public IP to avoid DNS dependency
+    await expect(validateSourceUrl("https://93.184.216.34/data")).resolves.toBe(
+      true
+    );
   });
 });
 

@@ -1,5 +1,7 @@
 import crypto from "node:crypto";
 import Fastify from "fastify";
+import { HttpResponse, http } from "msw";
+import { setupServer } from "msw/node";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { Mention } from "../src/database/entities/mention.js";
 import { closeOrm, getEm, initOrm, insertDoc } from "../src/database/index.js";
@@ -24,9 +26,8 @@ import { validateSourceUrl } from "../src/federation/ssrf.js";
 import {
   enqueueInboundMention,
   enqueueOutboundSyndication,
-  initWorkmatic,
-  stopWorkmatic,
-} from "../src/federation/workmatic.js";
+} from "../src/jobs/schedule.js";
+import { initJobsTable, listJobs } from "../src/jobs/queue.js";
 import type { HypernextConfig } from "../src/types/config.js";
 
 const testConfig: HypernextConfig = {
@@ -67,7 +68,7 @@ const dbTestConfig: HypernextConfig = {
     inbound: { webmention: true, pingback: true, trackback: true },
     aggregation: { mastodon: true, bluesky: true, cacheTtl: 900 },
     akismet: { enabled: true },
-    allowPrivateSources: false,
+    allowPrivateSources: true,
   },
   email: {
     enabled: false,
@@ -142,42 +143,72 @@ describe("federation", () => {
   // ── SSRF validation ──
 
   describe("SSRF validation", () => {
-    it("allows public HTTPS URLs", () => {
-      expect(validateSourceUrl("https://example.com/article")).toBe(true);
+    it("allows public HTTPS URLs", async () => {
+      await expect(
+        validateSourceUrl("https://example.com/article")
+      ).resolves.toBe(true);
     });
 
-    it("allows public HTTP URLs", () => {
-      expect(validateSourceUrl("http://example.com/article")).toBe(true);
+    it("allows public HTTP URLs", async () => {
+      await expect(
+        validateSourceUrl("http://example.com/article")
+      ).resolves.toBe(true);
     });
 
-    it("rejects non-http schemes", () => {
-      expect(validateSourceUrl("ftp://example.com/file")).toBe(false);
-      expect(validateSourceUrl("file:///etc/passwd")).toBe(false);
-      expect(validateSourceUrl("data:text/plain,hello")).toBe(false);
+    it("rejects non-http schemes", async () => {
+      await expect(validateSourceUrl("ftp://example.com/file")).resolves.toBe(
+        false
+      );
+      await expect(validateSourceUrl("file:///etc/passwd")).resolves.toBe(
+        false
+      );
+      await expect(validateSourceUrl("data:text/plain,hello")).resolves.toBe(
+        false
+      );
     });
 
-    it("rejects malformed URLs", () => {
-      expect(validateSourceUrl("not a url")).toBe(false);
-      expect(validateSourceUrl("")).toBe(false);
+    it("rejects malformed URLs", async () => {
+      await expect(validateSourceUrl("not a url")).resolves.toBe(false);
+      await expect(validateSourceUrl("")).resolves.toBe(false);
     });
 
-    it("rejects localhost", () => {
-      expect(validateSourceUrl("http://localhost:3000/article")).toBe(false);
-      expect(validateSourceUrl("http://127.0.0.1/article")).toBe(false);
-      expect(validateSourceUrl("http://0.0.0.0/article")).toBe(false);
-      expect(validateSourceUrl("http://[::1]/article")).toBe(false);
+    it("rejects localhost", async () => {
+      await expect(
+        validateSourceUrl("http://localhost:3000/article")
+      ).resolves.toBe(false);
+      await expect(validateSourceUrl("http://127.0.0.1/article")).resolves.toBe(
+        false
+      );
+      await expect(validateSourceUrl("http://0.0.0.0/article")).resolves.toBe(
+        false
+      );
+      await expect(validateSourceUrl("http://[::1]/article")).resolves.toBe(
+        false
+      );
     });
 
-    it("rejects private IPv4 ranges", () => {
-      expect(validateSourceUrl("http://10.0.0.1/article")).toBe(false);
-      expect(validateSourceUrl("http://172.16.0.1/article")).toBe(false);
-      expect(validateSourceUrl("http://192.168.1.1/article")).toBe(false);
+    it("rejects private IPv4 ranges", async () => {
+      await expect(validateSourceUrl("http://10.0.0.1/article")).resolves.toBe(
+        false
+      );
+      await expect(
+        validateSourceUrl("http://172.16.0.1/article")
+      ).resolves.toBe(false);
+      await expect(
+        validateSourceUrl("http://192.168.1.1/article")
+      ).resolves.toBe(false);
     });
 
-    it("allows private IPs when allowPrivate is true", () => {
-      expect(validateSourceUrl("http://127.0.0.1/article", true)).toBe(true);
-      expect(validateSourceUrl("http://10.0.0.1/article", true)).toBe(true);
-      expect(validateSourceUrl("http://192.168.1.1/article", true)).toBe(true);
+    it("allows private IPs when allowPrivate is true", async () => {
+      await expect(
+        validateSourceUrl("http://127.0.0.1/article", true)
+      ).resolves.toBe(true);
+      await expect(
+        validateSourceUrl("http://10.0.0.1/article", true)
+      ).resolves.toBe(true);
+      await expect(
+        validateSourceUrl("http://192.168.1.1/article", true)
+      ).resolves.toBe(true);
     });
   });
 
@@ -324,6 +355,73 @@ describe("federation", () => {
   // ── ActivityPub inbox ──
 
   describe("ActivityPub inbox", () => {
+    // Generate a test keypair for signing ActivityPub requests
+    const TEST_KEY_ID = "https://remote.example/users/bob#main-key";
+    const { privateKey: TEST_PRIVATE_KEY } = crypto.generateKeyPairSync("rsa", {
+      modulusLength: 2048,
+      publicKeyEncoding: { type: "spki", format: "pem" },
+      privateKeyEncoding: { type: "pkcs8", format: "pem" },
+    });
+    const TEST_PUBLIC_KEY_PEM = crypto
+      .createPublicKey(TEST_PRIVATE_KEY)
+      .export({ type: "spki", format: "pem" });
+
+    // Mock the key fetch so verifyHttpSignature can find the public key
+    // Match both the actor URL and the keyId URL (with fragment)
+    const apMock = setupServer(
+      http.get("https://remote.example/users/bob", () => {
+        return HttpResponse.json({
+          id: "https://remote.example/users/bob",
+          publicKey: {
+            id: TEST_KEY_ID,
+            owner: "https://remote.example/users/bob",
+            publicKeyPem: TEST_PUBLIC_KEY_PEM,
+          },
+        });
+      }),
+      http.get("https://remote.example/users/bob#main-key", () => {
+        return HttpResponse.json({
+          id: TEST_KEY_ID,
+          publicKey: {
+            id: TEST_KEY_ID,
+            owner: "https://remote.example/users/bob",
+            publicKeyPem: TEST_PUBLIC_KEY_PEM,
+          },
+        });
+      })
+    );
+
+    beforeAll(() => {
+      apMock.listen({ onUnhandledRequest: "bypass" });
+    });
+    afterEach(() => apMock.resetHandlers());
+    afterAll(() => apMock.close());
+
+    function signedHeaders(
+      method: string,
+      url: string,
+      body?: string
+    ): Record<string, string> {
+      const date = new Date().toUTCString();
+      const signingString = [
+        `(request-target): ${method.toLowerCase()} ${url}`,
+        `host: remote.example`,
+        `date: ${date}`,
+      ].join("\n");
+      const signer = crypto.createSign("sha256");
+      signer.update(signingString);
+      signer.end();
+      const signature = signer.sign(TEST_PRIVATE_KEY, "base64");
+      const sigHeader = `keyId="${TEST_KEY_ID}",algorithm="rsa-sha256",headers="(request-target) host date",signature="${signature}"`;
+      return {
+        signature: sigHeader,
+        date,
+        host: "remote.example",
+        "content-type": "application/json",
+        accept: "application/activity+json",
+      };
+    }
+
     it("POST /inbox returns 400 for invalid JSON body (malformed)", async () => {
       const fastify = Fastify();
       registerActivityPubRoutes(fastify, testConfig);
@@ -340,15 +438,17 @@ describe("federation", () => {
     it("POST /inbox accepts Follow activity and returns { status: accepted }", async () => {
       const fastify = Fastify();
       registerActivityPubRoutes(fastify, testConfig);
+      const payload = JSON.stringify({
+        "@context": "https://www.w3.org/ns/activitystreams",
+        type: "Follow",
+        actor: "https://remote.example/users/bob",
+        object: "http://localhost:8080/actor",
+      });
       const res = await fastify.inject({
         method: "POST",
         url: "/inbox",
-        payload: {
-          "@context": "https://www.w3.org/ns/activitystreams",
-          type: "Follow",
-          actor: "https://remote.example/users/bob",
-          object: "http://localhost:8080/actor",
-        },
+        body: payload,
+        headers: signedHeaders("POST", "/inbox", payload),
       });
       expect(res.statusCode).toBe(200);
       expect(JSON.parse(res.body)).toEqual({ status: "accepted" });
@@ -358,15 +458,17 @@ describe("federation", () => {
     it("POST /inbox accepts unknown activity types without error", async () => {
       const fastify = Fastify();
       registerActivityPubRoutes(fastify, testConfig);
+      const payload = JSON.stringify({
+        "@context": "https://www.w3.org/ns/activitystreams",
+        type: "Like",
+        actor: "https://remote.example/users/bob",
+        object: "http://localhost:8080/post/1",
+      });
       const res = await fastify.inject({
         method: "POST",
         url: "/inbox",
-        payload: {
-          "@context": "https://www.w3.org/ns/activitystreams",
-          type: "Like",
-          actor: "https://remote.example/users/bob",
-          object: "http://localhost:8080/post/1",
-        },
+        body: payload,
+        headers: signedHeaders("POST", "/inbox", payload),
       });
       expect(res.statusCode).toBe(200);
       expect(JSON.parse(res.body)).toEqual({ status: "accepted" });
@@ -553,52 +655,36 @@ describe("federation", () => {
     });
   });
 
-  // ── Workmatic queue lifecycle ──
+  // ── Job queue lifecycle ──
 
-  describe("Workmatic queue lifecycle", () => {
+  describe("Job queue lifecycle", () => {
     beforeAll(async () => {
       await initOrm(":memory:");
-    });
-
-    afterAll(async () => {
-      await stopWorkmatic().catch(() => {
-        /* workmatic may not be running */
-      });
-    });
-
-    it("initialises without throwing", () => {
-      expect(() => initWorkmatic(dbTestConfig)).not.toThrow();
-    });
-
-    it("initWorkmatic is idempotent", () => {
-      // Calling a second time should be a no-op (orchestrator already set)
-      expect(() => initWorkmatic(dbTestConfig)).not.toThrow();
+      await initJobsTable();
     });
 
     it("enqueues an inbound mention without throwing", async () => {
-      await expect(
-        enqueueInboundMention({
-          source: "https://remote.example/article",
-          target: "http://localhost:8080/some-post",
-          ip: "1.2.3.4",
-          userAgent: "Mastodon/4.0",
-          type: "webmention",
-        })
-      ).resolves.toBeUndefined();
+      const id = await enqueueInboundMention({
+        source: "https://remote.example/article",
+        target: "http://localhost:8080/some-post",
+        ip: "1.2.3.4",
+        userAgent: "Mastodon/4.0",
+        type: "webmention",
+      });
+      expect(id).toBeTruthy();
+      const jobs = await listJobs({ type: "inbound-mentions", limit: 10 });
+      expect(jobs.some((j) => j.id === id)).toBe(true);
     });
 
     it("enqueues outbound syndication without throwing", async () => {
-      await expect(
-        enqueueOutboundSyndication(1, "test-post", "Hello world")
-      ).resolves.toBeUndefined();
-    });
-
-    it("stopWorkmatic stops all workers gracefully", async () => {
-      await expect(stopWorkmatic()).resolves.toBeUndefined();
-    });
-
-    it("stopWorkmatic is safe to call when already stopped", async () => {
-      await expect(stopWorkmatic()).resolves.toBeUndefined();
+      const id = await enqueueOutboundSyndication(
+        1,
+        "test-post",
+        "Hello world"
+      );
+      expect(id).toBeTruthy();
+      const jobs = await listJobs({ type: "outbound-syndication", limit: 10 });
+      expect(jobs.some((j) => j.id === id)).toBe(true);
     });
   });
 
@@ -606,6 +692,91 @@ describe("federation", () => {
 
   describe("ActivityPub inbox with database", () => {
     const createSlug = "activitypub-create-test";
+
+    // Generate test keypair for signing requests
+    const actorKeyId = (actor: string) => `${actor}#main-key`;
+    const actorKeys = new Map<string, { private: string; public: string }>();
+
+    function getOrCreateKeys(actorUrl: string) {
+      if (!actorKeys.has(actorUrl)) {
+        const { privateKey } = crypto.generateKeyPairSync("rsa", {
+          modulusLength: 2048,
+          publicKeyEncoding: { type: "spki", format: "pem" },
+          privateKeyEncoding: { type: "pkcs8", format: "pem" },
+        });
+        actorKeys.set(actorUrl, {
+          private: privateKey,
+          public: crypto
+            .createPublicKey(privateKey)
+            .export({ type: "spki", format: "pem" }),
+        });
+      }
+      return actorKeys.get(actorUrl)!;
+    }
+
+    function signedHeaders(
+      actorUrl: string,
+      method: string,
+      url: string,
+      body?: string
+    ): Record<string, string> {
+      const keys = getOrCreateKeys(actorUrl);
+      const date = new Date().toUTCString();
+      const signingString = [
+        `(request-target): ${method.toLowerCase()} ${url}`,
+        `host: ${new URL(actorUrl).host}`,
+        `date: ${date}`,
+      ].join("\n");
+      const signer = crypto.createSign("sha256");
+      signer.update(signingString);
+      signer.end();
+      const signature = signer.sign(keys.private, "base64");
+      return {
+        signature: `keyId="${actorKeyId(actorUrl)}",algorithm="rsa-sha256",headers="(request-target) host date",signature="${signature}"`,
+        date,
+        host: new URL(actorUrl).host,
+        "content-type": "application/json",
+        accept: "application/activity+json",
+      };
+    }
+
+    function mockFetchWithKey(
+      actorUrl: string,
+      overrides?: Record<string, unknown>
+    ) {
+      const keys = getOrCreateKeys(actorUrl);
+      return (url: RequestInfo | URL) => {
+        const urlStr = String(url);
+        if (urlStr === actorUrl) {
+          return new Response(
+            JSON.stringify({
+              id: actorUrl,
+              name: "Test Actor",
+              preferredUsername: "test",
+              ...overrides,
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/activity+json" },
+            }
+          );
+        }
+        if (urlStr === actorKeyId(actorUrl)) {
+          return new Response(
+            JSON.stringify({
+              id: actorKeyId(actorUrl),
+              publicKey: { publicKeyPem: keys.public },
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/activity+json" },
+            }
+          );
+        }
+        return new Response("Not Found", { status: 404 });
+      };
+    }
+
     let originalFetch: typeof globalThis.fetch;
 
     beforeAll(async () => {
@@ -629,71 +800,42 @@ describe("federation", () => {
     });
 
     it("POST /inbox with Create activity stores a reply mention", async () => {
-      // Mock fetch for actor info and HTML source
-      globalThis.fetch = (url: RequestInfo | URL) => {
-        const urlStr = String(url);
-        // Actor info fetch (fetchActorInfo)
-        if (urlStr === "https://remote-actor.example/users/bob") {
-          return new Response(
-            JSON.stringify({
-              id: "https://remote-actor.example/users/bob",
-              name: "Bob Remote",
-              preferredUsername: "bob",
-              icon: { url: "https://remote-actor.example/avatar.jpg" },
-              url: "https://remote-actor.example/@bob",
-              inbox: "https://remote-actor.example/users/bob/inbox",
-            }),
-            {
-              status: 200,
-              headers: { "Content-Type": "application/activity+json" },
-            }
-          );
-        }
-        // Signature key fetch — return a dummy key (will fail verification gracefully)
-        if (urlStr.includes("#main-key")) {
-          return new Response(
-            JSON.stringify({
-              id: urlStr,
-              publicKey: {
-                publicKeyPem:
-                  "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAw==\n-----END PUBLIC KEY-----",
-              },
-            }),
-            {
-              status: 200,
-              headers: { "Content-Type": "application/activity+json" },
-            }
-          );
-        }
-        return new Response("Not Found", { status: 404 });
-      };
+      const ACTOR = "https://remote-actor.example/users/bob";
+      globalThis.fetch = mockFetchWithKey(ACTOR, {
+        name: "Bob Remote",
+        preferredUsername: "bob",
+        icon: { url: "https://remote-actor.example/avatar.jpg" },
+        url: "https://remote-actor.example/@bob",
+        inbox: "https://remote-actor.example/users/bob/inbox",
+      });
 
       const fastify = Fastify();
       registerActivityPubRoutes(fastify, dbTestConfig);
 
+      const reqBody = JSON.stringify({
+        "@context": "https://www.w3.org/ns/activitystreams",
+        type: "Create",
+        actor: ACTOR,
+        object: {
+          id: "https://remote-actor.example/posts/123",
+          type: "Note",
+          content: "<p>Great post! Really enjoyed reading it.</p>",
+          inReplyTo: `http://localhost:8080/${createSlug}`,
+          attributedTo: ACTOR,
+          published: "2026-07-21T10:00:00Z",
+          url: "https://remote-actor.example/@bob/123",
+        },
+      });
       const res = await fastify.inject({
         method: "POST",
         url: "/inbox",
-        payload: {
-          "@context": "https://www.w3.org/ns/activitystreams",
-          type: "Create",
-          actor: "https://remote-actor.example/users/bob",
-          object: {
-            id: "https://remote-actor.example/posts/123",
-            type: "Note",
-            content: "<p>Great post! Really enjoyed reading it.</p>",
-            inReplyTo: `http://localhost:8080/${createSlug}`,
-            attributedTo: "https://remote-actor.example/users/bob",
-            published: "2026-07-21T10:00:00Z",
-            url: "https://remote-actor.example/@bob/123",
-          },
-        },
+        body: reqBody,
+        headers: signedHeaders(ACTOR, "POST", "/inbox", reqBody),
       });
 
       expect(res.statusCode).toBe(200);
       expect(JSON.parse(res.body)).toEqual({ status: "accepted" });
 
-      // Verify the mention was stored
       const em = getEm();
       const mentions = await em.find(Mention, { targetSlug: createSlug });
       expect(mentions.length).toBe(1);
@@ -701,67 +843,60 @@ describe("federation", () => {
       expect(mentions[0].platform).toBe("activitypub");
       expect(mentions[0].content).toContain("Great post");
       expect(mentions[0].spamStatus).toBe("ham");
-
       await fastify.close();
     });
 
     it("POST /inbox with Create activity ignores non-matching inReplyTo", async () => {
-      globalThis.fetch = (url: RequestInfo | URL) => {
-        const urlStr = String(url);
-        if (urlStr === "https://other-actor.example/users/carol") {
-          return new Response(
-            JSON.stringify({
-              id: "https://other-actor.example/users/carol",
-              name: "Carol",
-              preferredUsername: "carol",
-            }),
-            {
-              status: 200,
-              headers: { "Content-Type": "application/activity+json" },
-            }
-          );
-        }
-        return new Response("Not Found", { status: 404 });
-      };
+      const ACTOR = "https://other-actor.example/users/carol";
+      globalThis.fetch = mockFetchWithKey(ACTOR, {
+        name: "Carol",
+        preferredUsername: "carol",
+      });
 
       const fastify = Fastify();
       registerActivityPubRoutes(fastify, dbTestConfig);
 
+      const reqBody = JSON.stringify({
+        "@context": "https://www.w3.org/ns/activitystreams",
+        type: "Create",
+        actor: ACTOR,
+        object: {
+          id: "https://other-actor.example/posts/456",
+          type: "Note",
+          content: "<p>Random reply</p>",
+          inReplyTo: "https://unrelated.example.com/post",
+          attributedTo: ACTOR,
+        },
+      });
       const res = await fastify.inject({
         method: "POST",
         url: "/inbox",
-        payload: {
-          "@context": "https://www.w3.org/ns/activitystreams",
-          type: "Create",
-          actor: "https://other-actor.example/users/carol",
-          object: {
-            id: "https://other-actor.example/posts/456",
-            type: "Note",
-            content: "<p>Random reply</p>",
-            inReplyTo: "https://unrelated.example.com/post",
-            attributedTo: "https://other-actor.example/users/carol",
-          },
-        },
+        body: reqBody,
+        headers: signedHeaders(ACTOR, "POST", "/inbox", reqBody),
       });
 
-      // Still accepted (no error), but no mention stored
       expect(res.statusCode).toBe(200);
       await fastify.close();
     });
 
     it("POST /inbox handles Create activity without object content", async () => {
+      const ACTOR = "https://remote.example/users/dave";
+      globalThis.fetch = mockFetchWithKey(ACTOR);
+
       const fastify = Fastify();
       registerActivityPubRoutes(fastify, dbTestConfig);
 
+      const reqBody = JSON.stringify({
+        "@context": "https://www.w3.org/ns/activitystreams",
+        type: "Create",
+        actor: ACTOR,
+        object: "https://remote.example/posts/789",
+      });
       const res = await fastify.inject({
         method: "POST",
         url: "/inbox",
-        payload: {
-          "@context": "https://www.w3.org/ns/activitystreams",
-          type: "Create",
-          actor: "https://remote.example/users/dave",
-          object: "https://remote.example/posts/789", // string reference, not object
-        },
+        body: reqBody,
+        headers: signedHeaders(ACTOR, "POST", "/inbox", reqBody),
       });
 
       expect(res.statusCode).toBe(200);

@@ -8,13 +8,11 @@ import { registerModerationRoutes } from "../../src/api/moderation.js";
 import { registerApiRoutes } from "../../src/api/routes.js";
 import { registerIndieAuthRoutes } from "../../src/auth/indieauth.js";
 import { closeOrm, initOrm } from "../../src/database/index.js";
+import { initJobsTable } from "../../src/jobs/queue.js";
 import { registerInboundRoutes } from "../../src/federation/inbound.js";
 import { registerFederationRoutes } from "../../src/federation/index.js";
-import {
-  initWorkmatic,
-  stopWorkmatic,
-} from "../../src/federation/workmatic.js";
 import { registerMicropubEndpoint } from "../../src/micropub/index.js";
+import { createStorage } from "../../src/storage/index.js";
 import { startFingerServer } from "../../src/servers/finger.js";
 import { startGeminiServer } from "../../src/servers/gemini.js";
 import { startGopherServer } from "../../src/servers/gopher.js";
@@ -308,9 +306,10 @@ This post blocks webmentions.
     },
   };
 
-  // Initialize ORM and workmatic
+  // Initialize ORM and jobs table
   await initOrm(config.database.path);
-  initWorkmatic(config);
+  await initJobsTable();
+  createStorage(config);
 
   // Index fixtures
   const { reindexAll } = await import("../../src/indexer/index.js");
@@ -319,7 +318,9 @@ This post blocks webmentions.
   // Start HTTP server
   const fastify = await createHttpServer(config);
   registerIndieAuthRoutes(fastify, config);
-  registerApiAuthGuard(fastify);
+  registerApiAuthGuard(fastify, {
+    api: { enabled: true, requireAuthForPublicRead: false },
+  } as any);
   registerApiRoutes(fastify, config);
   registerModerationRoutes(fastify);
   registerFederationRoutes(fastify, config);
@@ -376,7 +377,6 @@ This post blocks webmentions.
 export async function teardownE2e(): Promise<void> {
   if (e2e) {
     await e2e.fastify.close();
-    await stopWorkmatic();
     await closeOrm();
     fs.rmSync(e2e.tmpDir, { recursive: true, force: true });
   }

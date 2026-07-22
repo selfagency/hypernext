@@ -7,14 +7,12 @@ export function waitForWorkmatic(timeout = 5000): Promise<void> {
     const start = Date.now();
     const check = () => {
       if (Date.now() - start > timeout) {
-        reject(new Error("Timeout waiting for workmatic queue to drain"));
+        reject(new Error("Timeout waiting for job queue to drain"));
         return;
       }
-      // workmatic doesn't expose a public stats API, so we poll with a short delay
-      setTimeout(() => {
-        // We can't directly inspect workmatic internals, so we use a reasonable delay
-        resolve();
-      }, 500);
+      // Jobs are processed by the piscina worker pool which doesn't run in
+      // test mode. We wait a reasonable delay for enqueue operations to settle.
+      setTimeout(resolve, 500);
     };
     check();
   });

@@ -4,6 +4,14 @@
 **Status:** Proposed Supplementary Architecture  
 **Goal:** Unify inbound pings (Webmention, Pingback, Trackback) and POSSE reply bridging (Mastodon, ATProto/Bluesky) into a single, ORM-backed comment system that renders natively across all protocols. Offload all heavy I/O and CPU tasks (including indexing, caching, and PDF/EPUB generation) to a centralized Worker Thread pool to guarantee main event loop responsiveness. Includes automated Akismet spam filtering, REST-based moderation, and granular per-document controls.
 
+## Overriding Decisions
+
+| Area | Original Plan | Actual Implementation | See |
+|------|--------------|---------------------|-----|
+| Job queue | `workmatic` (Kysely+fastq, main-thread) | SQLite-persisted (`src/jobs/queue.ts`) + piscina worker pool | REMEDIATION-PLAN.md §P1-1 |
+| EntityManager scoping | Implicit singleton | `getEm().fork()` per call site | REMEDIATION-PLAN.md §P0-10 |
+| EPUB library | `md-to-epub` | `@lesjoursfr/html-to-epub` | `package.json` |
+
 ---
 
 ## 1. Unified Background Task Queue (`workmatic`)

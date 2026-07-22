@@ -60,8 +60,9 @@ describe("Breadcrumbs", () => {
     expect(nodes[0]?.className).toBe("breadcrumbs");
     const list = nodes[0]?.children?.[0];
     expect(list?.type).toBe("list");
-    expect(list?.children?.length).toBe(2);
-    expect(list?.children?.[0]?.children?.[0]?.url).toBe("/blog");
+    expect(list?.children?.length).toBe(3);
+    expect(list?.children?.[0]?.children?.[0]?.url).toBe("/");
+    expect(list?.children?.[1]?.children?.[0]?.url).toBe("/blog");
   });
 });
 
@@ -189,7 +190,7 @@ describe("Header", () => {
   it("returns section with site title and nav", async () => {
     const nodes = await resolveComponent("Header", {}, { config: testConfig });
     expect(nodes).toHaveLength(1);
-    expect(nodes[0]?.type).toBe("section");
+    expect(nodes[0]?.type).toBe("header");
     expect(nodes[0]?.className).toBe("site-header");
   });
 });
@@ -302,26 +303,30 @@ describe("Include", () => {
 });
 
 describe("EmailSubscribe", () => {
-  it("returns paragraph with component placeholder", async () => {
+  it("returns form element with email input", async () => {
     const nodes = await resolveComponent(
       "EmailSubscribe",
       {},
       { config: testConfig }
     );
     expect(nodes).toHaveLength(1);
-    expect(nodes[0]?.type).toBe("paragraph");
+    expect(nodes[0]?.type).toBe("component");
+    expect(nodes[0]?.componentName).toBe("form");
+    expect(nodes[0]?.componentProps?.action).toBe("/api/v1/subscribe");
   });
 });
 
 describe("ContactForm", () => {
-  it("returns paragraph with component placeholder", async () => {
+  it("returns form element with inputs", async () => {
     const nodes = await resolveComponent(
       "ContactForm",
       {},
       { config: testConfig }
     );
     expect(nodes).toHaveLength(1);
-    expect(nodes[0]?.type).toBe("paragraph");
+    expect(nodes[0]?.type).toBe("component");
+    expect(nodes[0]?.componentName).toBe("form");
+    expect(nodes[0]?.componentProps?.action).toBe("/api/v1/contact");
   });
 });
 
@@ -387,7 +392,7 @@ describe("Footer", () => {
   it("returns footer section with site info", async () => {
     const nodes = await resolveComponent("Footer", {}, { config: testConfig });
     expect(nodes).toHaveLength(1);
-    expect(nodes[0]?.type).toBe("section");
+    expect(nodes[0]?.type).toBe("footer");
     expect(nodes[0]?.className).toBe("site-footer");
     // URL is included
     const urlParagraphs = nodes[0]?.children

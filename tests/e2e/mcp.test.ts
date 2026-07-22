@@ -258,7 +258,7 @@ describe("MCP Protocol E2E", () => {
 
     beforeAll(async () => {
       fastify = Fastify({ logger: false });
-      registerMcpSseTransport(fastify, BASE_CONFIG);
+      registerMcpSseTransport(fastify, AGENT_CONFIG);
       await fastify.listen({ port: 0, host: "127.0.0.1" });
       const addr = fastify.addresses()[0] as { port: number };
       port = addr.port;

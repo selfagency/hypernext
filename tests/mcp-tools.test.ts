@@ -85,6 +85,7 @@ const noEmailConfig: HypernextConfig = {
 // Config with AI enabled
 const aiConfig: HypernextConfig = {
   ...baseConfig,
+  agent: { enabled: true },
   ai: {
     enabled: true,
     features: {

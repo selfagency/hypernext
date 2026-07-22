@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import yaml from "yaml";
+import { DEFAULT_TEMPLATES } from "./constants/default-templates.js";
 import type { CliOptions, HypernextConfig } from "./types/config.js";
 import { deepMerge } from "./utils/deep-merge.js";
 import { substituteEnvInYaml } from "./utils/env.js";
@@ -139,9 +140,7 @@ comments:
   akismet:
     enabled: true
 
-mcp:
-  enabled: true
-  transport: stdio
+mcp: {}
 
 ai:
   enabled: false
@@ -222,6 +221,16 @@ export function scaffoldDefaults(cwd: string): void {
       "body { font-family: sans-serif; line-height: 1.6; max-width: 70ch; margin: 0 auto; padding: 1rem; }\n"
     );
   }
+
+  // Scaffold writable copies of default templates into the user's project
+  const templatesDir = path.join(cwd, "templates");
+  fs.mkdirSync(templatesDir, { recursive: true });
+  for (const tmpl of DEFAULT_TEMPLATES) {
+    const tmplPath = path.join(templatesDir, tmpl.filename);
+    if (!fs.existsSync(tmplPath)) {
+      fs.writeFileSync(tmplPath, tmpl.content);
+    }
+  }
 }
 
 export function validateConfig(config: HypernextConfig): void {
@@ -237,11 +246,95 @@ export function validateConfig(config: HypernextConfig): void {
   }
 }
 
+/**
+ * Resolve all relative filesystem paths in config against a project root.
+ * This ensures paths like "./db/hypernext.db" work regardless of process.cwd().
+ */
+export function resolveConfigPaths(
+  config: HypernextConfig,
+  projectRoot: string
+): void {
+  const resolve = (p: string): string => {
+    // Absolute paths and URLs are left as-is
+    if (
+      path.isAbsolute(p) ||
+      p.startsWith("http://") ||
+      p.startsWith("https://") ||
+      p.startsWith("data:")
+    ) {
+      return p;
+    }
+    return path.resolve(projectRoot, p);
+  };
+
+  // Database
+  if (config.database?.path && config.database.path !== ":memory:") {
+    config.database.path = resolve(config.database.path);
+  }
+
+  // Storage (local only)
+  if (config.storage?.type === "local" && config.storage.local?.path) {
+    config.storage.local.path = resolve(config.storage.local.path);
+  }
+
+  // Site theme
+  if (config.site?.theme?.cssPath) {
+    config.site.theme.cssPath = resolve(config.site.theme.cssPath);
+  }
+
+  // PDF
+  if (config.site?.pdf?.cssPath) {
+    config.site.pdf.cssPath = resolve(config.site.pdf.cssPath);
+  }
+
+  // Ebooks cover image
+  if (config.site?.ebooks?.coverImage) {
+    config.site.ebooks.coverImage = resolve(config.site.ebooks.coverImage);
+  }
+
+  // TLS certs for Gemini
+  if (config.protocols?.gemini?.certPath) {
+    config.protocols.gemini.certPath = resolve(
+      config.protocols.gemini.certPath
+    );
+  }
+  if (config.protocols?.gemini?.keyPath) {
+    config.protocols.gemini.keyPath = resolve(config.protocols.gemini.keyPath);
+  }
+
+  // TLS certs for Spartan
+  if (config.protocols?.spartan?.certPath) {
+    config.protocols.spartan.certPath = resolve(
+      config.protocols.spartan.certPath
+    );
+  }
+  if (config.protocols?.spartan?.keyPath) {
+    config.protocols.spartan.keyPath = resolve(
+      config.protocols.spartan.keyPath
+    );
+  }
+
+  // Logging file path
+  if (config.logging?.filePath) {
+    config.logging.filePath = resolve(config.logging.filePath);
+  }
+
+  // Author photo (if relative path)
+  if (config.author?.photo) {
+    config.author.photo = resolve(config.author.photo);
+  }
+
+  // Organization logo (if relative path)
+  if (config.site?.organization?.logo) {
+    config.site.organization.logo = resolve(config.site.organization.logo);
+  }
+}
+
 export function loadConfig(configPath: string): HypernextConfig {
   const raw = fs.readFileSync(configPath, "utf-8");
   const substituted = substituteEnvInYaml(raw);
   const parsed = yaml.parse(substituted) as HypernextConfig;
-  validateConfig(parsed);
+  // Validation happens after mergeCliOverrides so CLI flags can fill gaps
   return parsed;
 }
 
@@ -306,10 +399,10 @@ export function mergeCliOverrides(
   }
 
   if (options.mcp !== undefined) {
-    overrides.mcp = {
-      ...config.mcp,
+    overrides.agent = {
+      ...config.agent,
       enabled: options.mcp,
-    };
+    } as import("./types/config.js").AgentConfig;
   }
 
   // Read JWT secret from env var
@@ -334,5 +427,8 @@ export function getConfig(cwd: string, options: CliOptions): HypernextConfig {
   }
 
   const config = loadConfig(configPath);
-  return mergeCliOverrides(config, options);
+  resolveConfigPaths(config, cwd);
+  const merged = mergeCliOverrides(config, options);
+  validateConfig(merged);
+  return merged;
 }

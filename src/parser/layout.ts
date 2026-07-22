@@ -3,8 +3,10 @@ import path from "node:path";
 
 import { DEFAULT_TEMPLATES } from "../constants/default-templates.js";
 import type { HypernextConfig } from "../types/config.js";
-import type { IrNode, ParseResult } from "./ir.js";
+import type { IrNode, IrNodeType, ParseResult } from "./ir.js";
 import { parseToIR, resolveComponentNodes } from "./pipeline.js";
+
+const SLUG_ID_RE = /\//g;
 
 const TEMPLATES_DIR = "templates";
 const DEFAULT_LAYOUT = "default.mdx";
@@ -12,10 +14,19 @@ const FRONTMATTER_REGEX = /^---[\s\S]*?---\n*/;
 
 function layoutPath(templatesDir: string, name: string): string {
   const normalized = name.endsWith(".mdx") ? name : `${name}.mdx`;
-  return path.resolve(templatesDir, normalized);
+  const resolved = path.resolve(templatesDir, normalized);
+  // Prevent path traversal — the resolved path must be inside templatesDir
+  const base = path.resolve(templatesDir) + path.sep;
+  if (!resolved.startsWith(base)) {
+    throw new Error(`Layout path escapes templatesDir: ${name}`);
+  }
+  return resolved;
 }
 
-function readLayoutRaw(templatesDir: string, name: string): string | null {
+export function readLayoutRaw(
+  templatesDir: string,
+  name: string
+): string | null {
   const filePath = layoutPath(templatesDir, name);
   try {
     return fs.readFileSync(filePath, "utf-8");
@@ -94,62 +105,84 @@ function mergeFrontmatter(
   return { ...layoutFm, ...docFm };
 }
 
-function textNode(value: string): IrNode {
-  return { type: "text", value };
-}
+/**
+ * Inject article-level wrapper (h-entry, Title, PostMeta) around content
+ * for single document pages. This replaces the old hard-coded skeleton.
+ */
+function wrapDocContent(content: IrNode[], slug?: string): IrNode[] {
+  if (!slug) return content;
 
-function componentNode(
-  name: string,
-  props: Record<string, unknown> = {}
-): IrNode {
-  return { type: "component", componentName: name, componentProps: props };
-}
-
-function wrapSkeleton(
-  content: IrNode[],
-  config: HypernextConfig,
-  _collection: string | undefined,
-  _frontmatter: Record<string, unknown>,
-  slug?: string
-): IrNode {
-  let mainContent: IrNode[] = [componentNode("Breadcrumbs")];
-  if (slug) {
-    mainContent.push({
+  return [
+    {
       type: "article",
       className: "h-entry",
-      id: slug.replaceAll("/", "-"),
+      id: slug.replace(SLUG_ID_RE, "-"),
       children: [
-        componentNode("Title"),
-        componentNode("PostMeta"),
-        { type: "section", className: "e-content", children: [...content] },
+        { type: "component", componentName: "Title", componentProps: {} },
+        { type: "component", componentName: "PostMeta", componentProps: {} },
+        { type: "section", className: "e-content", children: content },
       ],
-    });
-  } else {
-    mainContent = [...mainContent, ...content];
-  }
+    },
+  ];
+}
 
-  return {
-    type: "root",
-    children: [
-      {
-        type: "header",
-        className: "site-header",
-        children: [componentNode("NavMenu"), componentNode("Search")],
-      },
-      {
-        type: "main",
-        className: "main-content",
-        children: mainContent,
-      },
-      {
-        type: "footer",
-        className: "site-footer",
-        children: [
-          textNode(`© ${new Date().getFullYear()} ${config.site.meta.title}`),
-        ],
-      },
-    ],
-  };
+/** Map of lowercase JSX element names to their corresponding IR node types. */
+const HTML_TAG_TO_IR_TYPE: Partial<Record<string, IrNodeType>> = {
+  header: "header",
+  main: "main",
+  footer: "footer",
+  nav: "nav",
+  aside: "aside",
+  article: "article",
+  section: "section",
+  div: "section",
+  p: "paragraph",
+  ul: "list",
+  ol: "list",
+  li: "listItem",
+  blockquote: "blockquote",
+  time: "time",
+  strong: "strong",
+  em: "emphasis",
+  code: "code",
+  hr: "thematicBreak",
+};
+
+/**
+ * Walk the IR tree and convert known HTML component nodes to their
+ * proper IR node types. This runs AFTER slot replacement so the
+ * layout's structural elements (header, nav, main, footer, etc.)
+ * are rendered correctly by all protocol renderers (not just HTML).
+ */
+function convertHtmlComponents(ir: IrNode): IrNode {
+  if (ir.type === "component") {
+    const name = ir.componentName;
+    if (name && HTML_TAG_TO_IR_TYPE[name]) {
+      const targetType = HTML_TAG_TO_IR_TYPE[name]!;
+      const converted: IrNode = {
+        type: targetType as IrNodeType,
+        className: ir.componentProps?.className as string | undefined,
+        id: ir.componentProps?.id as string | undefined,
+        children: ir.children?.map(convertHtmlComponents),
+      };
+      // Heading-specific: convert depth from tag name
+      if (name.startsWith("h") && name.length === 2) {
+        converted.depth = Number(name[1]);
+      }
+      if (name === "a") {
+        converted.url = ir.componentProps?.href as string | undefined;
+      }
+      if (name === "img") {
+        converted.url = ir.componentProps?.src as string | undefined;
+        converted.alt = ir.componentProps?.alt as string | undefined;
+      }
+      return converted;
+    }
+  }
+  if (ir.children) {
+    return { ...ir, children: ir.children.map(convertHtmlComponents) };
+  }
+  return ir;
 }
 
 export function resolveLayout(
@@ -178,23 +211,23 @@ export function resolveLayout(
   const rawMdx = (doc.rawMdx as string) ?? "";
   const docParse = parseToIR(rawMdx, ctx.slug);
 
-  const slotResult = replaceSlot(layoutParse.ir, docParse.ir.children ?? []);
-  let slotContent: IrNode[];
-  if (slotResult.replaced) {
-    slotContent =
-      slotResult.nodes.length === 1 && slotResult.nodes[0]?.type === "root"
-        ? (slotResult.nodes[0].children ?? [])
-        : slotResult.nodes;
-  } else {
-    slotContent = docParse.ir.children ?? [];
-  }
-  const mergedIr = wrapSkeleton(
-    slotContent,
-    config,
-    ctx.collection,
-    docParse.frontmatter,
-    ctx.slug
-  );
+  // Determine the content to place inside the layout's <slot />
+  // For single docs, wrap in article-level structure (h-entry, Title, PostMeta)
+  const docChildren = docParse.ir.children ?? [];
+  const slotContent = ctx.slug
+    ? wrapDocContent(docChildren, ctx.slug)
+    : docChildren;
+
+  // Replace <slot /> in the layout IR with the (optionally wrapped) content
+  const slotResult = replaceSlot(layoutParse.ir, slotContent);
+  // Convert layout HTML elements (header, nav, main, etc.) from component
+  // IR nodes to their proper types for cross-protocol renderer compatibility
+  const slotMerged = slotResult.replaced
+    ? slotResult.nodes.length === 1
+      ? slotResult.nodes[0]!
+      : { type: "root" as const, children: slotResult.nodes }
+    : layoutParse.ir;
+  const mergedIr = convertHtmlComponents(slotMerged);
 
   const mergedFrontmatter = mergeFrontmatter(
     layoutParse.frontmatter,

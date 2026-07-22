@@ -78,7 +78,7 @@ export interface StorageS3Config {
 export interface StorageConfig {
   local?: StorageLocalConfig;
   s3?: StorageS3Config;
-  type: "ipfs" | "local" | "s3";
+  type: "local" | "s3";
 }
 
 export interface DatabaseConfig {
@@ -125,6 +125,7 @@ export interface IndieAuthConfig {
 
 export interface ApiConfig {
   enabled: boolean;
+  requireAuthForPublicRead?: boolean;
 }
 
 export interface CollectionConfig {
@@ -196,10 +197,6 @@ export interface TelemetryConfig {
   serviceName: string;
 }
 
-export interface EditorConfig {
-  defaultMode: "local" | "remote";
-}
-
 export interface SmtpConfig {
   host: string;
   pass: string;
@@ -238,8 +235,10 @@ export interface EmailConfig {
 }
 
 export interface McpConfig {
-  enabled: boolean;
-  transport: "stdio" | "sse";
+  /** @deprecated `mcp.enabled` is ignored — use `agent.enabled` instead */
+  enabled?: boolean;
+  /** Transport: "sse" (streamable HTTP) or "stdio" (stdin/stdout) */
+  transport?: "sse" | "stdio";
 }
 
 export interface RemoteConfig {
@@ -351,7 +350,6 @@ export interface HypernextConfig {
   comments?: CommentConfig;
   contentSignals?: ContentSignalsConfig;
   database: DatabaseConfig;
-  editor?: EditorConfig;
   email?: EmailConfig;
   indieauth: IndieAuthConfig;
   ipfs?: IpfsConfig;

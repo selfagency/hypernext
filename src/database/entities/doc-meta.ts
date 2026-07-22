@@ -28,6 +28,7 @@ export const DocMeta = defineEntity({
       .onCreate(() => new Date())
       .onUpdate(() => new Date()),
     publishedAt: p.string().name("published_at").nullable(),
+    scheduledAt: p.string().name("scheduled_at").nullable(),
     order: p.integer().nullable(),
     metaJson: p.text().name("meta_json").nullable(),
     contentCid: p.string().name("content_cid").nullable(),

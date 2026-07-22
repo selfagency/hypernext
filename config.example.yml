@@ -11,6 +11,20 @@ site:
     cssPath: "./assets/pdf-style.css"
   ebooks:
     enabled: true
+  metadata:
+    - name: readTime
+      label: "Reading Time"
+      type: number
+    - name: difficulty
+      label: "Difficulty"
+      type: string
+      options: [beginner, intermediate, advanced]
+    - name: featured
+      label: "Featured"
+      type: boolean
+    - name: series
+      label: "Series"
+      type: string
 
 author:
   name: "Anonymous"
@@ -23,7 +37,7 @@ storage:
 
 database:
   type: sqlite
-  path: "./hypernext.db"
+  path: "./db/hypernext.db"
 
 api:
   enabled: true
@@ -34,6 +48,11 @@ collections:
     syndicate: true
     rss: true
     layout: "blog.mdx"
+  library:
+    path: "/library/"
+    syndicate: false
+    rss: false
+    layout: "library.mdx"
 
 taxonomies:
   - name: tags
@@ -69,7 +88,34 @@ protocols:
 micropub:
   enabled: true
 
+indieauth:
+  enabled: true
+
 syndication: {}
+
+email:
+  enabled: true
+  mailpit: true
+  from:
+    name: "Hypernext"
+    address: "noreply@localhost"
+  replyTo: "noreply@localhost"
+  subjectPrefix: "[Hypernext]"
+  transport: smtp
+  smtp:
+    host: localhost
+    port: 1025
+    secure: false
+    user: ""
+    pass: ""
+  newsletter:
+    digestSchedule: "0 8 * * 1"
+    digestTime: "08:00"
+  contactForm:
+    enabled: false
+    recipient: ""
+    akismet: false
+    captcha: false
 
 comments:
   enabled: true
@@ -84,6 +130,58 @@ comments:
   akismet:
     enabled: true
 
-mcp:
+mcp: {}
+
+ai:
+  enabled: false
+  openai:
+    baseUrl: "http://localhost:11434/v1"
+    apiKey: ""
+  models:
+    embedding: "nomic-embed-text-v2-moe:latest"
+    utility: "llama3.2:1b"
+    vision: "llava:7b"
+    reasoning: "llama3.1:8b"
+  vectorDimensions: 768
+  features:
+    altText: true
+    autoTagging: true
+    seoMeta: true
+    moderation: true
+
+robotsTxt:
   enabled: true
-  transport: stdio
+  aiCrawlers: block
+  rules: []
+
+contentSignals:
+  enabled: true
+  aiTrain: false
+  search: true
+  aiInput: false
+
+securityTxt:
+  contact: []
+  expires: ""
+
+agent:
+  enabled: false
+  markdownNegotiation: true
+  llmsTxt: true
+  sitemap: true
+  linkHeaders: true
+  wellKnown:
+    apiCatalog: true
+    agentSkills: true
+    mcpServerCard: true
+    webBotAuth: true
+    webmcp: true
+  hiddenAgentDirective: true
+  viewTransitions: true
+
+ipfs:
+  enabled: false
+  apiEndpoint: "http://127.0.0.1:5001"
+  gatewayUrl: "https://ipfs.io/ipfs"
+  pinning: true
+  cacheHtml: true

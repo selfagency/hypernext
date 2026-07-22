@@ -338,7 +338,7 @@ describe("IndieAuth – Token Endpoint (POST /auth/token)", () => {
     });
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toContain("Invalid authorization code");
+    expect(body.error).toContain("Invalid or expired authorization code");
   });
 
   it("returns 400 when code has already been consumed (single-use)", async () => {

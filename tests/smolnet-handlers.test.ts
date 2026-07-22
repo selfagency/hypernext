@@ -6,6 +6,7 @@ import tls from "node:tls";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { closeOrm, initOrm } from "../src/database/index.js";
 import { reindexAll } from "../src/indexer/index.js";
+import { createStorage } from "../src/storage/index.js";
 import { startGeminiServer } from "../src/servers/gemini.js";
 import { startGopherServer } from "../src/servers/gopher.js";
 import { startNexServer } from "../src/servers/nex.js";
@@ -151,6 +152,7 @@ This is a private post.`
 
   // Init ORM with in-memory SQLite and index fixtures
   await initOrm(":memory:");
+  createStorage(TEST_CONFIG);
   await reindexAll(TEST_CONFIG);
 
   // Start all smolnet servers on OS-assigned ports

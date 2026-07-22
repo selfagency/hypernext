@@ -107,12 +107,6 @@ pnpm dev
 
 Starts all protocol servers with hot-reload via `tsx watch`.
 
-### Run TUI Editor in Dev Mode
-
-```bash
-pnpm dev:editor
-```
-
 ### Run Tests
 
 ```bash
@@ -175,7 +169,6 @@ See [Customization](docs/customization.md) for the full config reference.
 - **PDF & EPUB** — Generate downloadable books and documents
 - **MCP Server** — Model Context Protocol tools for AI agents
 - **IPFS Integration** — Content-addressed pinning and gateway links
-- **TUI Editor** — Terminal-based content editor with command palette
 - **Email Newsletter** — Subscriptions, digests, and contact forms
 - **AI Features** — Semantic search, auto-tagging, alt text generation
 - **Comment Moderation** — Spam detection, blocklist, hide/unhide
@@ -196,7 +189,6 @@ See [Customization](docs/customization.md) for the full config reference.
 - [Email & Newsletter](docs/email.md)
 - [AI Features](docs/ai.md)
 - [MCP Tools](docs/mcp.md)
-- [TUI Editor](docs/tui.md)
 - [Deployment](docs/deployment.md)
 
 ## License

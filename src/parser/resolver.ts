@@ -5,6 +5,7 @@ import {
   getTermsForDoc,
   listDocSlugs,
 } from "../database/index.js";
+import { schedule } from "../jobs/queue.js";
 import { buildNav } from "../nav.js";
 import type { HypernextConfig } from "../types/config.js";
 import type { IrNode } from "./ir.js";
@@ -15,6 +16,7 @@ export interface ComponentContext {
   currentDocId?: number;
   currentSlug?: string;
   frontmatter?: Record<string, unknown>;
+  includeStack?: Set<string>;
 }
 
 export type ComponentResolver = (
@@ -43,9 +45,60 @@ function paragraphNode(children: IrNode[]): IrNode {
 }
 
 const MAX_INCLUDE_DEPTH = 5;
-const includeStack = new Set<string>();
 const LEADING_SLASH_REGEX = /^\//;
 const MDX_EXTENSION_REGEX = /\.mdx$/;
+
+/** HTML elements allowed in MDX templates — these map to native HTML tags. */
+const HTML_ELEMENTS = new Set([
+  "a",
+  "article",
+  "aside",
+  "blockquote",
+  "br",
+  "code",
+  "div",
+  "em",
+  "figcaption",
+  "figure",
+  "footer",
+  "form",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "header",
+  "hr",
+  "img",
+  "input",
+  "label",
+  "li",
+  "link",
+  "main",
+  "nav",
+  "ol",
+  "p",
+  "pre",
+  "section",
+  "select",
+  "small",
+  "span",
+  "strong",
+  "style",
+  "sub",
+  "sup",
+  "table",
+  "tbody",
+  "td",
+  "textarea",
+  "tfoot",
+  "th",
+  "thead",
+  "time",
+  "tr",
+  "ul",
+]);
 
 export const ALLOWED_COMPONENTS = new Set([
   "NavMenu",
@@ -73,7 +126,10 @@ export const ALLOWED_COMPONENTS = new Set([
   "Main",
   "Sidebar",
   "Footer",
+  "EmailSubscribe",
+  "ContactForm",
   "slot",
+  ...HTML_ELEMENTS,
 ]);
 
 export const COMPONENT_RESOLVERS: Record<string, ComponentResolver> = {
@@ -101,11 +157,13 @@ export const COMPONENT_RESOLVERS: Record<string, ComponentResolver> = {
     }
     const parts = ctx.currentSlug.split("/");
     const crumbs: IrNode[] = [];
+    // First crumb always links to root
+    crumbs.push(listItemNode([linkNode("/", [textNode("Home")])]));
     let accumulated = "";
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i] ?? "";
       accumulated += `/${part}`;
-      const label = i === 0 ? "Home" : part;
+      const label = part;
       crumbs.push(listItemNode([linkNode(accumulated, [textNode(label)])]));
     }
     return [
@@ -127,13 +185,24 @@ export const COMPONENT_RESOLVERS: Record<string, ComponentResolver> = {
     ];
   },
 
-  async TagCloud() {
+  async TagCloud(props) {
+    const taxonomy = String(props.taxonomy ?? "");
     const em = getEm();
-    const terms = await em
-      .getConnection()
-      .execute<{ taxonomy: string; slug: string; name: string }[]>(
-        "SELECT DISTINCT taxonomy, slug, name FROM terms ORDER BY name"
-      );
+    let terms: { taxonomy: string; slug: string; name: string }[];
+    if (taxonomy) {
+      terms = await em
+        .getConnection()
+        .execute<{ taxonomy: string; slug: string; name: string }[]>(
+          "SELECT DISTINCT taxonomy, slug, name FROM terms WHERE taxonomy = ? ORDER BY name",
+          [taxonomy]
+        );
+    } else {
+      terms = await em
+        .getConnection()
+        .execute<{ taxonomy: string; slug: string; name: string }[]>(
+          "SELECT DISTINCT taxonomy, slug, name FROM terms ORDER BY name"
+        );
+    }
     if (terms.length === 0) {
       return [paragraphNode([textNode("No tags yet.")])];
     }
@@ -284,18 +353,19 @@ export const COMPONENT_RESOLVERS: Record<string, ComponentResolver> = {
     ];
   },
 
-  async Include(props, _ctx) {
+  async Include(props, ctx) {
     const src = String(props.src ?? "");
     if (!src) {
       return [];
     }
-    if (includeStack.has(src)) {
+    const stack = ctx.includeStack ?? new Set<string>();
+    if (stack.has(src)) {
       return [paragraphNode([textNode(`[Circular include: ${src}]`)])];
     }
-    if (includeStack.size >= MAX_INCLUDE_DEPTH) {
+    if (stack.size >= MAX_INCLUDE_DEPTH) {
       return [];
     }
-    includeStack.add(src);
+    stack.add(src);
     try {
       const doc = await getDocBySlug(
         src
@@ -310,7 +380,7 @@ export const COMPONENT_RESOLVERS: Record<string, ComponentResolver> = {
       const result = parseToIR(rawMdx, src);
       return result.ir.children ?? [];
     } finally {
-      includeStack.delete(src);
+      stack.delete(src);
     }
   },
 
@@ -371,9 +441,10 @@ export const COMPONENT_RESOLVERS: Record<string, ComponentResolver> = {
   Figure(props) {
     const src = String(props.src ?? "");
     const caption = String(props.caption ?? "");
+    const alt = String(props.alt ?? caption);
     const children: IrNode[] = [];
     if (src) {
-      children.push({ type: "image", url: src, alt: caption || src });
+      children.push({ type: "image", url: src, alt: alt || src });
     }
     if (caption) {
       children.push(paragraphNode([textNode(caption)]));
@@ -513,13 +584,13 @@ export const COMPONENT_RESOLVERS: Record<string, ComponentResolver> = {
   },
 
   async Header(_props, ctx) {
-    const nav = await buildNav();
+    const nav = await buildNav(ctx.config);
     const navItems = nav.map((entry) =>
       listItemNode([linkNode(entry.href, [textNode(entry.label)])])
     );
     return [
       {
-        type: "section",
+        type: "header",
         className: "site-header",
         children: [
           {
@@ -666,7 +737,7 @@ export const COMPONENT_RESOLVERS: Record<string, ComponentResolver> = {
     }
     return [
       {
-        type: "section",
+        type: "footer",
         className: "site-footer",
         children,
       },
@@ -675,31 +746,114 @@ export const COMPONENT_RESOLVERS: Record<string, ComponentResolver> = {
 
   EmailSubscribe() {
     return [
-      paragraphNode([
-        {
-          type: "component",
-          componentName: "EmailSubscribe",
-          componentProps: {},
-        } as IrNode,
-      ]),
+      {
+        type: "component",
+        componentName: "form",
+        componentProps: {
+          action: "/api/v1/subscribe",
+          method: "POST",
+          className: "email-subscribe",
+        },
+        children: [
+          {
+            type: "component",
+            componentName: "h3",
+            componentProps: {},
+            children: [{ type: "text", value: "Subscribe to Newsletter" }],
+          },
+          {
+            type: "component",
+            componentName: "input",
+            componentProps: {
+              type: "email",
+              name: "email",
+              placeholder: "your@email.com",
+              required: true,
+            },
+          },
+          {
+            type: "component",
+            componentName: "button",
+            componentProps: { type: "submit" },
+            children: [{ type: "text", value: "Subscribe" }],
+          },
+        ],
+      },
     ];
   },
 
   ContactForm() {
     return [
-      paragraphNode([
-        {
-          type: "component",
-          componentName: "ContactForm",
-          componentProps: {},
-        } as IrNode,
-      ]),
+      {
+        type: "component",
+        componentName: "form",
+        componentProps: {
+          action: "/api/v1/contact",
+          method: "POST",
+          className: "contact-form",
+        },
+        children: [
+          {
+            type: "component",
+            componentName: "h3",
+            componentProps: {},
+            children: [{ type: "text", value: "Contact Me" }],
+          },
+          {
+            type: "component",
+            componentName: "input",
+            componentProps: {
+              type: "text",
+              name: "name",
+              placeholder: "Your Name",
+              required: true,
+            },
+          },
+          {
+            type: "component",
+            componentName: "input",
+            componentProps: {
+              type: "email",
+              name: "email",
+              placeholder: "your@email.com",
+              required: true,
+            },
+          },
+          {
+            type: "component",
+            componentName: "textarea",
+            componentProps: {
+              name: "message",
+              placeholder: "Your message...",
+              required: true,
+              rows: 5,
+            },
+          },
+          {
+            type: "component",
+            componentName: "button",
+            componentProps: { type: "submit" },
+            children: [{ type: "text", value: "Send" }],
+          },
+        ],
+      },
     ];
   },
 
   async Comments(_props, ctx) {
     if (!ctx.currentSlug) {
       return [];
+    }
+
+    // Trigger background POSSE reply fetch (fire-and-forget via job queue)
+    if (ctx.config.comments?.aggregation) {
+      schedule("posse-replies", {
+        slug: ctx.currentSlug,
+        mastodon: ctx.config.comments.aggregation.mastodon,
+        bluesky: ctx.config.comments.aggregation.bluesky,
+      }).catch(() => {
+        // Non-critical — replies will be fetched on next page load
+      });
     }
 
     const em = getEm();

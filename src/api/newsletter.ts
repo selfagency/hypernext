@@ -2,7 +2,7 @@ import rateLimit from "@fastify/rate-limit";
 import type { FastifyInstance } from "fastify";
 import { Subscriber } from "../database/entities/subscriber.js";
 import { getEm } from "../database/index.js";
-import { getOrchestrator } from "../federation/workmatic.js";
+import { schedule } from "../jobs/queue.js";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -30,12 +30,10 @@ export function registerNewsletterRoutes(fastify: FastifyInstance): void {
         return;
       }
 
-      const orch = getOrchestrator();
-      const client = orch.client("email-verification");
-      await client.add(
-        { email, frequency: frequency ?? "instant" },
-        { maxAttempts: 2 }
-      );
+      await schedule("email-verification", {
+        email,
+        frequency: frequency ?? "instant",
+      });
 
       reply.code(202).send({
         status:
@@ -178,23 +176,18 @@ export function registerNewsletterRoutes(fastify: FastifyInstance): void {
         return;
       }
 
-      const orch = getOrchestrator();
-      const client = orch.client("email-send");
-      await client.add(
-        {
-          type: "contact",
-          data: {
-            name,
-            email,
-            message,
-            captchaToken,
-            captchaSolution,
-            ip: request.ip,
-            userAgent: request.headers["user-agent"],
-          },
+      await schedule("email-send", {
+        type: "contact",
+        data: {
+          name,
+          email,
+          message,
+          captchaToken,
+          captchaSolution,
+          ip: request.ip,
+          userAgent: request.headers["user-agent"],
         },
-        { maxAttempts: 2 }
-      );
+      });
 
       reply.code(202).send({ status: "Message sent." });
     }

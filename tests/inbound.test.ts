@@ -41,6 +41,7 @@ const testConfig: HypernextConfig = {
     inbound: { webmention: true, pingback: true, trackback: true },
     aggregation: { mastodon: true, bluesky: true, cacheTtl: 900 },
     akismet: { enabled: false },
+    allowPrivateSources: true,
   },
 };
 
