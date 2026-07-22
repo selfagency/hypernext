@@ -45,7 +45,7 @@ function tcpRequest(port: number, request: string): Promise<string> {
 function tlsRequest(port: number, request: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const client = tls.connect(
-      { port, host: "localhost", rejectUnauthorized: false },
+      { port, host: "localhost", rejectUnauthorized: false }, // NOSONAR — self-signed cert for E2E tests
       () => {
         client.write(request);
       }

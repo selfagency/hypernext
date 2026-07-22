@@ -58,16 +58,9 @@ export async function schedule(
   const id = randomUUID();
   const idempotencyKey = opts.idempotencyKey;
 
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: idempotency check is straightforward
-  if (idempotencyKey) {
-    const existing = await em
-      .getConnection()
-      .execute<{ id: string }[]>("SELECT id FROM jobs WHERE id = ?", [
-        idempotencyKey,
-      ]);
-    if (existing.length > 0) {
-      return existing[0]?.id ?? idempotencyKey;
-    }
+  const existingId = await checkIdempotency(em, idempotencyKey);
+  if (existingId) {
+    return existingId;
   }
 
   const now = new Date().toISOString();
@@ -87,6 +80,23 @@ export async function schedule(
   );
 
   return idempotencyKey ?? id;
+}
+
+async function checkIdempotency(
+  // biome-ignore lint/suspicious/noExplicitAny: MikroORM EntityManager type varies
+  em: any,
+  idempotencyKey?: string
+): Promise<string | null> {
+  if (!idempotencyKey) {
+    return null;
+  }
+  const existing = await em
+    .getConnection()
+    .execute("SELECT id FROM jobs WHERE id = ?", [idempotencyKey]);
+  if (existing.length > 0) {
+    return existing[0]?.id ?? idempotencyKey;
+  }
+  return null;
 }
 
 export async function claimNext(types?: string[]): Promise<JobRecord | null> {
