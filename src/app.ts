@@ -173,7 +173,7 @@ const DAY_NAMES = [
   "saturday",
 ];
 
-function startDigestCron(
+export function startDigestCron(
   config: HypernextConfig
 ): ReturnType<typeof setInterval> | null {
   const email = config.email;

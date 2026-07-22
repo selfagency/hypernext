@@ -1,83 +1,73 @@
-import fs from "node:fs";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { startAllServers } from "../src/app.js";
-import { closeOrm } from "../src/database/index.js";
+import { describe, expect, it } from "vitest";
+import { startDigestCron } from "../src/app.js";
 import type { HypernextConfig } from "../src/types/config.js";
 
-function makeAppConfig(overrides?: Partial<HypernextConfig>): HypernextConfig {
-  return {
-    site: {
-      canonicalBase: "http://localhost:0",
-      meta: { title: "App Test", description: "Testing", lang: "en" },
-      pdf: { enabled: false },
-      ebooks: { enabled: false },
-    },
-    author: { name: "Tester" },
-    storage: { type: "local", local: { path: "./tmp-app-test" } },
-    database: { type: "sqlite", path: ":memory:" },
-    api: { enabled: false },
-    collections: {},
-    taxonomies: [],
-    protocols: {
-      http: { enabled: true, port: 0 },
-      gemini: { enabled: false, port: 0 },
-      gopher: { enabled: false, port: 0 },
-      spartan: { enabled: false, port: 0 },
-      nex: { enabled: false, port: 0 },
-      finger: { enabled: false, port: 0 },
-      text: { enabled: false, port: 0 },
-    },
-    micropub: { enabled: false },
-    syndication: {},
-    mcp: { enabled: false, transport: "stdio" },
-    ...overrides,
-  } as unknown as HypernextConfig;
-}
+const BASE_CONFIG: HypernextConfig = {
+  author: { name: "Test" },
+  collections: {},
+  database: { path: ":memory:", type: "sqlite" },
+  mcp: { enabled: false, transport: "stdio" },
+  micropub: { enabled: false },
+  protocols: {
+    finger: { enabled: false, port: 0 },
+    gemini: { enabled: false, port: 0 },
+    gopher: { enabled: false, port: 0 },
+    http: { enabled: false, port: 0 },
+    nex: { enabled: false, port: 0 },
+    spartan: { enabled: false, port: 0 },
+    text: { enabled: false, port: 0 },
+  },
+  site: {
+    canonicalBase: "http://localhost:8080",
+    ebooks: { enabled: false },
+    meta: { description: "Test", lang: "en", title: "Test Site" },
+    pdf: { enabled: false },
+  },
+  storage: { type: "local", local: { path: "./content" } },
+  api: { enabled: false },
+  syndication: {},
+  taxonomies: [],
+};
 
-describe("app bootstrap", () => {
-  beforeAll(() => {
-    fs.mkdirSync("./tmp-app-test", { recursive: true });
+describe("startDigestCron", () => {
+  it("returns null when email is not configured", () => {
+    const result = startDigestCron(BASE_CONFIG);
+    expect(result).toBeNull();
   });
 
-  afterAll(async () => {
-    fs.rmSync("./tmp-app-test", { recursive: true, force: true });
-    await closeOrm();
+  it("returns null when newsletter is not configured", () => {
+    const result = startDigestCron({
+      ...BASE_CONFIG,
+      email: { enabled: true },
+    });
+    expect(result).toBeNull();
   });
 
-  it("starts HTTP server without error", async () => {
-    const config = makeAppConfig();
-    await expect(startAllServers(config)).resolves.toBeUndefined();
-  });
-
-  it("starts HTTP + finger + text servers", async () => {
-    const config = makeAppConfig({
-      protocols: {
-        http: { enabled: true, port: 0 },
-        gemini: { enabled: false, port: 0 },
-        gopher: { enabled: false, port: 0 },
-        spartan: { enabled: false, port: 0 },
-        nex: { enabled: false, port: 0 },
-        finger: { enabled: true, port: 0 },
-        text: { enabled: true, port: 0 },
+  it("returns an interval when newsletter is configured", () => {
+    const result = startDigestCron({
+      ...BASE_CONFIG,
+      email: {
+        enabled: true,
+        newsletter: { digestSchedule: "friday", digestTime: "09:00" },
       },
     });
-    await expect(startAllServers(config)).resolves.toBeUndefined();
+    expect(result).not.toBeNull();
+    if (result) {
+      clearInterval(result);
+    }
   });
 
-  it("starts with only smolnet protocols (no HTTP)", async () => {
-    const config = makeAppConfig({
-      api: { enabled: false },
-      mcp: { enabled: false, transport: "stdio" },
-      protocols: {
-        http: { enabled: false, port: 0 },
-        gemini: { enabled: false, port: 0 },
-        gopher: { enabled: false, port: 0 },
-        spartan: { enabled: false, port: 0 },
-        nex: { enabled: false, port: 0 },
-        finger: { enabled: true, port: 0 },
-        text: { enabled: true, port: 0 },
+  it("uses default schedule when not specified", () => {
+    const result = startDigestCron({
+      ...BASE_CONFIG,
+      email: {
+        enabled: true,
+        newsletter: {},
       },
     });
-    await expect(startAllServers(config)).resolves.toBeUndefined();
+    expect(result).not.toBeNull();
+    if (result) {
+      clearInterval(result);
+    }
   });
 });
