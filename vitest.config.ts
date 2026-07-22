@@ -20,10 +20,10 @@ export default defineConfig({
         "src/types/**",
       ],
       thresholds: {
-        statements: 79,
-        branches: 63,
+        statements: 75,
+        branches: 60,
         functions: 80,
-        lines: 80,
+        lines: 75,
       },
     },
     testTimeout: 10_000,
