@@ -41,10 +41,14 @@ This is my first post using Hypernext.
 ## Starting the Server
 
 ```bash
-hypernext
+hypernext serve
 ```
 
-This starts all enabled protocol servers defined in `config.yml`.
+This starts all enabled protocol servers defined in `config.yml`. Use `--project` to specify a different project root:
+
+```bash
+hypernext serve --project /path/to/my-site
+```
 
 ## Configuration
 

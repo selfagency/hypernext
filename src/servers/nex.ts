@@ -8,7 +8,7 @@ import {
   isFutureDated,
   isFutureDatedFrontmatter,
 } from "../parser/frontmatter.js";
-import { parseToIR, resolveComponentNodes } from "../parser/pipeline.js";
+import { resolveLayoutWithComponents } from "../parser/layout.js";
 import { renderGemtext } from "../renderers/gemtext.js";
 import type { HypernextConfig } from "../types/config.js";
 
@@ -72,8 +72,11 @@ async function handleNexRequest(
     return;
   }
 
-  const result = parseToIR(rawMdx, slug);
-  await resolveComponentNodes(result.ir, config, slug);
+  const result = await resolveLayoutWithComponents(
+    config,
+    { rawMdx, layout: doc.layout as string | undefined },
+    { slug, currentDocId: doc.id as number | undefined }
+  );
   setCachedParse(slug, result);
   socket.end(renderGemtext(result.ir));
 

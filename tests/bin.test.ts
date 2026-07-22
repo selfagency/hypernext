@@ -23,7 +23,8 @@ describe("CLI bootstrap", () => {
     scaffoldDefaults(cwd);
     expect(fs.existsSync(path.join(cwd, "config.yml"))).toBe(true);
     expect(fs.existsSync(path.join(cwd, "content/blog"))).toBe(true);
-    expect(fs.existsSync(path.join(cwd, "content/library"))).toBe(true);
+    // library collection removed from defaults; content/ root for pages
+    expect(fs.existsSync(path.join(cwd, "content"))).toBe(true);
     expect(fs.existsSync(path.join(cwd, "assets"))).toBe(true);
     expect(fs.existsSync(path.join(cwd, "content/blog/welcome.mdx"))).toBe(
       true

@@ -137,14 +137,19 @@ describe("API routes", () => {
     await fastify.close();
   });
 
-  it("rejects requests without Bearer token", async () => {
+  it("rejects requests without Bearer token on admin routes", async () => {
     const fastify = Fastify();
     fastify.register(jwt, { secret: JWT_SECRET });
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, {
+      api: { enabled: true, requireAuthForPublicRead: false },
+    } as any);
     registerApiRoutes(fastify, testConfig);
+    // PUT is an admin route (write) — should require auth
     const response = await fastify.inject({
-      method: "GET",
-      url: "/api/v1/docs",
+      method: "PUT",
+      url: "/api/v1/docs/admin-only-test",
+      headers: { "content-type": "text/plain" },
+      payload: "# Admin Only\n\nShould be blocked.",
     });
     expect(response.statusCode).toBe(401);
     await fastify.close();
@@ -157,7 +162,9 @@ describe("API routes", () => {
       { sub: "test", scope: "admin" },
       { expiresIn: "1h" }
     );
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, {
+      api: { enabled: true, requireAuthForPublicRead: false },
+    } as any);
     registerApiRoutes(fastify, testConfig);
     const response = await fastify.inject({
       method: "GET",
@@ -229,7 +236,9 @@ describe("moderation API", () => {
 
   it("GET /api/v1/comments lists all comments", async () => {
     const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, {
+      api: { enabled: true, requireAuthForPublicRead: false },
+    } as any);
     registerModerationRoutes(fastify, testConfig);
     const response = await fastify.inject({
       method: "GET",
@@ -244,7 +253,9 @@ describe("moderation API", () => {
 
   it("POST /api/v1/comments/:id/hide hides a comment", async () => {
     const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, {
+      api: { enabled: true, requireAuthForPublicRead: false },
+    } as any);
     registerModerationRoutes(fastify, testConfig);
     const response = await fastify.inject({
       method: "POST",
@@ -259,7 +270,9 @@ describe("moderation API", () => {
 
   it("POST /api/v1/comments/:id/unhide unhides a comment", async () => {
     const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, {
+      api: { enabled: true, requireAuthForPublicRead: false },
+    } as any);
     registerModerationRoutes(fastify, testConfig);
     const response = await fastify.inject({
       method: "POST",
@@ -274,7 +287,9 @@ describe("moderation API", () => {
 
   it("DELETE /api/v1/comments/:id deletes a comment", async () => {
     const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, {
+      api: { enabled: true, requireAuthForPublicRead: false },
+    } as any);
     registerModerationRoutes(fastify, testConfig);
     const response = await fastify.inject({
       method: "DELETE",
@@ -287,7 +302,9 @@ describe("moderation API", () => {
 
   it("GET /api/v1/blocklist returns blocklist", async () => {
     const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify);
+    registerApiAuthGuard(fastify, {
+      api: { enabled: true, requireAuthForPublicRead: false },
+    } as any);
     registerModerationRoutes(fastify, testConfig);
     const response = await fastify.inject({
       method: "GET",

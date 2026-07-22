@@ -14,6 +14,8 @@ RUN pnpm install --frozen-lockfile --prod
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/config.yml ./config.yml
 COPY --from=builder /app/assets ./assets
-COPY --from=builder /app/templates ./templates
+# Templates are bundled in dist via default-templates.ts
 EXPOSE 8080 1965 70 300 1900 79 5011
-CMD ["node", "dist/bin.js"]
+USER node
+ENTRYPOINT ["node", "dist/bin.js"]
+CMD ["serve"]

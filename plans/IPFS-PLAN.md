@@ -6,6 +6,13 @@ Instead, the best approach is a **Lightweight Client & Gateway Architecture**. H
 
 Here is the supplementary plan for integrating IPFS as a distributed storage layer and HTML cache.
 
+## Overriding Decisions
+
+| Area | Original Plan | Actual Implementation | See |
+|------|--------------|---------------------|-----|
+| Storage type | `storage.type: "ipfs"` as option | Removed — IPFS is always additive; `storage.type` is `local` or `s3` | REMEDIATION-PLAN.md §P2-27 |
+| Job architecture | Workmatic for IPFS pinning | SQLite-persisted queue + piscina | REMEDIATION-PLAN.md §P1-1 |
+
 ---
 
 # Supplementary Plan: IPFS Integration (Distributed Storage & Cached HTML)

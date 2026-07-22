@@ -1,10 +1,12 @@
-// fallow-ignore-file circular-dependency — dynamic imports of pipeline.ts are safe; they execute after module initialization
+// fallow-ignore-file circular-dependency
 import {
   getDocBySlug,
   getEm,
   getTermsForDoc,
   listDocSlugs,
 } from "../database/index.js";
+import { schedule } from "../jobs/queue.js";
+import { buildNav } from "../nav.js";
 import type { HypernextConfig } from "../types/config.js";
 import type { IrNode } from "./ir.js";
 
@@ -13,6 +15,8 @@ export interface ComponentContext {
   config: HypernextConfig;
   currentDocId?: number;
   currentSlug?: string;
+  frontmatter?: Record<string, unknown>;
+  includeStack?: Set<string>;
 }
 
 export type ComponentResolver = (
@@ -41,9 +45,60 @@ function paragraphNode(children: IrNode[]): IrNode {
 }
 
 const MAX_INCLUDE_DEPTH = 5;
-const includeStack = new Set<string>();
 const LEADING_SLASH_REGEX = /^\//;
 const MDX_EXTENSION_REGEX = /\.mdx$/;
+
+/** HTML elements allowed in MDX templates — these map to native HTML tags. */
+const HTML_ELEMENTS = new Set([
+  "a",
+  "article",
+  "aside",
+  "blockquote",
+  "br",
+  "code",
+  "div",
+  "em",
+  "figcaption",
+  "figure",
+  "footer",
+  "form",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "header",
+  "hr",
+  "img",
+  "input",
+  "label",
+  "li",
+  "link",
+  "main",
+  "nav",
+  "ol",
+  "p",
+  "pre",
+  "section",
+  "select",
+  "small",
+  "span",
+  "strong",
+  "style",
+  "sub",
+  "sup",
+  "table",
+  "tbody",
+  "td",
+  "textarea",
+  "tfoot",
+  "th",
+  "thead",
+  "time",
+  "tr",
+  "ul",
+]);
 
 export const ALLOWED_COMPONENTS = new Set([
   "NavMenu",
@@ -65,57 +120,88 @@ export const ALLOWED_COMPONENTS = new Set([
   "Archive",
   "PostList",
   "IPFSLink",
+  "PostMeta",
+  "Title",
+  "Header",
+  "Main",
+  "Sidebar",
+  "Footer",
+  "EmailSubscribe",
+  "ContactForm",
   "slot",
+  ...HTML_ELEMENTS,
 ]);
 
 export const COMPONENT_RESOLVERS: Record<string, ComponentResolver> = {
-  NavMenu() {
+  async NavMenu(_props, ctx) {
+    const nav = await buildNav(ctx.config);
+    if (nav.length === 0) {
+      return [linkNode("/", [textNode("Home")])];
+    }
+    const items: IrNode[] = [];
+    for (const entry of nav) {
+      items.push(listItemNode([linkNode(entry.href, [textNode(entry.label)])]));
+    }
     return [
-      paragraphNode([
-        linkNode("/", [textNode("Home")]),
-        textNode(" · "),
-        linkNode("/blog/", [textNode("Blog")]),
-        textNode(" · "),
-        linkNode("/library/", [textNode("Library")]),
-      ]),
+      {
+        type: "nav",
+        className: "nav-menu",
+        children: [listNode(false, items)],
+      },
     ];
   },
 
   Breadcrumbs(_props, ctx) {
-    if (!ctx.currentSlug) {
+    if (!ctx.currentSlug || ctx.currentSlug === "index") {
       return [];
     }
     const parts = ctx.currentSlug.split("/");
     const crumbs: IrNode[] = [];
+    // First crumb always links to root
+    crumbs.push(listItemNode([linkNode("/", [textNode("Home")])]));
     let accumulated = "";
     for (const part of parts) {
       accumulated += `/${part}`;
-      crumbs.push(linkNode(accumulated, [textNode(part)]));
-      crumbs.push(textNode(" / "));
+      const label = part;
+      crumbs.push(listItemNode([linkNode(accumulated, [textNode(label)])]));
     }
-    crumbs.pop();
-    return [paragraphNode(crumbs)];
+    return [
+      {
+        type: "nav",
+        className: "breadcrumbs",
+        children: [listNode(false, crumbs)],
+      },
+    ];
   },
 
   Search() {
     return [
-      paragraphNode([
-        {
-          type: "component",
-          componentName: "Search",
-          componentProps: {},
-        } as IrNode,
-      ]),
+      {
+        type: "section",
+        className: "search",
+        children: [linkNode("/search", [textNode("Search")])],
+      },
     ];
   },
 
-  async TagCloud() {
+  async TagCloud(props) {
+    const taxonomy = typeof props.taxonomy === "string" ? props.taxonomy : "";
     const em = getEm();
-    const terms = await em
-      .getConnection()
-      .execute<{ taxonomy: string; slug: string; name: string }[]>(
-        "SELECT DISTINCT taxonomy, slug, name FROM terms ORDER BY name"
-      );
+    let terms: { taxonomy: string; slug: string; name: string }[];
+    if (taxonomy) {
+      terms = await em
+        .getConnection()
+        .execute<{ taxonomy: string; slug: string; name: string }[]>(
+          "SELECT DISTINCT taxonomy, slug, name FROM terms WHERE taxonomy = ? ORDER BY name",
+          [taxonomy]
+        );
+    } else {
+      terms = await em
+        .getConnection()
+        .execute<{ taxonomy: string; slug: string; name: string }[]>(
+          "SELECT DISTINCT taxonomy, slug, name FROM terms ORDER BY name"
+        );
+    }
     if (terms.length === 0) {
       return [paragraphNode([textNode("No tags yet.")])];
     }
@@ -134,22 +220,32 @@ export const COMPONENT_RESOLVERS: Record<string, ComponentResolver> = {
 
   async RecentPosts(props) {
     const limit = Number(props.limit) || 5;
-    const slugs = (await listDocSlugs()).slice(0, limit);
-    if (slugs.length === 0) {
+    const em = getEm();
+    const docs = await em
+      .getConnection()
+      .execute<{ slug: string; title: string; date: string | null }[]>(
+        `SELECT slug, title, date FROM docs_meta WHERE type = 'post' ORDER BY date DESC LIMIT ?`,
+        [limit]
+      );
+    if (docs.length === 0) {
       return [paragraphNode([textNode("No posts yet.")])];
     }
     const items: IrNode[] = [];
-    for (const slug of slugs) {
-      const doc = await getDocBySlug(slug);
+    for (const doc of docs) {
+      const linkText = doc.date
+        ? `${doc.title} (${doc.date.slice(0, 10)})`
+        : doc.title;
       items.push(
-        listItemNode([
-          linkNode(`/${slug}`, [
-            textNode((doc?.title as string | undefined) ?? slug),
-          ]),
-        ])
+        listItemNode([linkNode(`/${doc.slug}`, [textNode(linkText)])])
       );
     }
-    return [listNode(false, items)];
+    return [
+      {
+        type: "section",
+        className: "recent-posts",
+        children: [listNode(false, items)],
+      },
+    ];
   },
 
   async PostNav(_props, ctx) {
@@ -256,18 +352,19 @@ export const COMPONENT_RESOLVERS: Record<string, ComponentResolver> = {
     ];
   },
 
-  async Include(props, _ctx) {
+  async Include(props, ctx) {
     const src = String(props.src ?? "");
     if (!src) {
       return [];
     }
-    if (includeStack.has(src)) {
+    const stack = ctx.includeStack ?? new Set<string>();
+    if (stack.has(src)) {
       return [paragraphNode([textNode(`[Circular include: ${src}]`)])];
     }
-    if (includeStack.size >= MAX_INCLUDE_DEPTH) {
+    if (stack.size >= MAX_INCLUDE_DEPTH) {
       return [];
     }
-    includeStack.add(src);
+    stack.add(src);
     try {
       const doc = await getDocBySlug(
         src
@@ -282,25 +379,32 @@ export const COMPONENT_RESOLVERS: Record<string, ComponentResolver> = {
       const result = parseToIR(rawMdx, src);
       return result.ir.children ?? [];
     } finally {
-      includeStack.delete(src);
+      stack.delete(src);
     }
   },
 
   AuthorBio(_props, ctx) {
     const { author } = ctx.config;
-    const bio: IrNode[] = [];
+    const children: IrNode[] = [];
     if (author.photo) {
-      bio.push({ type: "image", url: author.photo, alt: author.name });
+      children.push({ type: "image", url: author.photo, alt: author.name });
     }
-    bio.push(textNode(author.name));
+    if (author.name) {
+      children.push({
+        type: "heading",
+        depth: 2,
+        children: [textNode(author.name)],
+      });
+    }
     if (author.bio) {
-      bio.push(textNode(` — ${author.bio}`));
+      children.push(paragraphNode([textNode(author.bio)]));
     }
     if (author.url) {
-      bio.push(textNode(" "));
-      bio.push(linkNode(author.url, [textNode("Website")]));
+      children.push(
+        paragraphNode([linkNode(author.url, [textNode("Website")])])
+      );
     }
-    return [paragraphNode(bio)];
+    return [{ type: "section", className: "h-card author-bio", children }];
   },
 
   async SyndicationLinks(_props, ctx) {
@@ -334,11 +438,12 @@ export const COMPONENT_RESOLVERS: Record<string, ComponentResolver> = {
   },
 
   Figure(props) {
-    const src = String(props.src ?? "");
-    const caption = String(props.caption ?? "");
+    const src = typeof props.src === "string" ? props.src : "";
+    const caption = typeof props.caption === "string" ? props.caption : "";
+    const alt = typeof props.alt === "string" ? props.alt : caption;
     const children: IrNode[] = [];
     if (src) {
-      children.push({ type: "image", url: src, alt: caption || src });
+      children.push({ type: "image", url: src, alt: alt || src });
     }
     if (caption) {
       children.push(paragraphNode([textNode(caption)]));
@@ -438,59 +543,316 @@ export const COMPONENT_RESOLVERS: Record<string, ComponentResolver> = {
   async PostList(props, _ctx) {
     const collection = String(props.collection ?? "");
     const limit = Number(props.limit) || 10;
+    const em = getEm();
 
-    let slugs: string[];
+    let docs: { slug: string; title: string; date: string | null }[];
     if (collection) {
-      const { getCollectionDocs } = await import("../router.js");
-      slugs = await getCollectionDocs(collection);
+      docs = await em
+        .getConnection()
+        .execute<{ slug: string; title: string; date: string | null }[]>(
+          "SELECT slug, title, date FROM docs_meta WHERE slug LIKE ? ORDER BY date DESC LIMIT ?",
+          [`${collection}/%`, limit]
+        );
     } else {
-      slugs = await listDocSlugs();
+      docs = await em
+        .getConnection()
+        .execute<{ slug: string; title: string; date: string | null }[]>(
+          "SELECT slug, title, date FROM docs_meta ORDER BY date DESC LIMIT ?",
+          [limit]
+        );
     }
 
-    slugs = slugs.slice(0, limit);
-
-    if (slugs.length === 0) {
+    if (docs.length === 0) {
       return [paragraphNode([textNode("No posts found.")])];
     }
 
+    const items: IrNode[] = docs.map((doc) => {
+      const text = doc.date
+        ? `${doc.title} — ${doc.date.slice(0, 10)}`
+        : doc.title;
+      return listItemNode([linkNode(`/${doc.slug}`, [textNode(text)])]);
+    });
+
     return [
-      listNode(
-        false,
-        slugs.map((s) => {
-          const display = s.split("/").pop() ?? s;
-          return listItemNode([linkNode(`/${s}`, [textNode(display)])]);
-        })
-      ),
+      {
+        type: "section",
+        className: "post-list",
+        children: [listNode(false, items)],
+      },
+    ];
+  },
+
+  async Header(_props, ctx) {
+    const nav = await buildNav(ctx.config);
+    const navItems = nav.map((entry) =>
+      listItemNode([linkNode(entry.href, [textNode(entry.label)])])
+    );
+    return [
+      {
+        type: "header",
+        className: "site-header",
+        children: [
+          {
+            type: "heading",
+            depth: 1,
+            children: [linkNode("/", [textNode(ctx.config.site.meta.title)])],
+          },
+          { type: "component", componentName: "NavMenu", componentProps: {} },
+          { type: "component", componentName: "Search", componentProps: {} },
+          listNode(false, navItems),
+        ],
+      },
+    ];
+  },
+
+  Main() {
+    return [
+      {
+        type: "main",
+        className: "main-content",
+        children: [
+          {
+            type: "component",
+            componentName: "Breadcrumbs",
+            componentProps: {},
+          },
+          { type: "component", componentName: "slot", componentProps: {} },
+        ],
+      },
+    ];
+  },
+
+  Sidebar() {
+    return [
+      {
+        type: "aside",
+        className: "sidebar",
+        children: [
+          { type: "heading", depth: 2, children: [textNode("Recent Posts")] },
+          {
+            type: "component",
+            componentName: "RecentPosts",
+            componentProps: {},
+          },
+          { type: "heading", depth: 2, children: [textNode("Tags")] },
+          { type: "component", componentName: "TagCloud", componentProps: {} },
+        ],
+      },
+    ];
+  },
+
+  Title(_props, ctx) {
+    const slug = ctx.currentSlug;
+    const fm = ctx.frontmatter ?? {};
+    const title = (fm.title as string) ?? slug?.split("/").pop() ?? "Untitled";
+    const postUrl = slug ? `/${slug}` : "/";
+    return [
+      {
+        type: "heading",
+        depth: 1,
+        className: "p-name",
+        children: [textNode(title)],
+      },
+      {
+        type: "paragraph",
+        children: [
+          {
+            type: "link",
+            url: postUrl,
+            className: "u-url",
+            children: [textNode("Permalink")],
+          },
+        ],
+      },
+    ];
+  },
+
+  PostMeta(_props, ctx) {
+    const fm = ctx.frontmatter ?? {};
+    const parts: IrNode[] = [];
+    const author = ctx.config.author?.name;
+    const date = fm.date as string | undefined;
+    const tags = fm.tags as string[] | undefined;
+
+    if (author) {
+      parts.push({ type: "text", value: `by ${author}` });
+    }
+    if (author && (date || tags)) {
+      parts.push({ type: "text", value: " / " });
+    }
+    if (date) {
+      const d = new Date(date);
+      const display = Number.isNaN(d.getTime())
+        ? date
+        : d.toISOString().slice(0, 10);
+      parts.push({
+        type: "time",
+        value: display,
+        datetime: date,
+        className: "dt-published",
+      });
+    }
+    if (date && tags && tags.length > 0) {
+      parts.push({ type: "text", value: " / " });
+    }
+    if (tags && tags.length > 0) {
+      const tagLinks = tags.flatMap((tag, i) => {
+        const nodes: IrNode[] = [linkNode(`/tags/${tag}`, [textNode(tag)])];
+        if (i < tags.length - 1) {
+          nodes.push({ type: "text", value: ", " });
+        }
+        return nodes;
+      });
+      for (const node of tagLinks) {
+        parts.push(node);
+      }
+    }
+
+    if (parts.length === 0) {
+      return [];
+    }
+    return [{ type: "paragraph", className: "byline", children: parts }];
+  },
+
+  Footer(_props, ctx) {
+    const year = new Date().getFullYear();
+    const site = ctx.config.site.meta.title;
+    const url = ctx.config.site.canonicalBase;
+    const author = ctx.config.author?.name;
+    const bio = ctx.config.author?.bio;
+    const lines: string[] = [site];
+    if (author && author !== site) {
+      lines.push(author);
+    }
+    const footerText = lines.join(" — ");
+    const children: IrNode[] = [
+      paragraphNode([textNode(`© ${year} ${footerText}`)]),
+    ];
+    if (bio) {
+      children.push(paragraphNode([textNode(bio)]));
+    }
+    if (url) {
+      children.push(paragraphNode([linkNode(url, [textNode(url)])]));
+    }
+    return [
+      {
+        type: "footer",
+        className: "site-footer",
+        children,
+      },
     ];
   },
 
   EmailSubscribe() {
     return [
-      paragraphNode([
-        {
-          type: "component",
-          componentName: "EmailSubscribe",
-          componentProps: {},
-        } as IrNode,
-      ]),
+      {
+        type: "component",
+        componentName: "form",
+        componentProps: {
+          action: "/api/v1/subscribe",
+          method: "POST",
+          className: "email-subscribe",
+        },
+        children: [
+          {
+            type: "component",
+            componentName: "h3",
+            componentProps: {},
+            children: [{ type: "text", value: "Subscribe to Newsletter" }],
+          },
+          {
+            type: "component",
+            componentName: "input",
+            componentProps: {
+              type: "email",
+              name: "email",
+              placeholder: "your@email.com",
+              required: true,
+            },
+          },
+          {
+            type: "component",
+            componentName: "button",
+            componentProps: { type: "submit" },
+            children: [{ type: "text", value: "Subscribe" }],
+          },
+        ],
+      },
     ];
   },
 
   ContactForm() {
     return [
-      paragraphNode([
-        {
-          type: "component",
-          componentName: "ContactForm",
-          componentProps: {},
-        } as IrNode,
-      ]),
+      {
+        type: "component",
+        componentName: "form",
+        componentProps: {
+          action: "/api/v1/contact",
+          method: "POST",
+          className: "contact-form",
+        },
+        children: [
+          {
+            type: "component",
+            componentName: "h3",
+            componentProps: {},
+            children: [{ type: "text", value: "Contact Me" }],
+          },
+          {
+            type: "component",
+            componentName: "input",
+            componentProps: {
+              type: "text",
+              name: "name",
+              placeholder: "Your Name",
+              required: true,
+            },
+          },
+          {
+            type: "component",
+            componentName: "input",
+            componentProps: {
+              type: "email",
+              name: "email",
+              placeholder: "your@email.com",
+              required: true,
+            },
+          },
+          {
+            type: "component",
+            componentName: "textarea",
+            componentProps: {
+              name: "message",
+              placeholder: "Your message...",
+              required: true,
+              rows: 5,
+            },
+          },
+          {
+            type: "component",
+            componentName: "button",
+            componentProps: { type: "submit" },
+            children: [{ type: "text", value: "Send" }],
+          },
+        ],
+      },
     ];
   },
 
   async Comments(_props, ctx) {
     if (!ctx.currentSlug) {
       return [];
+    }
+
+    // Trigger background POSSE reply fetch (fire-and-forget via job queue)
+    if (ctx.config.comments?.aggregation) {
+      schedule("posse-replies", {
+        slug: ctx.currentSlug,
+        mastodon: ctx.config.comments.aggregation.mastodon,
+        bluesky: ctx.config.comments.aggregation.bluesky,
+      }).catch(() => {
+        // Non-critical — replies will be fetched on next page load
+      });
     }
 
     const em = getEm();

@@ -77,7 +77,13 @@ collections:
 
 ### Layout Templates
 
-Templates are MDX files in the `templates/` directory. Use `<slot />` to inject post content:
+*Planned — not yet implemented.*
+
+Templates will be MDX files in the `templates/` directory that wrap document content.
+All renderers (HTTP, Gemini, Gopher, etc.) will consume the same common templates and
+translate them into each protocol's format.
+
+The planned template system uses `<slot />` to inject post content:
 
 ```mdx
 <NavMenu />
@@ -91,7 +97,11 @@ Templates are MDX files in the `templates/` directory. Use `<slot />` to inject 
 
 ## Components
 
-Built-in MDX components:
+Built-in MDX components are resolved at the parser level (MDX → AST → IR) and included
+in the Intermediate Representation that all renderers consume. They work **inline in
+document content**, not as layout wrappers (templates are a planned feature above).
+
+Built-in components:
 
 - `<NavMenu />` — Site navigation
 - `<Breadcrumbs />` — Breadcrumb trail

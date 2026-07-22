@@ -2,7 +2,7 @@ import type { MikroORM } from "@mikro-orm/sqlite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { shouldSyndicate, syndicate } from "../src/bridge/index";
 import { closeOrm, initOrm, insertDoc } from "../src/database";
-import { initWorkmatic, stopWorkmatic } from "../src/federation/workmatic";
+import { initJobsTable } from "../src/jobs/queue";
 import type { HypernextConfig } from "../src/types/config";
 
 const testConfig: HypernextConfig = {
@@ -44,11 +44,10 @@ describe("bridge", () => {
 
   beforeAll(async () => {
     _orm = await initOrm(":memory:");
-    initWorkmatic(testConfig);
+    await initJobsTable();
   });
 
   afterAll(async () => {
-    await stopWorkmatic();
     await closeOrm();
   });
 

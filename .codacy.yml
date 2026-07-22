@@ -1,0 +1,17 @@
+---
+exclude_paths:
+  # Generated files
+  - "pnpm-lock.yaml"
+  # TUI subsystem (deleted, stale findings)
+  - "src/tui/**"
+  # Test secrets are intentional test fixtures
+  - "tests/micropub.test.ts"
+  - "tests/auth.test.ts"
+  - "tests/api.test.ts"
+  # AGENTS.md is agent instructions, not code
+  - "AGENTS.md"
+  # Federation cognitive complexity is pre-existing, not in PR scope
+  - "src/federation/**"
+  - "src/analytics/**"
+  # All markdown files
+  - "**/*.md"

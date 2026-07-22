@@ -27,6 +27,8 @@ let format: "json" | "pretty" = "pretty";
 
 const SECRET_MASK_RE =
   /"(password|token|apiKey|secretAccessKey|authorization)":"[^"]*"/gi;
+const SECRET_KEY_RE =
+  /^(password|token|apiKey|secretAccessKey|authorization)$/i;
 
 function maskSensitive(text: string): string {
   if (!maskSecrets) {
@@ -38,13 +40,30 @@ function maskSensitive(text: string): string {
   });
 }
 
+function maskMeta(meta: Record<string, unknown>): Record<string, unknown> {
+  if (!maskSecrets) {
+    return meta;
+  }
+  const masked: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(meta)) {
+    if (SECRET_KEY_RE.test(key)) {
+      masked[key] = "***";
+    } else if (typeof value === "object" && value !== null) {
+      masked[key] = maskMeta(value as Record<string, unknown>);
+    } else {
+      masked[key] = value;
+    }
+  }
+  return masked;
+}
+
 function createEntry(
   level: LogLevel,
   msg: string,
   meta?: Record<string, unknown>
 ): LogEntry {
   return {
-    ...meta,
+    ...(meta ? maskMeta(meta) : undefined),
     _meta: { minLevel: LEVEL_NUM[level], name: level.toUpperCase() },
     level,
     msg: maskSensitive(msg),

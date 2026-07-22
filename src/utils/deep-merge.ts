@@ -9,6 +9,11 @@ export function deepMerge<T extends Record<string, unknown>>(
   const result: Record<string, unknown> = { ...target };
 
   for (const key of Object.keys(source)) {
+    // Block prototype pollution
+    if (key === "__proto__" || key === "constructor" || key === "prototype") {
+      continue;
+    }
+
     const sourceValue = source[key];
     const targetValue = result[key];
 

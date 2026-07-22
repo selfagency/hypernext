@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+
 import { invalidateAll } from "../cache.js";
 import { DocMeta } from "../database/entities/doc-meta.js";
 import { Term } from "../database/entities/term.js";
@@ -11,15 +12,17 @@ import {
   upsertTerm,
 } from "../database/index.js";
 import { parseToIR } from "../parser/pipeline.js";
-import { createStorage } from "../storage/index.js";
+import { getStorage } from "../storage/index.js";
 import type { HypernextConfig } from "../types/config.js";
+import { logger } from "../utils/logger.js";
 
-const MDX_EXT_REGEX = /\.mdx$/;
+const MD_EXT_REGEX = /\.mdx?$/;
 const BACKSLASH_REGEX = /\\/g;
 
 export async function indexDocument(
   slug: string,
-  rawMdx: string
+  rawMdx: string,
+  config?: HypernextConfig
 ): Promise<void> {
   const result = parseToIR(rawMdx, slug);
   const { frontmatter } = result;
@@ -35,6 +38,7 @@ export async function indexDocument(
     rawMdx,
     irJson: JSON.stringify(result.ir),
     publishedAt: frontmatter.publishedAt as string | undefined,
+    scheduledAt: frontmatter.scheduledAt as string | undefined,
     order: frontmatter.order as number | undefined,
     metaJson: JSON.stringify(frontmatter),
   });
@@ -58,10 +62,59 @@ export async function indexDocument(
   }
 
   invalidateAll(slug);
+
+  // Schedule AI features (auto-tagging, SEO meta) after indexing
+  if (config) {
+    await scheduleAiFeatures(slug, rawMdx, frontmatter, config);
+  }
 }
 
-export async function reindexAll(config: HypernextConfig): Promise<void> {
-  const storage = createStorage(config);
+// ── AI feature wiring (gated by agent.enabled + ai.enabled) ──
+
+async function scheduleAiFeatures(
+  slug: string,
+  rawMdx: string,
+  frontmatter: Record<string, unknown>,
+  config: HypernextConfig
+): Promise<void> {
+  if (!(config.agent?.enabled && config.ai?.enabled)) {
+    return;
+  }
+
+  try {
+    const { schedule } = await import("../jobs/queue.js");
+
+    // Auto-tagging: schedule if no tags are set
+    const tags = frontmatter.tags;
+    if (
+      config.ai.features?.autoTagging &&
+      (!Array.isArray(tags) || tags.length === 0)
+    ) {
+      await schedule("ai-text", {
+        op: "suggestTags",
+        slug,
+        rawMdx,
+        __config: config,
+      });
+    }
+
+    // SEO meta: schedule if description is blank
+    if (config.ai.features?.seoMeta && !frontmatter.description) {
+      await schedule("ai-text", {
+        op: "generateSeoMeta",
+        slug,
+        rawMdx,
+        __config: config,
+      });
+    }
+  } catch {
+    // Jobs table may not exist (e.g., in tests or before initJobsTable is called)
+    // Silently skip AI feature scheduling.
+  }
+}
+
+export async function reindexAll(_config: HypernextConfig): Promise<void> {
+  const storage = getStorage();
   const em = getEm();
 
   await em.nativeDelete(TermRelationship, {});
@@ -69,9 +122,24 @@ export async function reindexAll(config: HypernextConfig): Promise<void> {
   await em.nativeDelete(DocMeta, {});
 
   const slugs = await storage.list();
+  let failedCount = 0;
   for (const slug of slugs) {
-    const content = await storage.read(slug);
-    await indexDocument(slug, content);
+    try {
+      const content = await storage.read(slug);
+      await indexDocument(slug, content);
+    } catch (err) {
+      failedCount++;
+      logger.error(`Failed to index document: ${slug}`, {
+        slug,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  if (failedCount > 0) {
+    logger.warn(
+      `Reindex complete with ${failedCount} failure(s) out of ${slugs.length} document(s)`
+    );
   }
 }
 
@@ -89,13 +157,13 @@ export function watchStorage(config: HypernextConfig): () => void {
   const watcher = fs.watch(
     storagePath,
     { recursive: true },
-    (eventType, filename) => {
-      if (!filename?.endsWith(".mdx")) {
+    async (eventType, filename) => {
+      if (!(filename?.endsWith(".mdx") || filename?.endsWith(".md"))) {
         return;
       }
 
       const slug = filename
-        .replace(MDX_EXT_REGEX, "")
+        .replace(MD_EXT_REGEX, "")
         .replace(BACKSLASH_REGEX, "/");
       const fullPath = path.join(storagePath, filename);
 
@@ -104,11 +172,20 @@ export function watchStorage(config: HypernextConfig): () => void {
         return;
       }
 
+      let content: string;
       try {
-        const content = fs.readFileSync(fullPath, "utf-8");
-        indexDocument(slug, content);
+        content = fs.readFileSync(fullPath, "utf-8");
       } catch {
         // File may have been deleted between event and read
+        return;
+      }
+      try {
+        await indexDocument(slug, content);
+      } catch (err) {
+        logger.error("Failed to index document in watcher", {
+          slug,
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
   );

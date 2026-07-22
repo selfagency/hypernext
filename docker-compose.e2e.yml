@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+  # AT Protocol devnet for integration testing
+  # Docs: https://github.com/OpenMeet-Team/atproto-devnet
+  atproto-devnet:
+    image: ghcr.io/openmeet-team/atproto-devnet:latest
+    ports:
+      - "2583:2583"   # PDS
+      - "2584:2584"   # BGS
+    read_only: true
+    security_opt:
+      - "no-new-privileges:true"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:2583/xrpc/_health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Mailpit — SMTP testing server (catches all outbound email)
+  # API: http://localhost:8025  SMTP: localhost:1025
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025"   # SMTP server
+      - "8025:8025"   # Web UI
+    read_only: true
+    security_opt:
+      - "no-new-privileges:true"
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "true"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "true"

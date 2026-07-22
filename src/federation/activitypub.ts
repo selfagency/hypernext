@@ -1,12 +1,15 @@
 import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
 import type { FastifyInstance } from "fastify";
 import { Mention } from "../database/entities/mention.js";
 import { getEm } from "../database/index.js";
 import type { HypernextConfig } from "../types/config.js";
 import { hashString } from "../utils/crypto.js";
+import { logger } from "../utils/logger.js";
 
 const HTTP_SIGNATURE_REGEX =
-  /^keyId="([^"]+)",\s*algorithm="([^"]+)",\s*headers="([^"]*)",\s*signature="([^"]+)"$/;
+  /(?:^|,\s*)(keyId|algorithm|headers|signature|created|expires)="([^"]*)"/g;
 const HTML_TAG_REGEX = /<[^>]+>/g;
 const WHITESPACE_REGEX = /\s+/;
 const TRAILING_SLASH_REGEX = /\/+$/;
@@ -15,6 +18,102 @@ const LEADING_SLASH_REGEX = /^\//;
 interface SignatureResult {
   actorId: string | undefined;
   verified: boolean;
+}
+
+// ── Key Management ──────────────────────────────────────────
+
+let cachedKeyPair: crypto.KeyObject | null = null;
+let cachedPublicKeyPem: string | null = null;
+
+function getKeyPath(config: HypernextConfig): string {
+  // Store the key alongside the database, using the database path as anchor
+  const dbPath = config.database.path;
+  if (dbPath && dbPath !== ":memory:") {
+    return path.join(path.dirname(dbPath), "activitypub.pem");
+  }
+  return "./activitypub.pem";
+}
+
+function ensureKeyPair(config: HypernextConfig): void {
+  if (cachedKeyPair) {
+    return;
+  }
+
+  const keyPath = getKeyPath(config);
+
+  if (fs.existsSync(keyPath)) {
+    // Load existing key
+    const pem = fs.readFileSync(keyPath, "utf-8");
+    cachedKeyPair = crypto.createPrivateKey(pem);
+    cachedPublicKeyPem = crypto
+      .createPublicKey(pem)
+      .export({ type: "spki", format: "pem" });
+    logger.info(`ActivityPub: loaded key pair from ${keyPath}`);
+    return;
+  }
+
+  // Generate new RSA keypair
+  logger.info("ActivityPub: generating RSA key pair (first boot)");
+  const { privateKey } = crypto.generateKeyPairSync("rsa", {
+    modulusLength: 2048,
+    publicKeyEncoding: { type: "spki", format: "pem" },
+    privateKeyEncoding: { type: "pkcs8", format: "pem" },
+  });
+
+  cachedKeyPair = crypto.createPrivateKey(privateKey);
+  cachedPublicKeyPem = crypto
+    .createPublicKey(privateKey)
+    .export({ type: "spki", format: "pem" });
+
+  // Persist the private key
+  const keyDir = path.dirname(keyPath);
+  if (keyDir) {
+    fs.mkdirSync(keyDir, { recursive: true });
+  }
+  fs.writeFileSync(keyPath, privateKey, { mode: 0o600 });
+  logger.info(`ActivityPub: saved key pair to ${keyPath}`);
+}
+
+function getPublicKeyPem(config: HypernextConfig): string {
+  ensureKeyPair(config);
+  return cachedPublicKeyPem ?? "";
+}
+
+function getPrivateKey(config: HypernextConfig): crypto.KeyObject {
+  ensureKeyPair(config);
+  if (!cachedKeyPair) {
+    throw new Error("ActivityPub key pair not initialized");
+  }
+  return cachedKeyPair;
+}
+
+/**
+ * Sign a string with the ActivityPub private key for HTTP Signatures.
+ */
+function signString(input: string, config: HypernextConfig): string {
+  const key = getPrivateKey(config);
+  const signer = crypto.createSign("sha256");
+  signer.update(input, "utf-8");
+  signer.end();
+  return signer.sign(key, "base64");
+}
+
+/**
+ * Build an HTTP Signature header for an outgoing request.
+ */
+function buildSignatureHeader(
+  method: string,
+  url: string,
+  config: HypernextConfig
+): string {
+  const keyId = `${config.site.canonicalBase}/actor#main-key`;
+  const headers = "(request-target) host date";
+  const now = new Date();
+  const date = now.toUTCString();
+  const signingString = `(request-target): ${method.toLowerCase()} ${url}\nhost: ${new URL(config.site.canonicalBase).host}\ndate: ${date}`;
+  const signature = signString(signingString, config);
+
+  return `keyId="${keyId}",algorithm="rsa-sha256",headers="${headers}",signature="${signature}"`;
 }
 
 /**
@@ -34,14 +133,20 @@ async function verifyHttpSignature(request: {
     return { verified: false, actorId: undefined };
   }
 
-  const match = sigHeader.match(HTTP_SIGNATURE_REGEX);
-  if (!match) {
-    return { verified: false, actorId: undefined };
+  // Parse the Signature header as key="value" pairs in any order
+  const sigMap = new Map<string, string>();
+  const sigMatches = sigHeader.matchAll(HTTP_SIGNATURE_REGEX);
+  for (const m of sigMatches) {
+    const key = m[1];
+    const value = m[2];
+    if (key && value) {
+      sigMap.set(key.toLowerCase(), value);
+    }
   }
 
-  const keyId = match[1] ?? "";
-  const signedHeaders = match[3] ?? "";
-  const signature = match[4] ?? "";
+  const keyId = sigMap.get("keyid") ?? "";
+  const signedHeaders = sigMap.get("headers") ?? "";
+  const signature = sigMap.get("signature") ?? "";
 
   // Build the signing string
   const headerList = signedHeaders.split(WHITESPACE_REGEX);
@@ -125,7 +230,8 @@ async function fetchActorInfo(
 
 async function handleFollow(
   activity: Record<string, unknown>,
-  base: string
+  base: string,
+  config: HypernextConfig
 ): Promise<void> {
   const followerId = typeof activity.actor === "string" ? activity.actor : "";
   if (!followerId) {
@@ -146,9 +252,17 @@ async function handleFollow(
           actor: `${base}/actor`,
           object: activity,
         };
+        const inboxUrl = new URL(follower.inbox);
+        const inboxPath = inboxUrl.pathname + (inboxUrl.search ?? "");
+        const signature = buildSignatureHeader("POST", inboxPath, config);
         fetch(follower.inbox, {
           method: "POST",
-          headers: { "Content-Type": "application/activity+json" },
+          headers: {
+            "Content-Type": "application/activity+json",
+            Signature: signature,
+            Date: new Date().toUTCString(),
+            Host: inboxUrl.host,
+          },
           body: JSON.stringify(accept),
         }).catch(() => {
           // Best-effort delivery
@@ -222,6 +336,14 @@ async function handleCreate(
   }
 }
 
+export function getLocalActorPublicKeyPem(config: HypernextConfig): string {
+  try {
+    return getPublicKeyPem(config);
+  } catch {
+    return "";
+  }
+}
+
 export function registerActivityPubRoutes(
   fastify: FastifyInstance,
   config: HypernextConfig
@@ -273,7 +395,7 @@ export function registerActivityPubRoutes(
       publicKey: {
         id: `${base}/actor#main-key`,
         owner: `${base}/actor`,
-        publicKeyPem: "",
+        publicKeyPem: getPublicKeyPem(config),
       },
       icon: config.author.photo
         ? { type: "Image", url: config.author.photo }
@@ -281,14 +403,53 @@ export function registerActivityPubRoutes(
     });
   });
 
-  // GET /outbox
-  fastify.get("/outbox", (_request, reply) => {
-    reply.send({
-      "@context": "https://www.w3.org/ns/activitystreams",
-      type: "OrderedCollection",
-      totalItems: 0,
-      orderedItems: [],
-    });
+  // GET /outbox — return published posts as Create activities
+  fastify.get("/outbox", async (_request, reply) => {
+    try {
+      const { getEm } = await import("../database/index.js");
+      const { DocMeta } = await import("../database/entities/doc-meta.js");
+      const em = getEm();
+      const docs = await em.find(
+        DocMeta,
+        { type: "post" },
+        {
+          orderBy: { date: "DESC" },
+          limit: 20,
+        }
+      );
+
+      const orderedItems = docs.map((doc) => ({
+        "@context": "https://www.w3.org/ns/activitystreams",
+        type: "Create",
+        actor: `${base}/actor`,
+        published: doc.date,
+        to: ["https://www.w3.org/ns/activitystreams#Public"],
+        object: {
+          type: "Note",
+          id: `${base}/${doc.slug}`,
+          url: `${base}/${doc.slug}`,
+          attributedTo: `${base}/actor`,
+          content: doc.description ?? doc.title,
+          published: doc.date,
+          to: ["https://www.w3.org/ns/activitystreams#Public"],
+        },
+      }));
+
+      reply.send({
+        "@context": "https://www.w3.org/ns/activitystreams",
+        type: "OrderedCollection",
+        totalItems: orderedItems.length,
+        orderedItems,
+      });
+    } catch {
+      // ORM not initialized — return empty collection
+      reply.send({
+        "@context": "https://www.w3.org/ns/activitystreams",
+        type: "OrderedCollection",
+        totalItems: 0,
+        orderedItems: [],
+      });
+    }
   });
 
   // POST /inbox — receive activities from other servers
@@ -303,8 +464,8 @@ export function registerActivityPubRoutes(
     });
 
     if (!verified) {
-      console.warn(
-        `ActivityPub: unverified delivery from ${actorId ?? "unknown"}`
+      logger.warn(
+        `ActivityPub: accepting unverified delivery from ${actorId ?? "unknown"} (best-effort)`
       );
     }
 
@@ -322,7 +483,7 @@ export function registerActivityPubRoutes(
     const type = activity.type as string | undefined;
 
     if (type === "Follow") {
-      await handleFollow(activity, base);
+      await handleFollow(activity, base, config);
       reply.send({ status: "accepted" });
       return;
     }

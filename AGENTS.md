@@ -4,7 +4,7 @@ This document provides essential guidelines, architectural rules, and workflows 
 
 ## 1. Project Overview
 
-Hypernext is a TypeScript-based, multi-protocol MDX document server and IndieWeb publishing engine. It transforms MDX files into a unified interface accessible via HTTP, REST API, Gemini, Gopher, Spartan, NEX, Text Protocol, Finger, RSS, PDF, and EPUB. It is designed to run on a $5 VPS as a single [Node.js](https://Node.js) process with zero external daemons (using SQLite and in-memory caching).
+Hypernext is a TypeScript-based, multi-protocol Markdown document server and IndieWeb publishing engine. It transforms Markdown files (`.md` and `.mdx`) into a unified interface accessible via HTTP, REST API, Gemini, Gopher, Spartan, NEX, Text Protocol, Finger, RSS, PDF, and EPUB. It is designed to run on a $5 VPS as a single [Node.js](https://Node.js) process with zero external daemons (using SQLite and in-memory caching).
 
 ## 2. Critical Architectural Constraints (DO NOT VIOLATE)
 

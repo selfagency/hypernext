@@ -237,7 +237,7 @@ describe("POSSE reply fetching", () => {
         targetSlug: "blog/posse-post",
         platform: "bluesky",
       });
-      expect(mentions.length).toBe(1);
+      expect(mentions).toHaveLength(1);
       expect(mentions[0].authorName).toBe("Alice");
       expect(mentions[0].spamStatus).toBe("ham");
     });
@@ -260,7 +260,7 @@ describe("POSSE reply fetching", () => {
         targetSlug: "blog/posse-post",
         platform: "bluesky",
       });
-      expect(mentions.length).toBe(1); // still 1
+      expect(mentions).toHaveLength(1); // still 1
     });
 
     it("handles empty replies gracefully", async () => {

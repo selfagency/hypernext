@@ -1,11 +1,10 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: ["src/bin.ts"],
+  entry: ["src/bin.ts", "src/commands/*.ts"],
   format: "esm",
   target: "node24",
   clean: true,
-  external: ["react", "react/jsx-runtime", "ink", "@inkjs/ui"],
   outDir: "dist",
   sourcemap: true,
 });

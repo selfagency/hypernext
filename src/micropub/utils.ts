@@ -1,5 +1,4 @@
-import { createStorage } from "../storage/index.js";
-import type { HypernextConfig } from "../types/config.js";
+import { getStorage } from "../storage/index.js";
 
 export function slugify(text: string): string {
   return text
@@ -39,7 +38,6 @@ export function convertContent(properties: Record<string, unknown[]>): string {
 }
 
 export async function writePost(
-  config: HypernextConfig,
   properties: Record<string, unknown[]>
 ): Promise<string> {
   const title = (properties.name?.[0] as string) ?? "untitled";
@@ -48,9 +46,8 @@ export async function writePost(
   const body = convertContent(properties);
   const mdx = `${frontmatter}\n\n${body}`;
 
-  const storage = createStorage(config);
   const fullSlug = `blog/${slug}`;
-  await storage.write(fullSlug, mdx);
+  await getStorage().write(fullSlug, mdx);
 
   return fullSlug;
 }

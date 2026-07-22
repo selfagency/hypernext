@@ -62,6 +62,27 @@ const MD_RENDERERS: Record<string, MdRenderer> = {
   section(node) {
     return (node.children ?? []).map(renderMdNode).join("\n\n");
   },
+  article(node) {
+    return (node.children ?? []).map(renderMdNode).join("\n\n");
+  },
+  header(node) {
+    return (node.children ?? []).map(renderMdNode).join("\n\n");
+  },
+  main(node) {
+    return (node.children ?? []).map(renderMdNode).join("\n\n");
+  },
+  aside(node) {
+    return (node.children ?? []).map(renderMdNode).join("\n\n");
+  },
+  footer(node) {
+    return (node.children ?? []).map(renderMdNode).join("\n\n");
+  },
+  nav(node) {
+    return (node.children ?? []).map(renderMdNode).join("\n");
+  },
+  time(node) {
+    return node.value ?? "";
+  },
   thematicBreak() {
     return "---";
   },

@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { Mention } from "../database/entities/mention.js";
 import { getEm } from "../database/index.js";
@@ -129,20 +130,38 @@ export function registerModerationRoutes(
 
   // ── Blocklist API ──
 
-  // GET /api/v1/blocklist — list blocked items
-  fastify.get("/api/v1/blocklist", (_request, reply) => {
-    const blocklist = config.comments?.blocklist ?? {
+  // GET /api/v1/blocklist — list blocked items (merges config + DB)
+  fastify.get("/api/v1/blocklist", async (_request, reply) => {
+    const em = getEm();
+    let dbEntries: { type: string; value: string }[] = [];
+    try {
+      dbEntries = await em
+        .getConnection()
+        .execute<{ type: string; value: string }[]>(
+          "SELECT type, value FROM blocklist_entries ORDER BY created_at DESC"
+        );
+    } catch {
+      // Table may not exist yet — that's fine
+    }
+    const configBlocklist = config.comments?.blocklist ?? {
       handles: [],
       domains: [],
       ips: [],
     };
-    reply.send({ data: blocklist });
+    // Merge DB entries into config blocklist
+    for (const entry of dbEntries) {
+      const list = configBlocklist[entry.type as keyof typeof configBlocklist];
+      if (Array.isArray(list) && !list.includes(entry.value)) {
+        list.push(entry.value);
+      }
+    }
+    reply.send({ data: configBlocklist });
   });
 
   // POST /api/v1/blocklist — add a blocked item
   fastify.post<{
     Body: { type: "handle" | "domain" | "ip"; value: string };
-  }>("/api/v1/blocklist", (request, reply) => {
+  }>("/api/v1/blocklist", async (request, reply) => {
     const { type, value } = request.body;
     if (!(type && value)) {
       reply.code(400).send({ error: "Missing type or value" });
@@ -156,19 +175,40 @@ export function registerModerationRoutes(
       return;
     }
 
+    const em = getEm();
+    // Ensure the blocklist_entries table exists
+    await em
+      .getConnection()
+      .execute(
+        "CREATE TABLE IF NOT EXISTS blocklist_entries (id TEXT PRIMARY KEY, type TEXT NOT NULL, value TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')))"
+      );
+    const id = crypto.randomUUID();
+    await em
+      .getConnection()
+      .execute(
+        "INSERT OR IGNORE INTO blocklist_entries (id, type, value) VALUES (?, ?, ?)",
+        [id, type, value]
+      );
     reply.send({ data: { type, value }, status: "added" });
   });
 
   // DELETE /api/v1/blocklist — remove a blocked item
   fastify.delete<{
     Params: { type: string; value: string };
-  }>("/api/v1/blocklist/:type/:value", (request, reply) => {
+  }>("/api/v1/blocklist/:type/:value", async (request, reply) => {
     const { type, value } = request.params;
     if (!["handle", "domain", "ip"].includes(type)) {
       reply.code(400).send({ error: "Invalid type" });
       return;
     }
 
+    const em = getEm();
+    await em
+      .getConnection()
+      .execute("DELETE FROM blocklist_entries WHERE type = ? AND value = ?", [
+        type,
+        value,
+      ]);
     reply.send({ data: { type, value }, status: "removed" });
   });
 

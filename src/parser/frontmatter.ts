@@ -1,6 +1,8 @@
 import yaml from "yaml";
 
+// Allow empty frontmatter (---\n---) and whitespace-only frontmatter
 const FRONTMATTER_REGEX = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/;
+const WHITESPACE_RE = /^\s*$/;
 
 export interface FrontmatterResult {
   attributes: Record<string, unknown>;
@@ -13,9 +15,15 @@ export function extractFrontmatter(content: string): FrontmatterResult {
     return { attributes: {}, body: content };
   }
 
+  const raw = match[1] ?? "";
+  // Empty or whitespace-only frontmatter: return empty attributes
+  if (WHITESPACE_RE.test(raw)) {
+    return { attributes: {}, body: content.slice(match[0].length) };
+  }
+
   let attributes: Record<string, unknown>;
   try {
-    attributes = yaml.parse(match[1] ?? "") as Record<string, unknown>;
+    attributes = yaml.parse(raw) as Record<string, unknown>;
   } catch {
     attributes = {};
   }
@@ -45,9 +53,10 @@ export function isFutureDated(content: string): boolean {
 export function isFutureDatedFrontmatter(
   frontmatter: Record<string, unknown>
 ): boolean {
-  const publishAt = frontmatter.publishAt as string | undefined;
+  // scheduledAt is the dedicated "hide until date" field
+  const scheduledAt = frontmatter.scheduledAt as string | undefined;
   const date = frontmatter.date as string | undefined;
-  const target = publishAt ?? date;
+  const target = scheduledAt ?? date;
   if (!target) {
     return false;
   }

@@ -3,7 +3,6 @@ import path from "node:path";
 import type { MikroORM } from "@mikro-orm/sqlite";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { closeOrm, initOrm, insertDoc } from "../src/database";
-import { initWorkmatic, stopWorkmatic } from "../src/federation/workmatic";
 import { pushToRemote, syncTwoWay } from "../src/sync/sync-manager";
 import type { HypernextConfig } from "../src/types/config";
 
@@ -51,12 +50,10 @@ describe("sync manager", () => {
 
   beforeAll(async () => {
     _orm = await initOrm(":memory:");
-    initWorkmatic(testConfig);
     fs.mkdirSync(TMP_CONTENT, { recursive: true });
   });
 
   afterAll(async () => {
-    await stopWorkmatic();
     await closeOrm();
     fs.rmSync(TMP_CONTENT, { recursive: true, force: true });
   });

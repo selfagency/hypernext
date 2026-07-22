@@ -2,7 +2,7 @@ import { getDocBySlug, listDocSlugs } from "../database/index.js";
 import { extractFrontmatter, isDocPrivate } from "../parser/frontmatter.js";
 import { parseToIR } from "../parser/pipeline.js";
 import type { HypernextConfig } from "../types/config.js";
-import { renderHTML } from "./html.js";
+import { renderHTMLBody } from "./html.js";
 
 interface RssEnclosure {
   length?: number;
@@ -85,10 +85,7 @@ export async function renderRSS(
       "";
     const guid = buildGuid(config, slug, date);
     const result = parseToIR(rawMdx, slug);
-    const htmlContent = renderHTML(result, config, slug, {
-      contentCid: (doc.contentCid as string | undefined) ?? undefined,
-      htmlCid: (doc.htmlCid as string | undefined) ?? undefined,
-    });
+    const bodyContent = renderHTMLBody(result.ir);
     const enclosures = parseEnclosures(
       attributes.enclosure ?? attributes.enclosures
     );
@@ -103,7 +100,7 @@ export async function renderRSS(
       <title>${escapeXml(title)}</title>
       <link>${escapeXml(link)}</link>
       <guid isPermaLink="false">${escapeXml(guid)}</guid>
-      <description>${escapeXml(htmlContent)}</description>
+      <description>${escapeXml(bodyContent)}</description>
       ${date ? `<pubDate>${escapeXml(new Date(date).toUTCString())}</pubDate>` : ""}
       ${enclosureXml}
     </item>`);

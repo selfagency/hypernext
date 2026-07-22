@@ -1,0 +1,8 @@
+/* fallow-ignore-file */
+body {
+  max-width: 70ch;
+  padding: 1rem;
+  margin: 0 auto;
+  font-family: sans-serif;
+  line-height: 1.6;
+}

@@ -4,6 +4,19 @@
 **Status:** Ready for Implementation  
 **Target Environment:** $5 VPS (1 CPU, 512MB-1GB RAM), Single Node.js Process, Zero External Daemons
 
+## Overriding Decisions
+
+The following decisions override the original plan text below. The plan body is preserved for historical context; these annotations are the source of truth.
+
+| Area | Original Plan | Actual Implementation | See |
+|------|--------------|---------------------|-----|
+| Bundler | Vite SSR/Node build | tsup (esbuild-based) | `tsup.config.ts` |
+| CLI framework | cac | oclif | `src/lib/base-command.ts` |
+| EPUB library | `md-to-epub` | `@lesjoursfr/html-to-epub` | `package.json` |
+| Job queue | workmatic (Kysely+fastq) | SQLite-persisted (`src/jobs/queue.ts`) + piscina worker pool | REMEDIATION-PLAN.md §P1-1 |
+| AI master toggle | Independent `ai.enabled`/`mcp.enabled` toggles | `agent.enabled` gates all AI/MCP features | REMEDIATION-PLAN.md §P0-12 |
+| TUI | TUI editor planned | Permanently canceled | REMEDIATION-PLAN.md §P3-1 |
+
 ---
 
 ## Executive Summary

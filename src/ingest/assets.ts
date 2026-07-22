@@ -44,7 +44,7 @@ export async function downloadImage(
   destDir: string,
   name: string
 ): Promise<string | null> {
-  if (!validateSourceUrl(imageUrl)) {
+  if (!(await validateSourceUrl(imageUrl))) {
     return null;
   }
 

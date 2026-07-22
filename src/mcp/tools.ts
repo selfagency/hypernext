@@ -76,7 +76,7 @@ export function createTools(config: HypernextConfig): McpTool[] {
   }
 
   // Add AI-powered tools if AI is enabled
-  if (config.ai?.enabled) {
+  if (config.agent?.enabled && config.ai?.enabled) {
     tools.push({
       name: "talk_to_docs",
       description:

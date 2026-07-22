@@ -4,6 +4,14 @@
 **Status:** Proposed Supplementary Architecture  
 **Goal:** Provide an optional, opt-in AI subsystem for Hypernext. This includes semantic vector search (`sqlite-vector`), AI document summarization, a Retrieval-Augmented Generation (RAG) pipeline for MCP agents, and AI-assisted maintenance features (Alt Text generation, Auto-Tagging, SEO Meta descriptions, and Semantic Spam Moderation). To preserve the $5 VPS baseline, this feature requires zero local AI model weights; instead, it proxies to any user-configured OpenAI-compatible API (OpenAI, Ollama, LM Studio, vLLM). All processing is offloaded to the `workmatic` Worker Thread pool.
 
+## Overriding Decisions
+
+| Area | Original Plan | Actual Implementation | See |
+|------|--------------|---------------------|-----|
+| AI master toggle | Independent `ai.enabled` toggles | `agent.enabled` gates all AI features | REMEDIATION-PLAN.md §P0-12 |
+| Job/worker architecture | Workmatic worker threads | SQLite-persisted queue + piscina pool | REMEDIATION-PLAN.md §P1-1 |
+| Vector DB | `sqlite-vector` | `sqlite-vec` (loaded via extension) | REMEDIATION-PLAN.md §P0-3 |
+
 ---
 
 ## 1. Core Architecture & Opt-In Tooling

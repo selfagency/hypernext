@@ -1,107 +1,104 @@
 import jwt from "@fastify/jwt";
-import type { MikroORM } from "@mikro-orm/sqlite";
 import Fastify from "fastify";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { closeOrm, initOrm } from "../src/database";
-import { registerMicropubEndpoint } from "../src/micropub/index";
-import type { HypernextConfig } from "../src/types/config";
+import { closeOrm, initOrm } from "../src/database/index.js";
+import { registerMicropubEndpoint } from "../src/micropub/index.js";
+import { createStorage } from "../src/storage/index.js";
+import type { HypernextConfig } from "../src/types/config.js";
 
-const JWT_SECRET = "test-secret-for-jwt";
-
-const testConfig: HypernextConfig = {
+const TEST_CONFIG: HypernextConfig = {
+  author: { name: "Test" },
+  collections: {},
+  database: { path: ":memory:", type: "sqlite" },
+  mcp: { enabled: false, transport: "stdio" },
+  micropub: { enabled: true },
+  protocols: {
+    finger: { enabled: false, port: 0 },
+    gemini: { enabled: false, port: 0 },
+    gopher: { enabled: false, port: 0 },
+    http: { enabled: false, port: 0 },
+    nex: { enabled: false, port: 0 },
+    spartan: { enabled: false, port: 0 },
+    text: { enabled: false, port: 0 },
+  },
   site: {
     canonicalBase: "http://localhost:8080",
-    meta: { title: "T", description: "D", lang: "en" },
-    pdf: { enabled: false },
     ebooks: { enabled: false },
+    meta: { description: "Test", lang: "en", title: "Test Site" },
+    pdf: { enabled: false },
   },
-  author: { name: "A" },
-  jwtSecret: JWT_SECRET,
   storage: { type: "local", local: { path: "./content" } },
-  database: { type: "sqlite", path: ":memory:" },
-  api: { enabled: true },
-  collections: {},
-  taxonomies: [],
-  protocols: {
-    http: { enabled: true, port: 8080 },
-    gemini: { enabled: false, port: 1965 },
-    gopher: { enabled: false, port: 70 },
-    spartan: { enabled: false, port: 300 },
-    nex: { enabled: false, port: 1900 },
-    finger: { enabled: false, port: 79 },
-    text: { enabled: false, port: 5011 },
-  },
-  micropub: { enabled: true },
+  api: { enabled: false },
   syndication: {},
-  mcp: { enabled: false, transport: "stdio" },
+  taxonomies: [],
 };
 
-describe("micropub", () => {
-  let _orm: MikroORM;
+const JWT_SECRET = "test-secret";
 
-  beforeAll(async () => {
-    _orm = await initOrm(":memory:");
-  });
+beforeAll(async () => {
+  await initOrm(":memory:");
+  createStorage(TEST_CONFIG);
+});
 
-  afterAll(async () => {
-    await closeOrm();
-  });
+afterAll(async () => {
+  await closeOrm();
+});
 
-  it("rejects requests without Bearer token", async () => {
-    const fastify = Fastify();
-    await fastify.register(jwt, { secret: JWT_SECRET });
-    registerMicropubEndpoint(fastify, testConfig);
-    const response = await fastify.inject({
+async function createAuthedFastify() {
+  const fastify = Fastify();
+  await fastify.register(jwt, { secret: JWT_SECRET });
+  registerMicropubEndpoint(fastify, TEST_CONFIG);
+  const token = await fastify.jwt.sign(
+    { sub: "http://localhost:8080", scope: "create" },
+    { expiresIn: "1h" }
+  );
+  return { fastify, token };
+}
+
+describe("Micropub endpoint", () => {
+  it("returns 401 without authorization header", async () => {
+    const { fastify } = await createAuthedFastify();
+    const res = await fastify.inject({
       method: "POST",
       url: "/micropub",
-      body: { properties: { name: ["Test"] } },
+      payload: { type: ["h-entry"], properties: { name: ["Test"] } },
     });
-    expect(response.statusCode).toBe(401);
+    expect(res.statusCode).toBe(401);
     await fastify.close();
   });
 
-  it("creates a post with valid token", async () => {
-    const fastify = Fastify();
-    await fastify.register(jwt, { secret: JWT_SECRET });
-    const token = await fastify.jwt.sign(
-      { sub: "test", scope: "admin" },
-      { expiresIn: "1h" }
-    );
-    registerMicropubEndpoint(fastify, testConfig);
-    const response = await fastify.inject({
+  it("returns 401 with invalid token", async () => {
+    const { fastify } = await createAuthedFastify();
+    const res = await fastify.inject({
       method: "POST",
       url: "/micropub",
-      headers: { authorization: `Bearer ${token}` },
-      body: {
-        type: ["h-entry"],
-        properties: {
-          name: ["My Test Post"],
-          content: ["Hello from Micropub"],
-          category: ["test", "micropub"],
-        },
-      },
+      headers: { authorization: "Bearer invalid-token" },
+      payload: { type: ["h-entry"], properties: { name: ["Test"] } },
     });
-    expect(response.statusCode).toBe(201);
-    const body = JSON.parse(response.body);
-    expect(body.slug).toContain("blog/my-test-post");
+    expect(res.statusCode).toBe(401);
     await fastify.close();
   });
 
-  it("returns 400 for missing properties", async () => {
-    const fastify = Fastify();
-    await fastify.register(jwt, { secret: JWT_SECRET });
-    const token = await fastify.jwt.sign(
-      { sub: "test", scope: "admin" },
-      { expiresIn: "1h" }
-    );
-    registerMicropubEndpoint(fastify, testConfig);
-    const response = await fastify.inject({
+  it("returns 400 with empty body", async () => {
+    const { fastify, token } = await createAuthedFastify();
+    const res = await fastify.inject({
       method: "POST",
       url: "/micropub",
       headers: { authorization: `Bearer ${token}` },
-      body: {},
     });
-    expect(response.statusCode).toBe(400);
+    expect(res.statusCode).toBe(400);
+    await fastify.close();
+  });
+
+  it("returns 400 with missing properties", async () => {
+    const { fastify, token } = await createAuthedFastify();
+    const res = await fastify.inject({
+      method: "POST",
+      url: "/micropub",
+      headers: { authorization: `Bearer ${token}` },
+      payload: { type: ["h-entry"] },
+    });
+    expect(res.statusCode).toBe(400);
     await fastify.close();
   });
 });

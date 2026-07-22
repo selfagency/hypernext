@@ -11,6 +11,7 @@ import type { HypernextConfig } from "../types/config.js";
 const PDF_EXT_REGEX = /\.pdf$/;
 const IPFS_SUFFIX = "/ipfs";
 const PIN_SUFFIX = "/pin";
+const SLUG_VALID_REGEX = /^[a-z0-9][a-z0-9/-]*$/;
 
 async function handleIpfsCidRequest(
   slug: string,
@@ -165,6 +166,11 @@ export function registerApiRoutes(
   // PUT /api/v1/docs/* — create or update a document
   fastify.put("/api/v1/docs/*", async (request, reply) => {
     const slug = (request.params as { "*": string })["*"];
+    // Validate slug: no path traversal, alphanumeric + hyphens/slashes only
+    if (!SLUG_VALID_REGEX.test(slug) || slug.includes("..")) {
+      reply.code(400).send({ error: "Invalid slug" });
+      return;
+    }
     const content = request.body as string;
     const { writeStorage } = await import("../storage/index.js");
     await writeStorage(slug, content);
@@ -250,15 +256,28 @@ export function registerApiRoutes(
         if (config.site.ebookCoverImage) {
           epubOptions.cover = path.resolve(config.site.ebookCoverImage);
         }
-        // @ts-expect-error — @lesjoursfr/html-to-epub EPub constructor accepts options object
-        const epub = new EPub(epubOptions, "");
-        const buffer = await epub.render();
+        // EPub v6: constructor writes to a file path, render() returns { result: "ok" }
+        const tmpPath = path.join(
+          fs.realpathSync("."),
+          `tmp-${name}-${Date.now()}.epub`
+        );
+        const epub = new (
+          EPub as unknown as new (
+            options: Record<string, unknown>,
+            output: string
+          ) => { render: () => Promise<{ result: string }> }
+        )(epubOptions, tmpPath);
+        await epub.render();
+        const buffer = fs.readFileSync(tmpPath);
+        fs.rmSync(tmpPath, { force: true });
         reply
           .type("application/epub+zip")
           .header("Content-Disposition", `inline; filename="${name}.epub"`)
           .send(buffer);
-      } catch {
-        reply.code(500).send({ error: "EPUB generation failed" });
+      } catch (err) {
+        reply
+          .code(500)
+          .send({ error: `EPUB generation failed: ${String(err)}` });
       }
     }
   );

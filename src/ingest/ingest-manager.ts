@@ -55,7 +55,7 @@ export async function ingestUrlWithMeta(
   const { url, collection, filename, downloadMedia } = payload;
 
   // SSRF protection — reject private IPs and localhost
-  if (!validateSourceUrl(url)) {
+  if (!(await validateSourceUrl(url))) {
     throw new Error(`URL rejected by SSRF check: ${url}`);
   }
 

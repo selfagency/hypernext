@@ -71,9 +71,18 @@ function renderGemtextNode(node: IrNode, depth = 0): string {
         .join("\n");
 
     case "section":
+    case "header":
+    case "main":
+    case "aside":
+    case "footer":
+    case "nav":
+    case "article":
       return (node.children ?? [])
         .map((c) => renderGemtextNode(c, depth))
         .join("\n");
+
+    case "time":
+      return node.value ?? "";
 
     case "thematicBreak":
       return "---";

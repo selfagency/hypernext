@@ -1,15 +1,17 @@
 # Hypernext
 
-**Multi-Protocol MDX Document Server and IndieWeb Publishing Engine**
+**Multi-Protocol Markdown Document Server and IndieWeb Publishing Engine**
 
-Hypernext transforms MDX files into a unified interface accessible via HTTP, REST API, Gemini, Gopher, Spartan, NEX, Text Protocol, Finger, RSS, PDF, and EPUB. It runs as a single Node.js process with zero external daemons — designed for a $5 VPS.
+Hypernext transforms Markdown files (`.md` and `.mdx`) into a unified interface accessible via HTTP, REST API, Gemini, Gopher, Spartan, NEX, Text Protocol, Finger, RSS, PDF, and EPUB. It runs as a single Node.js process with zero external daemons — designed for a $5 VPS.
+
+[![CI](https://github.com/selfagency/hypernext/actions/workflows/ci.yml/badge.svg)](https://github.com/selfagency/hypernext/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/selfagency/hypernext/graph/badge.svg?token=UcOYEBhPq8)](https://codecov.io/gh/selfagency/hypernext) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/910ea1fed1da4965abed0b211350e95b)](https://app.codacy.com/gh/selfagency/hypernext/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade) [![Quality gate status](https://sonarcloud.io/api/project_badges/measure?project=selfagency_hypernext&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=selfagency_hypernext)
 
 ## Quick Start
 
 ### npx (no install)
 
 ```bash
-npx @selfagency/hypernext
+npx @selfagency/hypernext serve
 ```
 
 This starts all protocol servers with sensible defaults, creating a `content/` directory and `config.yml` on first run.
@@ -17,7 +19,13 @@ This starts all protocol servers with sensible defaults, creating a `content/` d
 ### Docker
 
 ```bash
-docker run -p 8080:8080 -v ./content:/app/content -v ./config.yml:/app/config.yml ghcr.io/selfagency/hypernext
+docker run -p 8080:8080 -v ./content:/app/content -v ./config.yml:/app/config.yml ghcr.io/selfagency/hypernext serve
+```
+
+Use `--project` to specify a different project directory:
+
+```bash
+hypernext serve --project /path/to/my-site
 ```
 
 See [Deployment](docs/deployment.md) for Docker Compose variants (S3, env file).
@@ -51,40 +59,14 @@ This is my first post using Hypernext.
 <AuthorBio />
 ```
 
-Built-in components: `NavMenu`, `RecentPosts`, `TableOfContents`, `Include`, `Mermaid`, `Latex`, `AuthorBio`, `Enclosure`, `Breadcrumbs`, `Search`, `TagCloud`, `PostNav`, `RelatedPosts`, `SyndicationLinks`, `Figure`, `Comments`, `Archive`, `PostList`, `IPFSLink`, `EmailSubscribe`, `ContactForm`.
+Built-in components (resolved at the parser level into the IR that all renderers consume): `NavMenu`, `RecentPosts`, `TableOfContents`, `Include`, `Mermaid`, `Latex`, `AuthorBio`, `Enclosure`, `Breadcrumbs`, `Search`, `TagCloud`, `PostNav`, `RelatedPosts`, `SyndicationLinks`, `Figure`, `Comments`, `Archive`, `PostList`, `IPFSLink`, `EmailSubscribe`, `ContactForm`.
 
-## TUI Editor
-
-Hypernext includes a terminal-based editor for managing content:
-
-```bash
-hypernext edit              # Edit local content directory (default)
-hypernext edit --remote     # Edit via API proxy to production server
-```
-
-Or via npm script:
-
-```bash
-pnpm dev:editor
-```
-
-Remote mode requires `remote.url` and `remote.token` in `config.yml` or environment variables.
-
-**Keybindings:**
-- `Ctrl+B` — Toggle file explorer
-- `Ctrl+P` — Toggle preview pane
-- `Ctrl+K` — Open command palette
-- `Ctrl+S` — Save file
-- `Ctrl+Q` — Quit
-
-The editor provides a structured frontmatter form, multi-line body editor, preview pane, and panes for moderation, subscribers, taxonomy, and system logs.
+*Layout templates (wrapping documents in `<NavMenu />`, `<slot />`, etc.) are planned but not yet implemented — all renderers will consume the same common MDX templates translated into their protocol format.*
 
 ## CLI Commands
 
 ```bash
 hypernext                    # Start all protocol servers
-hypernext edit               # Launch TUI editor (local mode by default)
-hypernext edit --remote      # Launch TUI editor in remote mode
 hypernext push               # Push content to production server
 hypernext sync               # Two-way sync with production
 hypernext ingest <url>       # Fetch a URL and convert to MDX
@@ -124,12 +106,6 @@ pnpm dev
 ```
 
 Starts all protocol servers with hot-reload via `tsx watch`.
-
-### Run TUI Editor in Dev Mode
-
-```bash
-pnpm dev:editor
-```
 
 ### Run Tests
 
@@ -193,7 +169,6 @@ See [Customization](docs/customization.md) for the full config reference.
 - **PDF & EPUB** — Generate downloadable books and documents
 - **MCP Server** — Model Context Protocol tools for AI agents
 - **IPFS Integration** — Content-addressed pinning and gateway links
-- **TUI Editor** — Terminal-based content editor with command palette
 - **Email Newsletter** — Subscriptions, digests, and contact forms
 - **AI Features** — Semantic search, auto-tagging, alt text generation
 - **Comment Moderation** — Spam detection, blocklist, hide/unhide
@@ -214,7 +189,6 @@ See [Customization](docs/customization.md) for the full config reference.
 - [Email & Newsletter](docs/email.md)
 - [AI Features](docs/ai.md)
 - [MCP Tools](docs/mcp.md)
-- [TUI Editor](docs/tui.md)
 - [Deployment](docs/deployment.md)
 
 ## License

@@ -9,40 +9,47 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: "24"
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install chromium
       - run: pnpm check
-      - run: pnpm test:run
+      - run: pnpm build
+      - run: pnpm test:coverage
       - run: pnpm test:e2e
-      - run: pnpm build
-
-  publish:
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: [test]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      id-token: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@f2274c2c340e0c81c8f7dc407b2a477b8935f171 # v6
         with:
-          node-version: "24"
-          registry-url: "https://registry.npmjs.org"
-          cache: "pnpm"
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm build
-      - run: pnpm publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      - uses: softprops/action-gh-release@v2
+          token: ${{ secrets.CODECOV_TOKEN }}
+      - if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@f2274c2c340e0c81c8f7dc407b2a477b8935f171 # v6
         with:
-          generate_release_notes: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
+      - if: always() && hashFiles('packages/*/test-report.junit.xml') != ''
+        uses: dorny/test-reporter@4a2e97665d5fa767581ef38eca97b9694bd4eef4 # v2
+        with:
+          path: "test-report.junit.xml"
+          reporter: java-junit
+          name: Vitest Tests
+          use-actions-summary: "true"
+          fail-on-empty: "false"
+      - uses: fallow-rs/fallow@5988b978230134388b89060a39707a501211085a # v3
+        if: always() && hashFiles('coverage/lcov.info') != ''
+        with:
+          command: audit
+          format: sarif
+          annotations: true
+          comment: true
+          review-comments: true
+          args: --coverage ${{ github.workspace }}/coverage/lcov.info
+          max-annotations: 50
+          gate: new-only
+      

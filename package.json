@@ -1,14 +1,17 @@
 {
   "name": "@selfagency/hypernext",
   "version": "0.1.0",
-  "description": "Multi-Protocol MDX Document Server",
+  "description": "Multi-Protocol Markdown Document Server",
   "type": "module",
   "license": "GPL-3.0-or-later",
   "author": "Daniel Sieradski <daniel@self.agency>",
   "pnpm": {
     "onlyBuiltDependencies": [
       "better-sqlite3"
-    ]
+    ],
+    "overrides": {
+      "better-sqlite3": "^12.0.0"
+    }
   },
   "keywords": [
     "markdown",
@@ -30,15 +33,21 @@
   "bin": {
     "hypernext": "dist/bin.js"
   },
+  "oclif": {
+    "bin": "hypernext",
+    "dirname": "hypernext",
+    "commands": "./dist/commands",
+    "topicSeparator": " "
+  },
   "scripts": {
     "dev": "tsx watch src/bin.ts",
-    "dev:editor": "tsx watch src/bin.ts edit",
     "build": "tsup",
     "start": "node dist/bin.js",
     "lint": "biome check .",
     "format": "biome format --write .",
     "test": "vitest",
     "test:run": "vitest run",
+    "test:coverage": "vitest run --exclude 'tests/e2e/**' --coverage --reporter=junit --outputFile=test-report.junit.xml",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "check": "ultracite check",
     "fix": "ultracite fix",
@@ -54,7 +63,6 @@
   "dependencies": {
     "@atproto/api": "^0.15.0",
     "@aws-sdk/client-s3": "^3.800.0",
-    "@crosscopy/clipboard": "^0.3.6",
     "@fastify/auth": "^5.0.4",
     "@fastify/caching": "^9.0.3",
     "@fastify/compress": "^9.1.0",
@@ -75,46 +83,48 @@
     "@fastify/swagger-ui": "^6.1.0",
     "@fastify/under-pressure": "^9.1.0",
     "@fastify/url-data": "^6.0.3",
-    "@inkjs/ui": "^2.0.0",
     "@lesjoursfr/html-to-epub": "^6.2.0",
     "@mikro-orm/core": "^7.1.6",
     "@mikro-orm/sqlite": "^7.1.6",
     "@modelcontextprotocol/sdk": "^1.15.0",
+    "@oclif/core": "^4.12.0",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/exporter-trace-otlp-proto": "^0.220.0",
     "@opentelemetry/sdk-trace-base": "^2.9.0",
     "@opentelemetry/sdk-trace-node": "^2.9.0",
+    "@picocss/pico": "^2.1.1",
     "@upyo/core": "^0.5.1",
     "@upyo/smtp": "^0.5.1",
     "better-sqlite3": "^12.11.1",
-    "cac": "^6.7.14",
     "fastify": "^5.3.2",
     "fastify-http-errors-enhanced": "^7.0.1",
-    "ink": "^7.1.1",
+    "katex": "^0.18.1",
     "kubo-rpc-client": "^7.1.0",
     "lru-cache": "^11.1.0",
     "md-to-pdf": "^5.2.5",
     "node-email-verifier": "^4.0.0",
     "openai": "^6.48.0",
+    "piscina": "^5.3.0",
     "remark": "^15.0.1",
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",
     "remark-mdx": "^3.1.1",
     "remark-parse": "^11.0.0",
     "ribaunt": "^0.2.2",
+    "sqlite-vec": "^0.1.9",
     "turndown": "^7.2.0",
     "unfurl.js": "^6.4.0",
     "unified": "^11.0.5",
     "unist-util-visit": "^5.0.0",
-    "workmatic": "^1.1.3",
     "yaml": "^2.7.1"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.16",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/mdast": "^4.0.4",
     "@types/node": "^26.1.1",
-    "@types/react": "^19.2.17",
     "@types/turndown": "^5.0.6",
+    "@vitest/coverage-v8": "^4.1.10",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.8",
     "mdast-util-mdx": "^3.0.0",

@@ -20,14 +20,86 @@ const U_URL_REGEX = /class="[^"]*\bu-url\b[^"]*"[^>]*href="([^"]+)"/i;
 const U_PHOTO_REGEX = /class="[^"]*\bu-photo\b[^"]*"[^>]*src="([^"]+)"/i;
 const HTML_TAG_REGEX = /<[^>]+>/g;
 const WHITESPACE_REGEX = /\s+/g;
-const REGEX_ESCAPE_REGEX = /[.*+?^${}()|[\]\\]/g;
+const METHOD_NAME_REGEX = /<methodName>([^<]*)<\/methodName>/i;
+const VALUE_REGEX = /<value><string>([^<]*)<\/string><\/value>/gi;
+
+/**
+ * Parse a simple XML-RPC methodCall, extracting methodName and string params.
+ */
+function parseXmlRpcMethodCall(
+  xml: string
+): { methodName: string; params: string[] } | null {
+  const methodMatch = METHOD_NAME_REGEX.exec(xml);
+  if (!methodMatch) {
+    return null;
+  }
+  const methodName = (methodMatch[1] ?? "").trim();
+  const params: string[] = [];
+  const valMatches = xml.matchAll(VALUE_REGEX);
+  for (const valMatch of valMatches) {
+    params.push(valMatch[1] ?? "");
+  }
+  return { methodName, params };
+}
+
+function extractPingbackFromXml(
+  xml: string
+): { source: string; target: string } | null {
+  const parsed = parseXmlRpcMethodCall(xml);
+  if (parsed?.methodName !== "pingback.ping" || parsed.params.length < 2) {
+    return null;
+  }
+  return { source: parsed.params[0] ?? "", target: parsed.params[1] ?? "" };
+}
+
+/**
+ * Extract source+target from a pingback request, supporting both
+ * XML-RPC (text/xml) and JSON (application/json) content types.
+ */
+function extractPingbackParams(
+  body: unknown,
+  contentType: string
+): { source: string; target: string } | null {
+  const isXml =
+    contentType.includes("text/xml") || contentType.includes("application/xml");
+  if (isXml && typeof body === "string") {
+    return extractPingbackFromXml(body);
+  }
+  // JSON fallback (used in tests and some clients)
+  const jsonBody = body as Record<string, unknown> | null;
+  if (jsonBody?.methodName === "pingback.ping") {
+    const params = jsonBody.params as
+      | Array<{ value?: { string?: string } }>
+      | undefined;
+    if (params && params.length >= 2) {
+      const source = params[0]?.value?.string;
+      const target = params[1]?.value?.string;
+      if (source && target) {
+        return { source, target };
+      }
+    }
+  }
+  return null;
+}
 
 function extractTargetSlug(
   target: string,
   config: HypernextConfig
 ): string | null {
   const base = config.site.canonicalBase.replace(TRAILING_SLASH_REGEX, "");
-  if (!target.startsWith(base)) {
+  // Parse both as URLs to prevent prefix-collision attacks
+  // e.g., http://localhost:8080.evil.com/blog/post should NOT match
+  try {
+    const targetUrl = new URL(target);
+    const baseUrl = new URL(base);
+    if (
+      targetUrl.protocol !== baseUrl.protocol ||
+      targetUrl.hostname !== baseUrl.hostname ||
+      targetUrl.port !== baseUrl.port
+    ) {
+      return null;
+    }
+  } catch {
     return null;
   }
   const path = target.slice(base.length).replace(LEADING_SLASH_REGEX, "");
@@ -116,8 +188,37 @@ async function fetchSourceHtml(source: string): Promise<string | null> {
 }
 
 function verifyLinkInHtml(html: string, target: string): boolean {
-  const escaped = target.replace(REGEX_ESCAPE_REGEX, "\\$&");
-  return new RegExp(escaped, "i").test(html);
+  // Webmention spec §3.2.1: source must contain a link (a, area, link href)
+  // to the target. A bare URL in a comment or non-link attribute is not a link.
+  // Check each element+attribute combination independently to avoid
+  // catastrophic backtracking from a single large alternation regex.
+  const lowerHtml = html.toLowerCase();
+  const lowerTarget = target.toLowerCase();
+  const linkChecks: Array<{ tag: string; attr: string }> = [
+    { tag: "<a", attr: "href" },
+    { tag: "<area", attr: "href" },
+    { tag: "<link", attr: "href" },
+    { tag: "<img", attr: "src" },
+    { tag: "<video", attr: "src" },
+    { tag: "<audio", attr: "src" },
+    { tag: "<blockquote", attr: "cite" },
+  ];
+  for (const { tag, attr } of linkChecks) {
+    const attrPattern = `${attr}="${lowerTarget}"`;
+    let searchFrom = 0;
+    while (true) {
+      const tagIndex = lowerHtml.indexOf(tag, searchFrom);
+      if (tagIndex === -1) {
+        break;
+      }
+      const attrIndex = lowerHtml.indexOf(attrPattern, tagIndex);
+      if (attrIndex !== -1 && attrIndex < lowerHtml.indexOf(">", tagIndex)) {
+        return true;
+      }
+      searchFrom = tagIndex + 1;
+    }
+  }
+  return false;
 }
 
 function isBlocked(
@@ -176,7 +277,12 @@ export async function processInboundMention(
   }
 
   // 3. SSRF protection
-  if (!validateSourceUrl(payload.source, commentConfig.allowPrivateSources)) {
+  if (
+    !(await validateSourceUrl(
+      payload.source,
+      commentConfig.allowPrivateSources
+    ))
+  ) {
     return;
   }
 
@@ -282,36 +388,37 @@ export function registerInboundRoutes(
   });
 
   // POST /pingback (XML-RPC)
-  fastify.post<{
-    Body: {
-      methodName?: string;
-      params?: Array<{ value?: { string?: string } }>;
-    };
-  }>("/pingback", (request, reply) => {
-    const { methodName, params } = request.body;
+  fastify.post("/pingback", (request, reply) => {
+    const contentType = (request.headers["content-type"] as string) ?? "";
+    const params = extractPingbackParams(request.body, contentType);
 
-    if (methodName !== "pingback.ping" || !params || params.length < 2) {
-      reply.code(400).send({ error: "Invalid pingback request" });
-      return;
-    }
-
-    const source = params[0]?.value?.string;
-    const target = params[1]?.value?.string;
-
-    if (!(source && target)) {
-      reply.code(400).send({ error: "Missing source or target" });
+    if (!params) {
+      const isXml =
+        contentType.includes("text/xml") ||
+        contentType.includes("application/xml");
+      // XML-RPC clients expect 200 with fault; JSON clients (tests) expect 400
+      if (isXml) {
+        reply
+          .type("text/xml")
+          .code(200)
+          .send(
+            `<?xml version="1.0"?><methodResponse><fault><value><struct><member><name>faultCode</name><value><int>0</int></value></member><member><name>faultString</name><value><string>Invalid pingback request</string></value></member></struct></value></fault></methodResponse>`
+          );
+      } else {
+        reply.code(400).send({ error: "Invalid pingback request" });
+      }
       return;
     }
 
     processInboundMention(config, {
-      source,
-      target,
+      source: params.source,
+      target: params.target,
       ip: request.ip,
       userAgent: (request.headers["user-agent"] as string) ?? "",
       type: "pingback",
     }).catch((err) => console.error("Pingback worker error:", err));
 
-    // XML-RPC response
+    // XML-RPC success response
     reply
       .type("text/xml")
       .code(200)

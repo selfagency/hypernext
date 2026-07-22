@@ -2,6 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import type { EntityManager } from "@mikro-orm/core";
 import { MikroORM } from "@mikro-orm/sqlite";
+import type Database from "better-sqlite3";
+import { load as loadSqliteVec } from "sqlite-vec";
 import { DocMeta } from "./entities/doc-meta.js";
 import { OAuthToken } from "./entities/oauth-token.js";
 import { Syndication } from "./entities/syndication.js";
@@ -32,8 +34,38 @@ export async function initOrm(dbName?: string): Promise<MikroORM> {
     dbName: resolvedDbName,
   });
   await ormInstance.schema.ensureDatabase();
-  const createSql = await ormInstance.schema.getCreateSchemaSQL();
-  await ormInstance.em.getConnection().executeDump(createSql);
+  try {
+    await ormInstance.schema.create();
+  } catch {
+    // Tables already exist — schema is up to date
+  }
+  // Set pragmas for concurrent access (workmatic shares the same file)
+  await ormInstance.em.getConnection().execute("PRAGMA busy_timeout = 5000");
+  await ormInstance.em.getConnection().execute("PRAGMA journal_mode = WAL");
+  await ormInstance.em.getConnection().execute("PRAGMA synchronous = NORMAL");
+
+  // Add scheduled_at column for existing databases (migration)
+  try {
+    await ormInstance.em
+      .getConnection()
+      .execute("ALTER TABLE docs_meta ADD COLUMN scheduled_at TEXT NULL");
+  } catch {
+    // Column already exists — this is fine
+  }
+
+  // Load sqlite-vec extension for vector search (FTS5-style virtual table via vec0)
+  try {
+    const conn = ormInstance.em.getConnection() as unknown as {
+      database: Database.Database;
+    };
+    loadSqliteVec(conn.database);
+  } catch (err) {
+    // Extension loading failure is non-fatal — vector features degrade gracefully
+    console.warn(
+      `sqlite-vec extension failed to load (vector search disabled): ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
+
   // FTS5 virtual table + triggers (MikroORM doesn't support FTS5)
   await ormInstance.em.getConnection().executeDump(FTS5_SQL);
   return ormInstance;
@@ -56,7 +88,8 @@ export function getOrm(): MikroORM {
 }
 
 export function getEm(): EntityManager {
-  return getOrm().em;
+  // Always fork to avoid identity-map corruption across concurrent requests
+  return getOrm().em.fork();
 }
 
 export async function closeOrm(): Promise<void> {
@@ -83,6 +116,7 @@ export async function insertDoc(row: {
   gopherCache?: string;
   rssCache?: string;
   publishedAt?: string;
+  scheduledAt?: string;
   order?: number;
   metaJson?: string;
   contentCid?: string;
@@ -105,6 +139,7 @@ export async function insertDoc(row: {
       gopherCache: row.gopherCache,
       rssCache: row.rssCache,
       publishedAt: row.publishedAt,
+      scheduledAt: row.scheduledAt,
       order: row.order,
       metaJson: row.metaJson,
       contentCid: row.contentCid,
@@ -130,6 +165,7 @@ export async function insertDoc(row: {
     gopherCache: row.gopherCache,
     rssCache: row.rssCache,
     publishedAt: row.publishedAt,
+    scheduledAt: row.scheduledAt,
     order: row.order,
     metaJson: row.metaJson,
     contentCid: row.contentCid,
@@ -154,10 +190,10 @@ export async function listDocSlugs(
   const now = new Date().toISOString();
   const em = getEm();
   if (!includeFuture) {
-    // Filter out docs where publishedAt > now AND date > now
-    // We use raw SQL because the filter is complex (OR between two fields)
+    // Filter out future-dated docs: hidden if scheduledAt > now
+    // (publishedAt is historical, not a visibility gate)
     let sql = `SELECT slug FROM docs_meta
-         WHERE (published_at IS NULL OR published_at <= ?)
+         WHERE (scheduled_at IS NULL OR scheduled_at <= ?)
          AND (date IS NULL OR date <= ?)
          ORDER BY date DESC, id DESC`;
     const params: (string | number)[] = [now, now];

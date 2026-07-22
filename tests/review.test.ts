@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { parseFrontmatter, serializeFrontmatter } from "../src/tui/state.js";
+import { extractFrontmatter } from "../src/parser/frontmatter.js";
 
-describe("TUI state utilities", () => {
+describe("frontmatter parsing", () => {
   it("parses frontmatter from MDX content", () => {
     const mdx = `---
 title: "Hello World"
@@ -11,48 +11,34 @@ tags: [test, mdx]
 ---
 
 # Body content`;
-    const { frontmatter, body } = parseFrontmatter(mdx);
-    expect(frontmatter.title).toBe("Hello World");
-    expect(frontmatter.date).toBe("2026-07-16");
-    expect(frontmatter.type).toBe("post");
+    const { attributes, body } = extractFrontmatter(mdx);
+    expect(attributes.title).toBe("Hello World");
+    expect(attributes.date).toBe("2026-07-16");
+    expect(attributes.type).toBe("post");
+    expect(Array.isArray(attributes.tags)).toBe(true);
     expect(body).toBe("\n# Body content");
   });
 
-  it("returns empty frontmatter for content without frontmatter", () => {
-    const { frontmatter, body } = parseFrontmatter("# Just a heading");
-    expect(frontmatter).toEqual({});
+  it("returns empty attributes for content without frontmatter", () => {
+    const { attributes, body } = extractFrontmatter("# Just a heading");
+    expect(attributes).toEqual({});
     expect(body).toBe("# Just a heading");
-  });
-
-  it("serializes frontmatter and body back to MDX", () => {
-    const mdx = serializeFrontmatter(
-      { title: "Test", type: "post" },
-      "Body text"
-    );
-    expect(mdx).toContain("---");
-    expect(mdx).toContain('title: "Test"');
-    expect(mdx).toContain('type: "post"');
-    expect(mdx).toContain("---");
-    expect(mdx).toContain("Body text");
-  });
-
-  it("handles boolean and numeric frontmatter values", () => {
-    const mdx = serializeFrontmatter({ published: true, order: 1 }, "content");
-    expect(mdx).toContain("published: true");
-    expect(mdx).toContain("order: 1");
   });
 });
 
 describe("frontmatter SSRF validation", () => {
   it("prevents private IP addresses", async () => {
     const { validateSourceUrl } = await import("../src/federation/ssrf.js");
-    expect(validateSourceUrl("http://127.0.0.1/")).toBe(false);
-    expect(validateSourceUrl("http://10.0.0.1/")).toBe(false);
-    expect(validateSourceUrl("http://192.168.1.1/")).toBe(false);
-    expect(validateSourceUrl("http://localhost/")).toBe(false);
-    expect(validateSourceUrl("http://[::1]/")).toBe(false);
-    expect(validateSourceUrl("http://example.com/")).toBe(true);
-    expect(validateSourceUrl("https://api.example.com/data")).toBe(true);
+    await expect(validateSourceUrl("http://127.0.0.1/")).resolves.toBe(false);
+    await expect(validateSourceUrl("http://10.0.0.1/")).resolves.toBe(false);
+    await expect(validateSourceUrl("http://192.168.1.1/")).resolves.toBe(false);
+    await expect(validateSourceUrl("http://localhost/")).resolves.toBe(false);
+    await expect(validateSourceUrl("http://[::1]/")).resolves.toBe(false);
+    await expect(validateSourceUrl("http://example.com/")).resolves.toBe(true);
+    // Test with a public IP to avoid DNS dependency
+    await expect(validateSourceUrl("https://93.184.216.34/data")).resolves.toBe(
+      true
+    );
   });
 });
 

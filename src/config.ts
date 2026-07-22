@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import yaml from "yaml";
+import { DEFAULT_TEMPLATES } from "./constants/default-templates.js";
 import type { CliOptions, HypernextConfig } from "./types/config.js";
 import { deepMerge } from "./utils/deep-merge.js";
 import { substituteEnvInYaml } from "./utils/env.js";
@@ -97,7 +98,34 @@ protocols:
 micropub:
   enabled: true
 
+indieauth:
+  enabled: true
+
 syndication: {}
+
+email:
+  enabled: true
+  mailpit: true
+  from:
+    name: "Hypernext"
+    address: "noreply@localhost"
+  replyTo: "noreply@localhost"
+  subjectPrefix: "[Hypernext]"
+  transport: smtp
+  smtp:
+    host: localhost
+    port: 1025
+    secure: false
+    user: ""
+    pass: ""
+  newsletter:
+    digestSchedule: "0 8 * * 1"
+    digestTime: "08:00"
+  contactForm:
+    enabled: false
+    recipient: ""
+    akismet: false
+    captcha: false
 
 comments:
   enabled: true
@@ -112,9 +140,7 @@ comments:
   akismet:
     enabled: true
 
-mcp:
-  enabled: true
-  transport: stdio
+mcp: {}
 
 ai:
   enabled: false
@@ -178,7 +204,6 @@ export function scaffoldDefaults(cwd: string): void {
   }
 
   fs.mkdirSync(path.join(cwd, "content/blog"), { recursive: true });
-  fs.mkdirSync(path.join(cwd, "content/library"), { recursive: true });
   fs.mkdirSync(path.join(cwd, "assets"), { recursive: true });
 
   const welcomePath = path.join(cwd, "content/blog/welcome.mdx");
@@ -196,6 +221,16 @@ export function scaffoldDefaults(cwd: string): void {
       "body { font-family: sans-serif; line-height: 1.6; max-width: 70ch; margin: 0 auto; padding: 1rem; }\n"
     );
   }
+
+  // Scaffold writable copies of default templates into the user's project
+  const templatesDir = path.join(cwd, "templates");
+  fs.mkdirSync(templatesDir, { recursive: true });
+  for (const tmpl of DEFAULT_TEMPLATES) {
+    const tmplPath = path.join(templatesDir, tmpl.filename);
+    if (!fs.existsSync(tmplPath)) {
+      fs.writeFileSync(tmplPath, tmpl.content);
+    }
+  }
 }
 
 export function validateConfig(config: HypernextConfig): void {
@@ -211,11 +246,63 @@ export function validateConfig(config: HypernextConfig): void {
   }
 }
 
+/**
+ * Resolve all relative filesystem paths in config against a project root.
+ * This ensures paths like "./db/hypernext.db" work regardless of process.cwd().
+ */
+export function resolveConfigPaths(
+  config: HypernextConfig,
+  projectRoot: string
+): void {
+  const resolve = (p: string): string => {
+    // Absolute paths and URLs are left as-is
+    if (
+      path.isAbsolute(p) ||
+      p.startsWith("http://") ||
+      p.startsWith("https://") ||
+      p.startsWith("data:")
+    ) {
+      return p;
+    }
+    return path.resolve(projectRoot, p);
+  };
+
+  // Database
+  if (config.database?.path && config.database.path !== ":memory:") {
+    config.database.path = resolve(config.database.path);
+  }
+
+  // Storage (local only)
+  if (config.storage?.type === "local" && config.storage.local?.path) {
+    config.storage.local.path = resolve(config.storage.local.path);
+  }
+
+  // Resolve all optional path fields via data-driven loop
+  // biome-ignore lint/suspicious/noExplicitAny: config types vary, need generic access
+  const pathFields: Array<{ obj: any; key: string }> = [
+    { obj: config.site?.theme, key: "cssPath" },
+    { obj: config.site?.pdf, key: "cssPath" },
+    { obj: config.site?.ebooks, key: "coverImage" },
+    { obj: config.protocols?.gemini, key: "certPath" },
+    { obj: config.protocols?.gemini, key: "keyPath" },
+    { obj: config.protocols?.spartan, key: "certPath" },
+    { obj: config.protocols?.spartan, key: "keyPath" },
+    { obj: config.logging, key: "filePath" },
+    { obj: config.author, key: "photo" },
+    { obj: config.site?.organization, key: "logo" },
+  ];
+  for (const { obj, key } of pathFields) {
+    if (obj && typeof obj[key] === "string") {
+      obj[key] = resolve(obj[key] as string);
+    }
+  }
+}
+
 export function loadConfig(configPath: string): HypernextConfig {
   const raw = fs.readFileSync(configPath, "utf-8");
   const substituted = substituteEnvInYaml(raw);
   const parsed = yaml.parse(substituted) as HypernextConfig;
-  validateConfig(parsed);
+  // Validation happens after mergeCliOverrides so CLI flags can fill gaps
   return parsed;
 }
 
@@ -261,18 +348,52 @@ export function mergeCliOverrides(
     };
   }
 
-  if (options.gemini !== undefined) {
-    overrides.protocols = {
-      ...(overrides.protocols ?? config.protocols),
-      gemini: { ...config.protocols.gemini, enabled: options.gemini },
-    };
+  const protoVal = (
+    proto: keyof HypernextConfig["protocols"]
+  ): boolean | undefined => {
+    switch (proto) {
+      case "http":
+        return options.http;
+      case "gemini":
+        return options.gemini;
+      case "gopher":
+        return options.gopher;
+      case "spartan":
+        return options.spartan;
+      case "nex":
+        return options.nex;
+      case "finger":
+        return options.finger;
+      case "text":
+        return options.text;
+      default:
+        return;
+    }
+  };
+  const protocolKeys = [
+    "http",
+    "gemini",
+    "gopher",
+    "spartan",
+    "nex",
+    "finger",
+    "text",
+  ] as const;
+  for (const proto of protocolKeys) {
+    const val = protoVal(proto);
+    if (val !== undefined) {
+      overrides.protocols = {
+        ...(overrides.protocols ?? config.protocols),
+        [proto]: { ...config.protocols[proto], enabled: val },
+      };
+    }
   }
 
-  if (options.gopher !== undefined) {
-    overrides.protocols = {
-      ...(overrides.protocols ?? config.protocols),
-      gopher: { ...config.protocols.gopher, enabled: options.gopher },
-    };
+  if (options.mcp !== undefined) {
+    overrides.agent = {
+      ...config.agent,
+      enabled: options.mcp,
+    } as import("./types/config.js").AgentConfig;
   }
 
   // Read JWT secret from env var
@@ -297,5 +418,8 @@ export function getConfig(cwd: string, options: CliOptions): HypernextConfig {
   }
 
   const config = loadConfig(configPath);
-  return mergeCliOverrides(config, options);
+  resolveConfigPaths(config, cwd);
+  const merged = mergeCliOverrides(config, options);
+  validateConfig(merged);
+  return merged;
 }

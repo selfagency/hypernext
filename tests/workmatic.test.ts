@@ -9,13 +9,16 @@ import {
   insertDoc,
   recordSyndication,
 } from "../src/database";
+import { initJobsTable, listJobs } from "../src/jobs/queue";
 import {
+  enqueueEpubGeneration,
   enqueueInboundMention,
+  enqueueIndexing,
+  enqueueIpfsPinning,
+  enqueueOutboundSyndication,
+  enqueuePdfGeneration,
   enqueuePosseReplyFetch,
-  getOrchestrator,
-  initWorkmatic,
-  stopWorkmatic,
-} from "../src/federation/workmatic";
+} from "../src/jobs/schedule";
 import type { HypernextConfig } from "../src/types/config";
 
 const testConfig: HypernextConfig = {
@@ -45,26 +48,20 @@ const testConfig: HypernextConfig = {
   mcp: { enabled: false, transport: "stdio" },
 };
 
-describe("workmatic job queue", () => {
+describe("job queue (migrated from workmatic)", () => {
   let _orm: MikroORM;
   let tmpDbDir: string;
 
   beforeAll(async () => {
     _orm = await initOrm(":memory:");
-    tmpDbDir = fs.mkdtempSync(path.join(os.tmpdir(), "workmatic-test-"));
+    await initJobsTable();
+    tmpDbDir = fs.mkdtempSync(path.join(os.tmpdir(), "job-queue-test-"));
     testConfig.database.path = path.join(tmpDbDir, "hypernext.db");
-    initWorkmatic(testConfig);
   });
 
   afterAll(async () => {
-    await stopWorkmatic();
     await closeOrm();
     fs.rmSync(tmpDbDir, { recursive: true, force: true });
-  });
-
-  it("initializes workmatic and creates queues", () => {
-    const orch = getOrchestrator();
-    expect(orch).toBeDefined();
   });
 
   it("enqueues an inbound mention job", async () => {
@@ -75,14 +72,15 @@ describe("workmatic job queue", () => {
       userAgent: "Mozilla/5.0",
       type: "webmention",
     });
-    // Job was enqueued without error
-    expect(true).toBe(true);
+    const jobs = await listJobs({ type: "inbound-mentions", limit: 10 });
+    expect(jobs.length).toBeGreaterThanOrEqual(1);
+    expect(jobs[0]?.type).toBe("inbound-mentions");
   });
 
   it("enqueues a POSSE reply fetch job", async () => {
     const docId = await insertDoc({
-      slug: "blog/workmatic-test",
-      title: "Workmatic Test",
+      slug: "blog/queue-test",
+      title: "Queue Test",
     });
     await recordSyndication({
       docId,
@@ -90,8 +88,10 @@ describe("workmatic job queue", () => {
       url: "https://mastodon.example.com/@author/1",
     });
 
-    await enqueuePosseReplyFetch("blog/workmatic-test", docId, "mastodon");
-    expect(true).toBe(true);
+    await enqueuePosseReplyFetch("blog/queue-test", docId, "mastodon");
+    const jobs = await listJobs({ type: "posse-replies", limit: 10 });
+    expect(jobs.length).toBeGreaterThanOrEqual(1);
+    expect(jobs[0]?.type).toBe("posse-replies");
   });
 
   it("skips POSSE reply fetch when no syndication record exists", async () => {
@@ -101,11 +101,53 @@ describe("workmatic job queue", () => {
     });
 
     await enqueuePosseReplyFetch("blog/no-syndication", docId, "bluesky");
+    // No error thrown — the function handles missing records gracefully
     expect(true).toBe(true);
   });
 
-  it("getOrchestrator returns the initialized instance", () => {
-    const orch = getOrchestrator();
-    expect(orch).toBeDefined();
+  it("enqueues outbound syndication job", async () => {
+    const docId = await insertDoc({
+      slug: "blog/syndicate-me",
+      title: "Syndicate Me",
+    });
+    await enqueueOutboundSyndication(
+      docId,
+      "blog/syndicate-me",
+      "# Hello World"
+    );
+    const jobs = await listJobs({ type: "outbound-syndication", limit: 10 });
+    expect(jobs.length).toBeGreaterThanOrEqual(1);
+    expect(jobs[0]?.type).toBe("outbound-syndication");
+  });
+
+  it("enqueues indexing job", async () => {
+    await enqueueIndexing("blog/index-me", "# Index Me");
+    const jobs = await listJobs({ type: "indexing", limit: 10 });
+    expect(jobs.length).toBeGreaterThanOrEqual(1);
+    expect(jobs[0]?.type).toBe("indexing");
+  });
+
+  it("enqueues IPFS pinning job", async () => {
+    await enqueueIpfsPinning("blog/pin-me");
+    const jobs = await listJobs({ type: "ipfs-pinning", limit: 10 });
+    expect(jobs.length).toBeGreaterThanOrEqual(1);
+    expect(jobs[0]?.type).toBe("ipfs-pinning");
+  });
+
+  it("enqueues PDF generation job", async () => {
+    await enqueuePdfGeneration("blog/pdf-me");
+    const jobs = await listJobs({ type: "pdf-generation", limit: 10 });
+    expect(jobs.length).toBeGreaterThanOrEqual(1);
+    expect(jobs[0]?.type).toBe("pdf-generation");
+  });
+
+  it("enqueues EPUB generation job", async () => {
+    await enqueueEpubGeneration("blog-collection", [
+      "blog/epub-1",
+      "blog/epub-2",
+    ]);
+    const jobs = await listJobs({ type: "epub-generation", limit: 10 });
+    expect(jobs.length).toBeGreaterThanOrEqual(1);
+    expect(jobs[0]?.type).toBe("epub-generation");
   });
 });

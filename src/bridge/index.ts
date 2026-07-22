@@ -1,5 +1,5 @@
 import { getSyndicationForDoc } from "../database/index.js";
-import { enqueueOutboundSyndication } from "../federation/workmatic.js";
+import { enqueueOutboundSyndication } from "../jobs/schedule.js";
 import type { HypernextConfig } from "../types/config.js";
 
 export function shouldSyndicate(frontmatter: Record<string, unknown>): boolean {

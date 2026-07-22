@@ -6,11 +6,77 @@ import { getEm } from "../database/index.js";
 import type { HypernextConfig } from "../types/config.js";
 import { checkAkismet } from "./akismet.js";
 
+// HTML-escape a string for safe interpolation into HTML email bodies
+function escapeHtml(text: string): string {
+  return text
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+/**
+ * Render an email template by reading the template file, parsing it to IR,
+ * and rendering to HTML. Falls back to null if the template can't be loaded.
+ */
+async function renderEmailTemplate(
+  config: HypernextConfig,
+  templateName: string,
+  context: Record<string, string>
+): Promise<string | null> {
+  try {
+    const { readLayoutRaw } = await import("../parser/layout.js");
+    const raw = readLayoutRaw("templates", `${templateName}.mdx`);
+    if (!raw) {
+      return null;
+    }
+
+    // Replace template variables like {{title}} with context values
+    let processed = raw;
+    for (const [key, value] of Object.entries(context)) {
+      processed = processed.replace(
+        new RegExp(String.raw`\{\{${key}\}\}`, "g"),
+        escapeHtml(value)
+      );
+    }
+
+    const { parseToIR } = await import("../parser/pipeline.js");
+    const result = parseToIR(processed, templateName);
+
+    const { renderHTML } = await import("../renderers/html.js");
+    return renderHTML(result, config, templateName, {});
+  } catch {
+    return null;
+  }
+}
+
+// @types/ribaunt doesn't exist — declare the module for type safety
+declare module "ribaunt" {
+  export function verifyCaptcha(
+    token?: string,
+    solution?: string
+  ): Promise<boolean>;
+}
+
 function createTransport(config: HypernextConfig): SmtpTransport {
   const emailCfg = config.email;
   if (!emailCfg) {
     throw new Error("Email not configured");
   }
+
+  // When mailpit mode is enabled, override SMTP to Mailpit defaults
+  // (localhost:1025, no auth, no TLS) so developers don't need to manually
+  // configure SMTP for local testing.
+  if (emailCfg.mailpit) {
+    return new SmtpTransport({
+      host: "localhost",
+      port: 1025,
+      secure: false,
+      auth: { user: "", pass: "" },
+    });
+  }
+
   return new SmtpTransport({
     host: emailCfg.smtp.host,
     port: emailCfg.smtp.port,
@@ -127,7 +193,14 @@ export async function sendInstantNotification(
     return;
   }
 
-  const html = `<h1>${doc.title}</h1>
+  // Try to render from email template, fall back to inline
+  const html =
+    (await renderEmailTemplate(config, "email", {
+      title: doc.title,
+      content: doc.html ?? "",
+      unsubscribeUrl: `${config.site.canonicalBase}/subscribe/unsubscribe?token=${sub.unsubscribeToken}`,
+    })) ??
+    `<h1>${escapeHtml(doc.title)}</h1>
 ${doc.html ?? ""}
 <hr />
 <p style="font-size: 12px; color: #999;">
@@ -160,13 +233,22 @@ export async function sendWeeklyDigest(
   }
 
   const items = docs
-    .map(
-      (d) =>
-        `<li><a href="${config.site.canonicalBase}/${d.slug}">${d.title}</a>${d.description ? ` — ${d.description}` : ""}</li>`
-    )
+    .map((d) => {
+      const link = `${config.site.canonicalBase}/${d.slug}`;
+      const title = escapeHtml(d.title);
+      const desc = d.description ? ` — ${escapeHtml(d.description)}` : "";
+      return `<li><a href="${link}">${title}</a>${desc}</li>`;
+    })
     .join("\n");
 
-  const html = `<h1>Weekly Digest</h1>
+  // Try to render from email-digest template, fall back to inline
+  const html =
+    (await renderEmailTemplate(config, "email-digest", {
+      title: "Weekly Digest",
+      content: `<ul>${items}</ul>`,
+      unsubscribeUrl: `${config.site.canonicalBase}/subscribe/unsubscribe?token=${sub.unsubscribeToken}`,
+    })) ??
+    `<h1>Weekly Digest</h1>
 <ul>${items}</ul>
 <hr />
 <p style="font-size: 12px; color: #999;">
@@ -209,7 +291,6 @@ export async function processContactForm(
 
   // 1. Verify CAPTCHA (ribaunt)
   if (emailCfg.contactForm.captcha) {
-    // @ts-expect-error — ribaunt exports verifyCaptcha at runtime
     const { verifyCaptcha } = await import("ribaunt");
     const isValidCaptcha = await verifyCaptcha(
       payload.captchaToken,
@@ -241,13 +322,13 @@ export async function processContactForm(
   }
 
   // 3. Dispatch Email to Site Owner
-  const subject = `${emailCfg.subjectPrefix} New Contact Form Message from ${name}`;
+  const subject = `${emailCfg.subjectPrefix} New Contact Form Message from ${escapeHtml(name)}`;
   const htmlBody = `
     <h2>New Contact Form Submission</h2>
-    <p><strong>Name:</strong> ${name}</p>
-    <p><strong>Email:</strong> <a href="mailto:${email}">${email}</a></p>
+    <p><strong>Name:</strong> ${escapeHtml(name)}</p>
+    <p><strong>Email:</strong> <a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a></p>
     <hr>
-    <p>${bodyText.replace(/\n/g, "<br>")}</p>
+    <p>${escapeHtml(bodyText).replaceAll("\n", "<br>")}</p>
   `;
 
   const message = createMessage({
