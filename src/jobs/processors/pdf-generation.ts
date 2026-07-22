@@ -37,6 +37,7 @@ export async function processPdfGeneration(
       await writeStorage(`${slug}.pdf`, pdf.content.toString());
     }
   } catch (error) {
-    console.error(`PDF generation failed for ${slug}:`, error);
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error(`PDF generation failed for ${slug}: ${msg}`);
   }
 }

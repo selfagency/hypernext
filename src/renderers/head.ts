@@ -1,6 +1,18 @@
 import type { HypernextConfig } from "../types/config.js";
 import { buildJsonLd } from "./json-ld.js";
 
+const ALLOWED_META_KEYS = new Set([
+  "ogTitle",
+  "ogDescription",
+  "ogImage",
+  "ogImageAlt",
+  "featuredImage",
+  "featuredImageAlt",
+  "description",
+  "title",
+  "canonicalUrl",
+]);
+
 function escapeHtml(text: string): string {
   return text
     .replaceAll("&", "&amp;")
@@ -19,17 +31,19 @@ function resolveMeta(
   key: string,
   configKey?: string
 ): string | undefined {
+  if (!ALLOWED_META_KEYS.has(key)) {
+    return;
+  }
   const fm = frontmatter[key] as string | undefined;
   if (fm) {
     return fm;
   }
-  const cfg =
-    config.site.meta[configKey as keyof typeof config.site.meta] ??
-    (configKey
-      ? undefined
-      : (config.site.meta as unknown as Record<string, string | undefined>)[
-          key
-        ]);
+  if (configKey && !ALLOWED_META_KEYS.has(configKey)) {
+    return;
+  }
+  const cfg = configKey
+    ? config.site.meta[configKey as keyof typeof config.site.meta]
+    : (config.site.meta as unknown as Record<string, string | undefined>)[key];
   return cfg as string | undefined;
 }
 

@@ -380,7 +380,29 @@ export function mergeCliOverrides(
     };
   }
 
-  for (const proto of [
+  const protoVal = (
+    proto: keyof HypernextConfig["protocols"]
+  ): boolean | undefined => {
+    switch (proto) {
+      case "http":
+        return options.http;
+      case "gemini":
+        return options.gemini;
+      case "gopher":
+        return options.gopher;
+      case "spartan":
+        return options.spartan;
+      case "nex":
+        return options.nex;
+      case "finger":
+        return options.finger;
+      case "text":
+        return options.text;
+      default:
+        return;
+    }
+  };
+  const protocolKeys = [
     "http",
     "gemini",
     "gopher",
@@ -388,8 +410,9 @@ export function mergeCliOverrides(
     "nex",
     "finger",
     "text",
-  ] as const) {
-    const val = options[proto];
+  ] as const;
+  for (const proto of protocolKeys) {
+    const val = protoVal(proto);
     if (val !== undefined) {
       overrides.protocols = {
         ...(overrides.protocols ?? config.protocols),

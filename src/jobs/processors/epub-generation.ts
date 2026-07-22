@@ -74,6 +74,7 @@ export async function processEpubGeneration(
     const { writeStorage } = await import("../../storage/index.js");
     await writeStorage(`${collectionName}.epub`, content);
   } catch (error) {
-    console.error(`EPUB generation failed for ${collectionName}:`, error);
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error(`EPUB generation failed for ${collectionName}: ${msg}`);
   }
 }

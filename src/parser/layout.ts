@@ -46,12 +46,11 @@ function findLayout(
   if (explicitLayout) {
     return explicitLayout;
   }
-  if (
-    collection &&
-    Object.hasOwn(config.collections, collection) &&
-    config.collections[collection]?.layout
-  ) {
-    return config.collections[collection]?.layout ?? DEFAULT_LAYOUT;
+  if (collection && Object.hasOwn(config.collections, collection)) {
+    const coll = config.collections[collection];
+    if (coll?.layout) {
+      return coll.layout;
+    }
   }
   return DEFAULT_LAYOUT;
 }
