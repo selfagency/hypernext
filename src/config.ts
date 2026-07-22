@@ -277,56 +277,24 @@ export function resolveConfigPaths(
     config.storage.local.path = resolve(config.storage.local.path);
   }
 
-  // Site theme
-  if (config.site?.theme?.cssPath) {
-    config.site.theme.cssPath = resolve(config.site.theme.cssPath);
-  }
-
-  // PDF
-  if (config.site?.pdf?.cssPath) {
-    config.site.pdf.cssPath = resolve(config.site.pdf.cssPath);
-  }
-
-  // Ebooks cover image
-  if (config.site?.ebooks?.coverImage) {
-    config.site.ebooks.coverImage = resolve(config.site.ebooks.coverImage);
-  }
-
-  // TLS certs for Gemini
-  if (config.protocols?.gemini?.certPath) {
-    config.protocols.gemini.certPath = resolve(
-      config.protocols.gemini.certPath
-    );
-  }
-  if (config.protocols?.gemini?.keyPath) {
-    config.protocols.gemini.keyPath = resolve(config.protocols.gemini.keyPath);
-  }
-
-  // TLS certs for Spartan
-  if (config.protocols?.spartan?.certPath) {
-    config.protocols.spartan.certPath = resolve(
-      config.protocols.spartan.certPath
-    );
-  }
-  if (config.protocols?.spartan?.keyPath) {
-    config.protocols.spartan.keyPath = resolve(
-      config.protocols.spartan.keyPath
-    );
-  }
-
-  // Logging file path
-  if (config.logging?.filePath) {
-    config.logging.filePath = resolve(config.logging.filePath);
-  }
-
-  // Author photo (if relative path)
-  if (config.author?.photo) {
-    config.author.photo = resolve(config.author.photo);
-  }
-
-  // Organization logo (if relative path)
-  if (config.site?.organization?.logo) {
-    config.site.organization.logo = resolve(config.site.organization.logo);
+  // Resolve all optional path fields via data-driven loop
+  // biome-ignore lint/suspicious/noExplicitAny: config types vary, need generic access
+  const pathFields: Array<{ obj: any; key: string }> = [
+    { obj: config.site?.theme, key: "cssPath" },
+    { obj: config.site?.pdf, key: "cssPath" },
+    { obj: config.site?.ebooks, key: "coverImage" },
+    { obj: config.protocols?.gemini, key: "certPath" },
+    { obj: config.protocols?.gemini, key: "keyPath" },
+    { obj: config.protocols?.spartan, key: "certPath" },
+    { obj: config.protocols?.spartan, key: "keyPath" },
+    { obj: config.logging, key: "filePath" },
+    { obj: config.author, key: "photo" },
+    { obj: config.site?.organization, key: "logo" },
+  ];
+  for (const { obj, key } of pathFields) {
+    if (obj && typeof obj[key] === "string") {
+      obj[key] = resolve(obj[key] as string);
+    }
   }
 }
 

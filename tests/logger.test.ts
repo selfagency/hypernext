@@ -36,7 +36,7 @@ describe("logger", () => {
       logging: { level: "warn", format: "pretty", maskSecrets: false },
     } as HypernextConfig);
     logger.info("should not appear");
-    expect(logs.length).toBe(0);
+    expect(logs).toHaveLength(0);
     spy.mockRestore();
   });
 
@@ -98,7 +98,7 @@ describe("logger", () => {
     logger.trace("trace msg");
     logger.debug("debug msg");
     logger.info("info msg");
-    expect(logs.length).toBe(3);
+    expect(logs).toHaveLength(3);
     spy.mockRestore();
   });
 });

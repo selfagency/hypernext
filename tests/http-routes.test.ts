@@ -164,20 +164,11 @@ describe("HTTP server routes", () => {
 
   // ── Archive Routes ──
 
-  it("GET /blog/archive/2026 returns 200 for year archive", async () => {
-    const res = await app.inject({
-      method: "GET",
-      url: "/blog/archive/2026",
-    });
-    expect(res.statusCode).toBe(200);
-    expect(res.headers["content-type"]).toContain("text/html");
-  });
-
-  it("GET /blog/archive/2026/07 returns 200 for year/month archive", async () => {
-    const res = await app.inject({
-      method: "GET",
-      url: "/blog/archive/2026/07",
-    });
+  it.each([
+    { url: "/blog/archive/2026", desc: "year archive" },
+    { url: "/blog/archive/2026/07", desc: "year/month archive" },
+  ])("GET $url returns 200 for $desc", async ({ url }) => {
+    const res = await app.inject({ method: "GET", url });
     expect(res.statusCode).toBe(200);
     expect(res.headers["content-type"]).toContain("text/html");
   });
@@ -193,20 +184,11 @@ describe("HTTP server routes", () => {
 
   // ── Taxonomy Routes ──
 
-  it("GET /blog/tags/test-tag returns 200 for known taxonomy term", async () => {
-    const res = await app.inject({
-      method: "GET",
-      url: "/blog/tags/test-tag",
-    });
-    expect(res.statusCode).toBe(200);
-    expect(res.headers["content-type"]).toContain("text/html");
-  });
-
-  it("GET /blog/tags/nonexistent-tag returns 200 (empty archive list)", async () => {
-    const res = await app.inject({
-      method: "GET",
-      url: "/blog/tags/nonexistent-tag",
-    });
+  it.each([
+    { url: "/blog/tags/test-tag", desc: "known taxonomy term" },
+    { url: "/blog/tags/nonexistent-tag", desc: "nonexistent tag (empty list)" },
+  ])("GET $url returns 200 for $desc", async ({ url }) => {
+    const res = await app.inject({ method: "GET", url });
     expect(res.statusCode).toBe(200);
     expect(res.headers["content-type"]).toContain("text/html");
   });

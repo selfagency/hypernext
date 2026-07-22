@@ -8,8 +8,6 @@ import { registerModerationRoutes } from "../../src/api/moderation.js";
 import { registerApiRoutes } from "../../src/api/routes.js";
 import { registerIndieAuthRoutes } from "../../src/auth/indieauth.js";
 import { closeOrm, initOrm } from "../../src/database/index.js";
-import { registerInboundRoutes } from "../../src/federation/inbound.js";
-import { registerFederationRoutes } from "../../src/federation/index.js";
 import { initJobsTable } from "../../src/jobs/queue.js";
 import { registerMicropubEndpoint } from "../../src/micropub/index.js";
 import { startFingerServer } from "../../src/servers/finger.js";
@@ -324,8 +322,6 @@ This post blocks webmentions.
   } as any);
   registerApiRoutes(fastify, config);
   registerModerationRoutes(fastify);
-  registerFederationRoutes(fastify, config);
-  registerInboundRoutes(fastify, config);
   registerMicropubEndpoint(fastify, config);
   await fastify.listen({ port: 0, host: "0.0.0.0" });
   const httpPort = (fastify.addresses()[0] as { port: number }).port;

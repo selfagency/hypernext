@@ -72,7 +72,7 @@ if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
       "-subj",
       "/CN=localhost",
     ],
-    { stdio: "inherit", env: { ...process.env, PATH: "/usr/bin:/bin" } }
+    { stdio: "inherit", env: { ...process.env, PATH: "/usr/bin:/bin" } } // NOSONAR — fixed, unwriteable directories only
   );
   console.log(`✓ Created ${certPath}`);
   console.log(`✓ Created ${keyPath}`);

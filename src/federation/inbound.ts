@@ -20,8 +20,8 @@ const U_URL_REGEX = /class="[^"]*\bu-url\b[^"]*"[^>]*href="([^"]+)"/i;
 const U_PHOTO_REGEX = /class="[^"]*\bu-photo\b[^"]*"[^>]*src="([^"]+)"/i;
 const HTML_TAG_REGEX = /<[^>]+>/g;
 const WHITESPACE_REGEX = /\s+/g;
-const METHOD_NAME_REGEX = /<methodName>\s*([^<]*)<\/methodName>/i;
-const VALUE_REGEX = /<value>\s*<string>\s*([^<]*?)\s*<\/string>\s*<\/value>/gi;
+const METHOD_NAME_REGEX = /<methodName>([^<]*)<\/methodName>/i;
+const VALUE_REGEX = /<value><string>([^<]*)<\/string><\/value>/gi;
 
 /**
  * Parse a simple XML-RPC methodCall, extracting methodName and string params.
@@ -40,6 +40,16 @@ function parseXmlRpcMethodCall(
     params.push(valMatch[1] ?? "");
   }
   return { methodName, params };
+}
+
+function extractPingbackFromXml(
+  xml: string
+): { source: string; target: string } | null {
+  const parsed = parseXmlRpcMethodCall(xml);
+  if (parsed?.methodName !== "pingback.ping" || parsed.params.length < 2) {
+    return null;
+  }
+  return { source: parsed.params[0] ?? "", target: parsed.params[1] ?? "" };
 }
 
 function extractTargetSlug(
@@ -376,16 +386,6 @@ export function registerInboundRoutes(
       }
     }
     return null;
-  }
-
-  function extractPingbackFromXml(
-    xml: string
-  ): { source: string; target: string } | null {
-    const parsed = parseXmlRpcMethodCall(xml);
-    if (parsed?.methodName !== "pingback.ping" || parsed.params.length < 2) {
-      return null;
-    }
-    return { source: parsed.params[0] ?? "", target: parsed.params[1] ?? "" };
   }
 
   // POST /pingback (XML-RPC)

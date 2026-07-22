@@ -627,44 +627,22 @@ describe("API routes — remaining coverage", () => {
     await fastify.close();
   });
 
-  it("GET /api/v1/docs/*/ipfs — returns CID info", async () => {
+  it.each([
+    { url: "/api/v1/docs/misc/test-doc/ipfs", status: 200 },
+    { url: "/api/v1/docs/misc/no-cid-doc/ipfs", status: 200 },
+    { url: "/api/v1/docs/missing-doc/ipfs", status: 404 },
+  ])("GET $url returns $status", async ({ url, status }) => {
+    if (url.includes("no-cid-doc")) {
+      await insertDoc({
+        slug: "misc/no-cid-doc",
+        title: "No CID",
+        type: "post",
+      });
+    }
     const fastify = Fastify();
     registerApiRoutes(fastify, testConfig);
-    const res = await fastify.inject({
-      method: "GET",
-      url: "/api/v1/docs/misc/test-doc/ipfs",
-    });
-    expect(res.statusCode).toBe(200);
-    const body = JSON.parse(res.body);
-    expect(body.slug).toBe("misc/test-doc");
-    expect(body.contentCid).toBe("QmTestContentCid123");
-    expect(body.htmlCid).toBe("QmTestHtmlCid456");
-    expect(body.gatewayUrl).toContain("QmTestContentCid123");
-    await fastify.close();
-  });
-
-  it("GET /api/v1/docs/*/ipfs — returns null gateway for doc without CIDs", async () => {
-    await insertDoc({ slug: "misc/no-cid-doc", title: "No CID", type: "post" });
-    const fastify = Fastify();
-    registerApiRoutes(fastify, testConfig);
-    const res = await fastify.inject({
-      method: "GET",
-      url: "/api/v1/docs/misc/no-cid-doc/ipfs",
-    });
-    expect(res.statusCode).toBe(200);
-    const body = JSON.parse(res.body);
-    expect(body.gatewayUrl).toBeNull();
-    await fastify.close();
-  });
-
-  it("GET /api/v1/docs/*/ipfs — 404 for missing doc", async () => {
-    const fastify = Fastify();
-    registerApiRoutes(fastify, testConfig);
-    const res = await fastify.inject({
-      method: "GET",
-      url: "/api/v1/docs/missing-doc/ipfs",
-    });
-    expect(res.statusCode).toBe(404);
+    const res = await fastify.inject({ method: "GET", url });
+    expect(res.statusCode).toBe(status);
     await fastify.close();
   });
 

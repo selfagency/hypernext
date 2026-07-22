@@ -25,6 +25,8 @@ import httpErrorsEnhanced from "fastify-http-errors-enhanced";
 import { recordPageview } from "../analytics/stats-manager.js";
 import { getCachedParse, setCachedParse } from "../cache.js";
 import { getDocBySlug } from "../database/index.js";
+import { registerInboundRoutes } from "../federation/inbound.js";
+import { registerFederationRoutes } from "../federation/index.js";
 import {
   isDocPrivate,
   isDocPrivateFrontmatter,
@@ -40,7 +42,6 @@ import { addLinkHeaders } from "../renderers/link-headers.js";
 import { renderLlmsTxt } from "../renderers/llms-txt.js";
 import { handleMarkdownNegotiation } from "../renderers/markdown-negotiation.js";
 import { renderRobotsTxt } from "../renderers/robots-txt.js";
-
 import { renderSecurityTxt } from "../renderers/security-txt.js";
 import { renderSitemap } from "../renderers/sitemap.js";
 import type { HypernextConfig } from "../types/config.js";
@@ -216,6 +217,11 @@ export async function createHttpServer(config: HypernextConfig) {
     prefix: "/assets/",
     decorateReply: false,
   });
+
+  // Federation routes (ActivityPub, WebFinger, Inbox, Outbox)
+  // Must be registered before the catch-all /:collection route
+  registerFederationRoutes(fastify, config);
+  registerInboundRoutes(fastify, config);
 
   // Home page
   fastify.get("/", async (_request, reply) => {
