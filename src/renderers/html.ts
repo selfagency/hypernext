@@ -16,6 +16,8 @@ try {
   // KaTeX not available — fall back to plain text rendering
 }
 
+const HTML_LOWERCASE_REGEX = /^[a-z]/;
+
 type Renderer = (node: IrNode) => string;
 
 function escapeHtml(text: string): string {
@@ -205,7 +207,7 @@ const RENDERERS: Record<string, Renderer> = {
   component(node) {
     const name = node.componentName;
     // Known HTML elements: render as native tags
-    if (name && /^[a-z]/.test(name)) {
+    if (name && HTML_LOWERCASE_REGEX.test(name)) {
       const selfClosing = ["br", "hr", "img", "input", "link", "meta"];
       const classAttr = node.componentProps?.className
         ? ` class="${escapeAttr(String(node.componentProps.className))}"`

@@ -711,7 +711,7 @@ describe("federation", () => {
             .export({ type: "spki", format: "pem" }),
         });
       }
-      return actorKeys.get(actorUrl)!;
+      return actorKeys.get(actorUrl) as { private: string; public: string };
     }
 
     function signedHeaders(

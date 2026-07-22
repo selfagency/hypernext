@@ -343,11 +343,7 @@ export function registerInboundRoutes(
       contentType.includes("text/xml") ||
       contentType.includes("application/xml");
     if (isXml && typeof body === "string") {
-      const parsed = parseXmlRpcMethodCall(body);
-      if (parsed?.methodName !== "pingback.ping" || parsed.params.length < 2) {
-        return null;
-      }
-      return { source: parsed.params[0] ?? "", target: parsed.params[1] ?? "" };
+      return extractPingbackFromXml(body);
     }
     // JSON fallback (used in tests and some clients)
     const jsonBody = body as Record<string, unknown> | null;
@@ -364,6 +360,16 @@ export function registerInboundRoutes(
       }
     }
     return null;
+  }
+
+  function extractPingbackFromXml(
+    xml: string
+  ): { source: string; target: string } | null {
+    const parsed = parseXmlRpcMethodCall(xml);
+    if (parsed?.methodName !== "pingback.ping" || parsed.params.length < 2) {
+      return null;
+    }
+    return { source: parsed.params[0] ?? "", target: parsed.params[1] ?? "" };
   }
 
   // POST /pingback (XML-RPC)

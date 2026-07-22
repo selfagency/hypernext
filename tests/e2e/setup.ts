@@ -320,6 +320,7 @@ This post blocks webmentions.
   registerIndieAuthRoutes(fastify, config);
   registerApiAuthGuard(fastify, {
     api: { enabled: true, requireAuthForPublicRead: false },
+    // biome-ignore lint/suspicious/noExplicitAny: partial config for test
   } as any);
   registerApiRoutes(fastify, config);
   registerModerationRoutes(fastify);
