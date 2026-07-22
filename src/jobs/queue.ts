@@ -58,6 +58,7 @@ export async function schedule(
   const id = randomUUID();
   const idempotencyKey = opts.idempotencyKey;
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: idempotency check is straightforward
   if (idempotencyKey) {
     const existing = await em
       .getConnection()
