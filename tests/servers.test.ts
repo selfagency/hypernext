@@ -21,6 +21,22 @@ function getPort(server: net.Server): number {
   throw new Error("Server not bound");
 }
 
+function generateSelfSignedCert(certDir: string): {
+  certPath: string;
+  keyPath: string;
+} {
+  const certPath = path.join(certDir, "cert.pem");
+  const keyPath = path.join(certDir, "key.pem");
+  if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
+    return { certPath, keyPath };
+  }
+  execSync(
+    `openssl req -x509 -newkey rsa:2048 -keyout ${keyPath} -out ${certPath} -days 1 -nodes -subj /CN=localhost`,
+    { stdio: "ignore" }
+  );
+  return { certPath, keyPath };
+}
+
 const tmpDir = path.resolve("./tmp-servers-test");
 
 const TEST_CONFIG: HypernextConfig = {
@@ -60,25 +76,7 @@ beforeAll(async () => {
   // Generate self-signed cert for Gemini
   const certDir = path.resolve("./tmp-gemini-certs");
   fs.mkdirSync(certDir, { recursive: true });
-  execSync(
-    "openssl",
-    [
-      "req",
-      "-x509",
-      "-newkey",
-      "rsa:2048",
-      "-keyout",
-      path.join(certDir, "key.pem"),
-      "-out",
-      path.join(certDir, "cert.pem"),
-      "-days",
-      "1",
-      "-nodes",
-      "-subj",
-      "/CN=localhost",
-    ],
-    { stdio: "ignore" }
-  );
+  generateSelfSignedCert(certDir);
 
   await initOrm(":memory:");
   createStorage(TEST_CONFIG);

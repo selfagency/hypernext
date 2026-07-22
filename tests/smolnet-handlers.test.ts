@@ -142,12 +142,8 @@ This is a private post.`
   // Generate self-signed cert for Gemini
   fs.mkdirSync(certDir, { recursive: true });
   execSync(
-    "openssl req -x509 -newkey rsa:2048 -keyout " +
-      path.join(certDir, "key.pem") +
-      " -out " +
-      path.join(certDir, "cert.pem") +
-      " -days 1 -nodes -subj /CN=localhost",
-    { stdio: "ignore", timeout: 10_000 }
+    `openssl req -x509 -newkey rsa:2048 -keyout ${path.join(certDir, "key.pem")} -out ${path.join(certDir, "cert.pem")} -days 1 -nodes -subj /CN=localhost`,
+    { stdio: "ignore" }
   );
 
   // Init ORM with in-memory SQLite and index fixtures

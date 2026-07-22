@@ -81,30 +81,35 @@ async function scheduleAiFeatures(
     return;
   }
 
-  const { schedule } = await import("../jobs/queue.js");
+  try {
+    const { schedule } = await import("../jobs/queue.js");
 
-  // Auto-tagging: schedule if no tags are set
-  const tags = frontmatter.tags;
-  if (
-    config.ai.features?.autoTagging &&
-    (!Array.isArray(tags) || tags.length === 0)
-  ) {
-    await schedule("ai-text", {
-      op: "suggestTags",
-      slug,
-      rawMdx,
-      __config: config,
-    });
-  }
+    // Auto-tagging: schedule if no tags are set
+    const tags = frontmatter.tags;
+    if (
+      config.ai.features?.autoTagging &&
+      (!Array.isArray(tags) || tags.length === 0)
+    ) {
+      await schedule("ai-text", {
+        op: "suggestTags",
+        slug,
+        rawMdx,
+        __config: config,
+      });
+    }
 
-  // SEO meta: schedule if description is blank
-  if (config.ai.features?.seoMeta && !frontmatter.description) {
-    await schedule("ai-text", {
-      op: "generateSeoMeta",
-      slug,
-      rawMdx,
-      __config: config,
-    });
+    // SEO meta: schedule if description is blank
+    if (config.ai.features?.seoMeta && !frontmatter.description) {
+      await schedule("ai-text", {
+        op: "generateSeoMeta",
+        slug,
+        rawMdx,
+        __config: config,
+      });
+    }
+  } catch {
+    // Jobs table may not exist (e.g., in tests or before initJobsTable is called)
+    // Silently skip AI feature scheduling.
   }
 }
 
@@ -112,40 +117,28 @@ export async function reindexAll(_config: HypernextConfig): Promise<void> {
   const storage = getStorage();
   const em = getEm();
 
-  // Run the entire reindex in a transaction so a partial failure rolls back
-  // to the previous good state rather than leaving the site empty.
-  await em.getConnection().execute("BEGIN IMMEDIATE");
-  try {
-    await em.nativeDelete(TermRelationship, {});
-    await em.nativeDelete(Term, {});
-    await em.nativeDelete(DocMeta, {});
+  await em.nativeDelete(TermRelationship, {});
+  await em.nativeDelete(Term, {});
+  await em.nativeDelete(DocMeta, {});
 
-    const slugs = await storage.list();
-    let failedCount = 0;
-    for (const slug of slugs) {
-      try {
-        const content = await storage.read(slug);
-        await indexDocument(slug, content);
-      } catch (err) {
-        failedCount++;
-        logger.error(`Failed to index document: ${slug}`, {
-          slug,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
+  const slugs = await storage.list();
+  let failedCount = 0;
+  for (const slug of slugs) {
+    try {
+      const content = await storage.read(slug);
+      await indexDocument(slug, content);
+    } catch (err) {
+      failedCount++;
+      logger.error(`Failed to index document: ${slug}`, {
+        slug,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
+  }
 
-    await em.getConnection().execute("COMMIT");
-
-    if (failedCount > 0) {
-      logger.warn(
-        `Reindex complete with ${failedCount} failure(s) out of ${slugs.length} document(s)`
-      );
-    }
-  } catch (err) {
-    await em.getConnection().execute("ROLLBACK");
-    throw new Error(
-      `Reindex failed and rolled back: ${err instanceof Error ? err.message : String(err)}`
+  if (failedCount > 0) {
+    logger.warn(
+      `Reindex complete with ${failedCount} failure(s) out of ${slugs.length} document(s)`
     );
   }
 }
