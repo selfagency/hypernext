@@ -4,12 +4,8 @@ import { URL } from "node:url";
 
 // Standard private IPv4 ranges
 const PRIVATE_IPV4_REGEX = /^(127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/;
-// Link-local (169.254.x.x) — includes AWS/GCP/Azure metadata endpoint
-const LINK_LOCAL_IPV4_REGEX = /^169\.254\./;
 // CGNAT (100.64.x.x – 100.127.x.x)
 const CGNAT_IPV4_REGEX = /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./;
-// Entire 0.x.x.x range (only 0.0.0.0 was blocked before)
-const ZERO_IPV4_REGEX = /^0\./;
 // IPv6 unique local address (fc00::/7)
 const PRIVATE_IPV6_REGEX = /^[fF][cCdD]/;
 // IPv6 link-local (fe80::/10)
@@ -18,13 +14,13 @@ const LINK_LOCAL_IPV6_REGEX = /^fe[89ab][0-9a-f]/i;
 const IPV4_MAPPED_IPV6_REGEX = /^::ffff:/i;
 const IPV4_MAPPED_PREFIX_RE = /^::ffff:/i;
 
-const LOCALHOST_NAMES = [
+const LOCALHOST_NAMES = new Set([
   "localhost",
   "localhost.localdomain",
   "local",
   "broadcasthost",
   "loopback",
-];
+]);
 
 /**
  * Parse an IPv4-mapped IPv6 address (::ffff:x.x.x.x or ::ffff:hex format)
@@ -89,9 +85,9 @@ function isPrivateIp(hostname: string): boolean {
 function isPrivateIpv4(ip: string): boolean {
   return (
     PRIVATE_IPV4_REGEX.test(ip) ||
-    LINK_LOCAL_IPV4_REGEX.test(ip) ||
+    ip.startsWith("169.254.") ||
     CGNAT_IPV4_REGEX.test(ip) ||
-    ZERO_IPV4_REGEX.test(ip) ||
+    ip.startsWith("0.") ||
     ip === "0.0.0.0" ||
     ip === "127.0.0.1" ||
     ip === "255.255.255.255"
@@ -99,7 +95,7 @@ function isPrivateIpv4(ip: string): boolean {
 }
 
 function isLocalhostName(hostname: string): boolean {
-  return LOCALHOST_NAMES.includes(hostname.toLowerCase());
+  return LOCALHOST_NAMES.has(hostname.toLowerCase());
 }
 
 function resolveHostname(hostname: string): Promise<string[]> {

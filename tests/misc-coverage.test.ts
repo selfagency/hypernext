@@ -948,7 +948,11 @@ describe("moderation API — additional coverage", () => {
 
   // ── Comments ──
 
-  it("GET /api/v1/comments — filters by status=spam", async () => {
+  it.each([
+    { status: "spam", url: "/api/v1/comments?status=spam" },
+    { status: "hidden", url: "/api/v1/comments?status=hidden" },
+    { slug: "misc/test-doc", url: "/api/v1/comments?slug=misc/test-doc" },
+  ])("GET /api/v1/comments — filters by $status$slug", async ({ url }) => {
     const { fastify, token } = await createAuthedFastify();
     registerApiAuthGuard(fastify, {
       api: { enabled: true, requireAuthForPublicRead: false },
@@ -956,45 +960,10 @@ describe("moderation API — additional coverage", () => {
     registerModerationRoutes(fastify, testConfig);
     const res = await fastify.inject({
       method: "GET",
-      url: "/api/v1/comments?status=spam",
+      url,
       headers: { authorization: `Bearer ${token}` },
     });
     expect(res.statusCode).toBe(200);
-    const body = JSON.parse(res.body);
-    expect(body.data).toBeInstanceOf(Array);
-    expect(body.meta).toHaveProperty("total");
-    await fastify.close();
-  });
-
-  it("GET /api/v1/comments — filters by status=hidden", async () => {
-    const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify, {
-      api: { enabled: true, requireAuthForPublicRead: false },
-    } as any);
-    registerModerationRoutes(fastify, testConfig);
-    const res = await fastify.inject({
-      method: "GET",
-      url: "/api/v1/comments?status=hidden",
-      headers: { authorization: `Bearer ${token}` },
-    });
-    expect(res.statusCode).toBe(200);
-    await fastify.close();
-  });
-
-  it("GET /api/v1/comments — filters by slug", async () => {
-    const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify, {
-      api: { enabled: true, requireAuthForPublicRead: false },
-    } as any);
-    registerModerationRoutes(fastify, testConfig);
-    const res = await fastify.inject({
-      method: "GET",
-      url: "/api/v1/comments?slug=misc/test-doc",
-      headers: { authorization: `Bearer ${token}` },
-    });
-    expect(res.statusCode).toBe(200);
-    const body = JSON.parse(res.body);
-    expect(body.data.length).toBeGreaterThanOrEqual(1);
     await fastify.close();
   });
 

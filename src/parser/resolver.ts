@@ -185,7 +185,7 @@ export const COMPONENT_RESOLVERS: Record<string, ComponentResolver> = {
   },
 
   async TagCloud(props) {
-    const taxonomy = String(props.taxonomy ?? "");
+    const taxonomy = typeof props.taxonomy === "string" ? props.taxonomy : "";
     const em = getEm();
     let terms: { taxonomy: string; slug: string; name: string }[];
     if (taxonomy) {
@@ -438,9 +438,9 @@ export const COMPONENT_RESOLVERS: Record<string, ComponentResolver> = {
   },
 
   Figure(props) {
-    const src = String(props.src ?? "");
-    const caption = String(props.caption ?? "");
-    const alt = String(props.alt ?? caption);
+    const src = typeof props.src === "string" ? props.src : "";
+    const caption = typeof props.caption === "string" ? props.caption : "";
+    const alt = typeof props.alt === "string" ? props.alt : caption;
     const children: IrNode[] = [];
     if (src) {
       children.push({ type: "image", url: src, alt: alt || src });

@@ -533,7 +533,7 @@ describe("federation", () => {
 
       const em = getEm();
       const mentions = await em.find(Mention, { targetSlug: testSlug });
-      expect(mentions.length).toBe(1);
+      expect(mentions).toHaveLength(1);
       expect(mentions[0].authorName).toBe("Alice Commenter");
       expect(mentions[0].platform).toBe("webmention");
       expect(mentions[0].spamStatus).toBe("pending");
@@ -571,7 +571,7 @@ describe("federation", () => {
       const em = getEm();
       const mentions = await em.find(Mention, { targetSlug: testSlug });
       // Still only one mention (updated, not duplicated)
-      expect(mentions.length).toBe(1);
+      expect(mentions).toHaveLength(1);
       expect(mentions[0].authorName).toBe("Alice Commenter (updated)");
       expect(mentions[0].content).toContain("Updated comment text");
     });
@@ -595,7 +595,7 @@ describe("federation", () => {
       // No new mention created
       const em = getEm();
       const mentions = await em.find(Mention, { targetSlug: testSlug });
-      expect(mentions.length).toBe(1); // Still just the one from earlier
+      expect(mentions).toHaveLength(1); // Still just the one from earlier
     });
 
     it("silently drops mentions for non-matching canonical base", async () => {
@@ -648,7 +648,7 @@ describe("federation", () => {
 
       const em = getEm();
       const mentions = await em.find(Mention, { targetSlug: trackbackSlug });
-      expect(mentions.length).toBe(1);
+      expect(mentions).toHaveLength(1);
       // Trackback uses excerpt as content when available
       expect(mentions[0].content).toContain("trackback excerpt");
       expect(mentions[0].platform).toBe("trackback");
@@ -838,7 +838,7 @@ describe("federation", () => {
 
       const em = getEm();
       const mentions = await em.find(Mention, { targetSlug: createSlug });
-      expect(mentions.length).toBe(1);
+      expect(mentions).toHaveLength(1);
       expect(mentions[0].authorName).toBe("Bob Remote");
       expect(mentions[0].platform).toBe("activitypub");
       expect(mentions[0].content).toContain("Great post");

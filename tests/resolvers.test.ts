@@ -512,30 +512,14 @@ describe("Archive", () => {
     expect(nodes[0]?.children?.[0]?.value).toBe("No posts found.");
   });
 
-  it("returns no posts for tag filter without matches", async () => {
+  it.each([
+    { filter: "tag:nonexistent-tag", desc: "tag filter" },
+    { filter: "taxonomy:tags:nonexistent", desc: "taxonomy filter" },
+    { filter: "author:ghost", desc: "author filter" },
+  ])("returns no posts for $desc without matches", async ({ filter }) => {
     const nodes = await resolveComponent(
       "Archive",
-      { filter: "tag:nonexistent-tag" },
-      { config: testConfig }
-    );
-    expect(nodes).toHaveLength(1);
-    expect(nodes[0]?.children?.[0]?.value).toBe("No posts found.");
-  });
-
-  it("returns no posts for taxonomy filter without matches", async () => {
-    const nodes = await resolveComponent(
-      "Archive",
-      { filter: "taxonomy:tags:nonexistent" },
-      { config: testConfig }
-    );
-    expect(nodes).toHaveLength(1);
-    expect(nodes[0]?.children?.[0]?.value).toBe("No posts found.");
-  });
-
-  it("returns no posts for author filter without matches", async () => {
-    const nodes = await resolveComponent(
-      "Archive",
-      { filter: "author:ghost" },
+      { filter },
       { config: testConfig }
     );
     expect(nodes).toHaveLength(1);

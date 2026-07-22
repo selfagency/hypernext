@@ -164,7 +164,7 @@ export function watchStorage(config: HypernextConfig): () => void {
   const watcher = fs.watch(
     storagePath,
     { recursive: true },
-    (eventType, filename) => {
+    async (eventType, filename) => {
       if (!(filename?.endsWith(".mdx") || filename?.endsWith(".md"))) {
         return;
       }
@@ -187,7 +187,7 @@ export function watchStorage(config: HypernextConfig): () => void {
         return;
       }
       try {
-        indexDocument(slug, content);
+        await indexDocument(slug, content);
       } catch (err) {
         logger.error("Failed to index document in watcher", {
           slug,

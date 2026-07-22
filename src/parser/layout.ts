@@ -118,7 +118,7 @@ function wrapDocContent(content: IrNode[], slug?: string): IrNode[] {
     {
       type: "article",
       className: "h-entry",
-      id: slug.replace(SLUG_ID_RE, "-"),
+      id: slug.replaceAll(SLUG_ID_RE, "-"),
       children: [
         { type: "component", componentName: "Title", componentProps: {} },
         { type: "component", componentName: "PostMeta", componentProps: {} },

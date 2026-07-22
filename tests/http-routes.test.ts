@@ -109,18 +109,11 @@ describe("HTTP server routes", () => {
 
   // ── Home Page ──
 
-  it("GET / returns 200 and home page HTML", async () => {
-    const res = await app.inject({ method: "GET", url: "/" });
-    expect(res.statusCode).toBe(200);
-    expect(res.headers["content-type"]).toContain("text/html");
-    // Home page should include the site title
-    expect(res.body).toContain("Test");
-  });
-
-  // ── Collection Root ──
-
-  it("GET /blog returns 200 for known collection root", async () => {
-    const res = await app.inject({ method: "GET", url: "/blog" });
+  it.each([
+    { url: "/", desc: "home page" },
+    { url: "/blog", desc: "known collection root" },
+  ])("GET $url returns 200 and home page HTML for $desc", async ({ url }) => {
+    const res = await app.inject({ method: "GET", url });
     expect(res.statusCode).toBe(200);
     expect(res.headers["content-type"]).toContain("text/html");
     expect(res.body).toContain("Test");
@@ -151,17 +144,11 @@ describe("HTTP server routes", () => {
     expect(res.headers["content-type"]).toContain("text/html");
   });
 
-  it("GET /blog/private returns 404 for private document", async () => {
-    const res = await app.inject({ method: "GET", url: "/blog/private" });
-    expect(res.statusCode).toBe(404);
-    expect(res.body).toContain("404 Not Found");
-  });
-
-  it("GET /blog/nonexistent returns 404 for missing document", async () => {
-    const res = await app.inject({
-      method: "GET",
-      url: "/blog/nonexistent",
-    });
+  it.each([
+    { url: "/blog/private", desc: "private document" },
+    { url: "/blog/nonexistent", desc: "missing document" },
+  ])("GET $url returns 404 for $desc", async ({ url }) => {
+    const res = await app.inject({ method: "GET", url });
     expect(res.statusCode).toBe(404);
     expect(res.body).toContain("404 Not Found");
   });

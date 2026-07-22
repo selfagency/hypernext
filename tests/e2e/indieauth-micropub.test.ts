@@ -726,23 +726,15 @@ describe("Micropub – Create (POST /micropub)", () => {
 // ══════════════════════════════════════════════
 
 describe("Micropub – Query (GET /micropub)", () => {
-  it("returns 404 when queried with q=config (not yet implemented)", async () => {
-    const res = await fetch(apiUrl("/micropub?q=config"));
-    expect(res.status).toBe(404);
-  });
-
-  it("returns 404 when queried with q=syndicate-to (not yet implemented)", async () => {
-    const res = await fetch(apiUrl("/micropub?q=syndicate-to"));
-    expect(res.status).toBe(404);
-  });
-
-  it("returns 404 when queried with q=source (not yet implemented)", async () => {
-    const res = await fetch(apiUrl("/micropub?q=source"));
-    expect(res.status).toBe(404);
-  });
-
-  it("returns 404 when queried with q=category (not yet implemented)", async () => {
-    const res = await fetch(apiUrl("/micropub?q=category"));
+  it.each([
+    { q: "config", desc: "config" },
+    { q: "syndicate-to", desc: "syndication targets" },
+    { q: "source", desc: "source" },
+    { q: "category", desc: "categories" },
+  ])("returns 404 when queried with q=$q (not yet implemented)", async ({
+    q,
+  }) => {
+    const res = await fetch(apiUrl(`/micropub?q=${q}`));
     expect(res.status).toBe(404);
   });
 });

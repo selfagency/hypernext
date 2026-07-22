@@ -168,7 +168,7 @@ function tryParseJsxExpression(expr: string): unknown {
   if (expr === "false") {
     return false;
   }
-  const strMatch = expr.match(STRING_LITERAL_REGEX);
+  const strMatch = STRING_LITERAL_REGEX.exec(expr);
   if (strMatch) {
     return strMatch[1] ?? expr;
   }

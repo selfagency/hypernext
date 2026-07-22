@@ -606,7 +606,7 @@ describe("MCP tool handlers", () => {
         const tool = findTool(tools, "list_mentions");
         const result = await tool.handler({ slug: "blog/typescript-tips" });
         const mentions = JSON.parse(result.content[0].text);
-        expect(mentions.length).toBe(1);
+        expect(mentions).toHaveLength(1);
         expect(mentions[0].targetSlug).toBe("blog/typescript-tips");
       });
 
@@ -781,34 +781,27 @@ describe("MCP tool handlers", () => {
     });
 
     describe("generate_format", () => {
-      it("returns error for missing document with pdf format", async () => {
-        const tools = createSyncTools(baseConfig);
-        const tool = findTool(tools, "generate_format");
-        const result = await tool.handler({
-          slug: "nonexistent-slug",
-          format: "pdf",
-        });
-        expectToolResult(result, "Not found");
-      });
-
-      it("returns unsupported message for epub format", async () => {
-        const tools = createSyncTools(baseConfig);
-        const tool = findTool(tools, "generate_format");
-        const result = await tool.handler({
+      it.each([
+        { slug: "nonexistent-slug", format: "pdf", expected: "Not found" },
+        {
           slug: "blog/hello",
           format: "epub",
-        });
-        expectToolResult(result, "Format epub not supported.");
-      });
-
-      it("returns unsupported message for unknown format", async () => {
-        const tools = createSyncTools(baseConfig);
-        const tool = findTool(tools, "generate_format");
-        const result = await tool.handler({
+          expected: "Format epub not supported.",
+        },
+        {
           slug: "blog/hello",
           format: "docx",
-        });
-        expectToolResult(result, "Format docx not supported.");
+          expected: "Format docx not supported.",
+        },
+      ])("returns $expected for format=$format", async ({
+        slug,
+        format,
+        expected,
+      }) => {
+        const tools = createSyncTools(baseConfig);
+        const tool = findTool(tools, "generate_format");
+        const result = await tool.handler({ slug, format });
+        expectToolResult(result, expected);
       });
     });
 

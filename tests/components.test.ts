@@ -238,7 +238,7 @@ describe("component resolvers", () => {
         }
       );
       const links = nodes[0]?.children?.filter((n) => n.type === "link") ?? [];
-      expect(links.length).toBe(2);
+      expect(links).toHaveLength(2);
       expect(links[0]?.url).toBe("/tags/hypernext");
       expect(links[1]?.url).toBe("/tags/testing");
     });

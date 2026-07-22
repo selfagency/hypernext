@@ -120,6 +120,13 @@ export function buildHead(
 
   const jsonLd = buildJsonLd(config, frontmatter, slug);
 
+  let cssHref = "";
+  if (cssPath) {
+    cssHref = cssPath.startsWith("/") ? cssPath : `/${cssPath}`;
+  }
+  const cssLink = cssHref
+    ? `<link rel="stylesheet" href="${escapeAttr(cssHref)}" />`
+    : "";
   return `<head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -129,7 +136,7 @@ export function buildHead(
   ${ogTags.join("\n  ")}
   ${jsonLd}
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
-  ${cssPath ? `<link rel="stylesheet" href="${escapeAttr(cssPath.startsWith("/") ? cssPath : `/${cssPath}`)}" />` : ""}
+  ${cssLink}
   ${viewTransitionCss}
 </head>`;
 }

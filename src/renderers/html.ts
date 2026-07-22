@@ -209,12 +209,14 @@ const RENDERERS: Record<string, Renderer> = {
     // Known HTML elements: render as native tags
     if (name && HTML_LOWERCASE_REGEX.test(name)) {
       const selfClosing = ["br", "hr", "img", "input", "link", "meta"];
-      const classAttr = node.componentProps?.className
-        ? ` class="${escapeAttr(String(node.componentProps.className))}"`
-        : "";
-      const idAttr = node.componentProps?.id
-        ? ` id="${escapeAttr(String(node.componentProps.id))}"`
-        : "";
+      const classAttr =
+        typeof node.componentProps?.className === "string"
+          ? ` class="${escapeAttr(node.componentProps.className)}"`
+          : "";
+      const idAttr =
+        typeof node.componentProps?.id === "string"
+          ? ` id="${escapeAttr(node.componentProps.id)}"`
+          : "";
       const attrs = `${classAttr}${idAttr}`;
       if (selfClosing.includes(name)) {
         return `<${name}${attrs} />`;

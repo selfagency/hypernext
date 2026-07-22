@@ -9,11 +9,11 @@ import { checkAkismet } from "./akismet.js";
 // HTML-escape a string for safe interpolation into HTML email bodies
 function escapeHtml(text: string): string {
   return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
 /**
@@ -36,7 +36,7 @@ async function renderEmailTemplate(
     let processed = raw;
     for (const [key, value] of Object.entries(context)) {
       processed = processed.replace(
-        new RegExp(`\\{\\{${key}\\}\\}`, "g"),
+        new RegExp(String.raw`\{\{${key}\}\}`, "g"),
         escapeHtml(value)
       );
     }
@@ -233,10 +233,12 @@ export async function sendWeeklyDigest(
   }
 
   const items = docs
-    .map(
-      (d) =>
-        `<li><a href="${config.site.canonicalBase}/${d.slug}">${escapeHtml(d.title)}</a>${d.description ? ` — ${escapeHtml(d.description)}` : ""}</li>`
-    )
+    .map((d) => {
+      const link = `${config.site.canonicalBase}/${d.slug}`;
+      const title = escapeHtml(d.title);
+      const desc = d.description ? ` — ${escapeHtml(d.description)}` : "";
+      return `<li><a href="${link}">${title}</a>${desc}</li>`;
+    })
     .join("\n");
 
   // Try to render from email-digest template, fall back to inline
@@ -326,7 +328,7 @@ export async function processContactForm(
     <p><strong>Name:</strong> ${escapeHtml(name)}</p>
     <p><strong>Email:</strong> <a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a></p>
     <hr>
-    <p>${escapeHtml(bodyText).replace(/\n/g, "<br>")}</p>
+    <p>${escapeHtml(bodyText).replaceAll("\n", "<br>")}</p>
   `;
 
   const message = createMessage({

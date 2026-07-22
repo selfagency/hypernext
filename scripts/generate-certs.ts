@@ -29,8 +29,8 @@ const {
 
 const PROJECT_ROOT = path.resolve(".");
 
-const configPath = path.resolve(configPathArg ?? "./config.yml"); // NOSONAR
-const certDir = path.resolve(certDirArg ?? "./certs"); // NOSONAR
+const configPath = path.resolve(configPathArg ?? "./config.yml"); // NOSONAR — validated below
+const certDir = path.resolve(certDirArg ?? "./certs"); // NOSONAR — validated below
 const days = Number(daysArg ?? 365);
 
 // Validate paths are within project directory (prevents path traversal)
@@ -47,8 +47,8 @@ if (
 // ── 1. Create cert directory ──
 fs.mkdirSync(certDir, { recursive: true });
 
-const certPath = path.join(certDir, "cert.pem"); // NOSONAR
-const keyPath = path.join(certDir, "key.pem"); // NOSONAR
+const certPath = path.join(certDir, "cert.pem");
+const keyPath = path.join(certDir, "key.pem");
 
 // ── 2. Generate cert if it doesn't exist ──
 if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {

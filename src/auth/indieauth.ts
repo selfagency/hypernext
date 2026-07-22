@@ -2,10 +2,6 @@ import crypto from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import type { HypernextConfig } from "../types/config.js";
 
-const PLUS_RE = /\+/g;
-const SLASH_RE = /\//g;
-const EQUALS_RE = /=+$/;
-
 function generateToken(): string {
   return crypto.randomBytes(32).toString("hex");
 }
@@ -13,9 +9,9 @@ function generateToken(): string {
 function base64UrlEncode(buffer: Buffer): string {
   return buffer
     .toString("base64")
-    .replace(PLUS_RE, "-")
-    .replace(SLASH_RE, "_")
-    .replace(EQUALS_RE, "");
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replaceAll("=", "");
 }
 
 function hashPkceChallenge(verifier: string): string {

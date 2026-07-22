@@ -20,9 +20,27 @@ const U_URL_REGEX = /class="[^"]*\bu-url\b[^"]*"[^>]*href="([^"]+)"/i;
 const U_PHOTO_REGEX = /class="[^"]*\bu-photo\b[^"]*"[^>]*src="([^"]+)"/i;
 const HTML_TAG_REGEX = /<[^>]+>/g;
 const WHITESPACE_REGEX = /\s+/g;
-const REGEX_ESCAPE_REGEX = /[.*+?^${}()|[\]\\]/g;
-const METHOD_NAME_REGEX = /<methodName>\s*([^<]+?)\s*<\/methodName>/i;
+const METHOD_NAME_REGEX = /<methodName>\s*([^<]*)<\/methodName>/i;
 const VALUE_REGEX = /<value>\s*<string>\s*([^<]*?)\s*<\/string>\s*<\/value>/gi;
+
+/**
+ * Parse a simple XML-RPC methodCall, extracting methodName and string params.
+ */
+function parseXmlRpcMethodCall(
+  xml: string
+): { methodName: string; params: string[] } | null {
+  const methodMatch = METHOD_NAME_REGEX.exec(xml);
+  if (!methodMatch) {
+    return null;
+  }
+  const methodName = (methodMatch[1] ?? "").trim();
+  const params: string[] = [];
+  const valMatches = xml.matchAll(VALUE_REGEX);
+  for (const valMatch of valMatches) {
+    params.push(valMatch[1] ?? "");
+  }
+  return { methodName, params };
+}
 
 function extractTargetSlug(
   target: string,
@@ -130,20 +148,37 @@ async function fetchSourceHtml(source: string): Promise<string | null> {
 }
 
 function verifyLinkInHtml(html: string, target: string): boolean {
-  const escaped = target.replace(REGEX_ESCAPE_REGEX, "\\$&");
   // Webmention spec §3.2.1: source must contain a link (a, area, link href)
   // to the target. A bare URL in a comment or non-link attribute is not a link.
-  const linkRegex = new RegExp(
-    `<[aA]\\s[^>]*href=["']${escaped}["']|` +
-      `<[aA][rR][eE][aA]\\s[^>]*href=["']${escaped}["']|` +
-      `<[lL][iI][nN][kK]\\s[^>]*href=["']${escaped}["']|` +
-      `<[iI][mM][gG]\\s[^>]*src=["']${escaped}["']|` +
-      `<[vV][iI][dD][eE][oO]\\s[^>]*src=["']${escaped}["']|` +
-      `<[aA][uU][dD][iI][oO]\\s[^>]*src=["']${escaped}["']|` +
-      `<[bB][lL][oO][cC][kK][qQ][uU][oO][tT][eE]\\s[^>]*cite=["']${escaped}["']`,
-    "i"
-  );
-  return linkRegex.test(html);
+  // Check each element+attribute combination independently to avoid
+  // catastrophic backtracking from a single large alternation regex.
+  const lowerHtml = html.toLowerCase();
+  const lowerTarget = target.toLowerCase();
+  const linkChecks: Array<{ tag: string; attr: string }> = [
+    { tag: "<a", attr: "href" },
+    { tag: "<area", attr: "href" },
+    { tag: "<link", attr: "href" },
+    { tag: "<img", attr: "src" },
+    { tag: "<video", attr: "src" },
+    { tag: "<audio", attr: "src" },
+    { tag: "<blockquote", attr: "cite" },
+  ];
+  for (const { tag, attr } of linkChecks) {
+    const attrPattern = `${attr}="${lowerTarget}"`;
+    let searchFrom = 0;
+    while (true) {
+      const tagIndex = lowerHtml.indexOf(tag, searchFrom);
+      if (tagIndex === -1) {
+        break;
+      }
+      const attrIndex = lowerHtml.indexOf(attrPattern, tagIndex);
+      if (attrIndex !== -1 && attrIndex < lowerHtml.indexOf(">", tagIndex)) {
+        return true;
+      }
+      searchFrom = tagIndex + 1;
+    }
+  }
+  return false;
 }
 
 function isBlocked(
@@ -311,25 +346,6 @@ export function registerInboundRoutes(
 
     reply.code(202).send({ status: "accepted" });
   });
-
-  /**
-   * Parse a simple XML-RPC methodCall, extracting methodName and string params.
-   */
-  function parseXmlRpcMethodCall(
-    xml: string
-  ): { methodName: string; params: string[] } | null {
-    const methodMatch = xml.match(METHOD_NAME_REGEX);
-    if (!methodMatch) {
-      return null;
-    }
-    const methodName = (methodMatch[1] ?? "").trim();
-    const params: string[] = [];
-    const valMatches = xml.matchAll(VALUE_REGEX);
-    for (const valMatch of valMatches) {
-      params.push(valMatch[1] ?? "");
-    }
-    return { methodName, params };
-  }
 
   /**
    * Extract source+target from a pingback request, supporting both

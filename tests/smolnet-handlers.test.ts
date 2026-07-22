@@ -254,14 +254,11 @@ describe("Gopher server handler", () => {
     expect(response).toContain(".\r\n");
   });
 
-  it("returns error for missing selector", async () => {
-    const response = await tcpRequest(gopherPort, "/blog/nonexistent\r\n");
-    expect(response).toContain("Not Found");
-    expect(response).toContain(".\r\n");
-  });
-
-  it("returns error for private document", async () => {
-    const response = await tcpRequest(gopherPort, "/blog/private\r\n");
+  it.each([
+    { selector: "/blog/nonexistent", desc: "missing selector" },
+    { selector: "/blog/private", desc: "private document" },
+  ])("returns error for $desc", async ({ selector }) => {
+    const response = await tcpRequest(gopherPort, `${selector}\r\n`);
     expect(response).toContain("Not Found");
     expect(response).toContain(".\r\n");
   });

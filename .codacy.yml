@@ -13,3 +13,5 @@ exclude_paths:
   # Federation cognitive complexity is pre-existing, not in PR scope
   - "src/federation/**"
   - "src/analytics/**"
+  # All markdown files
+  - "**/*.md"
