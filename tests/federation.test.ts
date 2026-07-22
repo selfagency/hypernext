@@ -23,11 +23,11 @@ import {
   fetchMastodonReplies,
 } from "../src/federation/posse-replies.js";
 import { validateSourceUrl } from "../src/federation/ssrf.js";
+import { initJobsTable, listJobs } from "../src/jobs/queue.js";
 import {
   enqueueInboundMention,
   enqueueOutboundSyndication,
 } from "../src/jobs/schedule.js";
-import { initJobsTable, listJobs } from "../src/jobs/queue.js";
 import type { HypernextConfig } from "../src/types/config.js";
 
 const testConfig: HypernextConfig = {
@@ -369,26 +369,26 @@ describe("federation", () => {
     // Mock the key fetch so verifyHttpSignature can find the public key
     // Match both the actor URL and the keyId URL (with fragment)
     const apMock = setupServer(
-      http.get("https://remote.example/users/bob", () => {
-        return HttpResponse.json({
+      http.get("https://remote.example/users/bob", () =>
+        HttpResponse.json({
           id: "https://remote.example/users/bob",
           publicKey: {
             id: TEST_KEY_ID,
             owner: "https://remote.example/users/bob",
             publicKeyPem: TEST_PUBLIC_KEY_PEM,
           },
-        });
-      }),
-      http.get("https://remote.example/users/bob#main-key", () => {
-        return HttpResponse.json({
+        })
+      ),
+      http.get("https://remote.example/users/bob#main-key", () =>
+        HttpResponse.json({
           id: TEST_KEY_ID,
           publicKey: {
             id: TEST_KEY_ID,
             owner: "https://remote.example/users/bob",
             publicKeyPem: TEST_PUBLIC_KEY_PEM,
           },
-        });
-      })
+        })
+      )
     );
 
     beforeAll(() => {
@@ -400,12 +400,12 @@ describe("federation", () => {
     function signedHeaders(
       method: string,
       url: string,
-      body?: string
+      _body?: string
     ): Record<string, string> {
       const date = new Date().toUTCString();
       const signingString = [
         `(request-target): ${method.toLowerCase()} ${url}`,
-        `host: remote.example`,
+        "host: remote.example",
         `date: ${date}`,
       ].join("\n");
       const signer = crypto.createSign("sha256");
@@ -718,7 +718,7 @@ describe("federation", () => {
       actorUrl: string,
       method: string,
       url: string,
-      body?: string
+      _body?: string
     ): Record<string, string> {
       const keys = getOrCreateKeys(actorUrl);
       const date = new Date().toUTCString();

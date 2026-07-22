@@ -8,11 +8,10 @@ import { registerModerationRoutes } from "../../src/api/moderation.js";
 import { registerApiRoutes } from "../../src/api/routes.js";
 import { registerIndieAuthRoutes } from "../../src/auth/indieauth.js";
 import { closeOrm, initOrm } from "../../src/database/index.js";
-import { initJobsTable } from "../../src/jobs/queue.js";
 import { registerInboundRoutes } from "../../src/federation/inbound.js";
 import { registerFederationRoutes } from "../../src/federation/index.js";
+import { initJobsTable } from "../../src/jobs/queue.js";
 import { registerMicropubEndpoint } from "../../src/micropub/index.js";
-import { createStorage } from "../../src/storage/index.js";
 import { startFingerServer } from "../../src/servers/finger.js";
 import { startGeminiServer } from "../../src/servers/gemini.js";
 import { startGopherServer } from "../../src/servers/gopher.js";
@@ -20,6 +19,7 @@ import { createHttpServer } from "../../src/servers/http.js";
 import { startNexServer } from "../../src/servers/nex.js";
 import { startSpartanServer } from "../../src/servers/spartan.js";
 import { startTextServer } from "../../src/servers/text.js";
+import { createStorage } from "../../src/storage/index.js";
 import type { HypernextConfig } from "../../src/types/config.js";
 
 export interface E2eState {

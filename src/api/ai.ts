@@ -6,7 +6,7 @@ export function registerAiRoutes(
   config: HypernextConfig
 ): void {
   // AI routes require both agent.enabled (master toggle) and ai.enabled
-  if (!config.agent?.enabled || !config.ai?.enabled) {
+  if (!(config.agent?.enabled && config.ai?.enabled)) {
     return;
   }
 

@@ -5,12 +5,12 @@ import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { closeOrm, initOrm } from "../src/database/index.js";
 import { reindexAll } from "../src/indexer/index.js";
-import { createStorage } from "../src/storage/index.js";
 import { startGeminiServer } from "../src/servers/gemini.js";
 import { startGopherServer } from "../src/servers/gopher.js";
 import { startNexServer } from "../src/servers/nex.js";
 import { startSpartanServer } from "../src/servers/spartan.js";
 import { startTextServer } from "../src/servers/text.js";
+import { createStorage } from "../src/storage/index.js";
 import type { HypernextConfig } from "../src/types/config.js";
 
 function getPort(server: net.Server): number {

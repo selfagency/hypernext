@@ -6,7 +6,7 @@
  */
 import { schedule } from "./queue.js";
 
-export async function enqueueInboundMention(payload: {
+export function enqueueInboundMention(payload: {
   source: string;
   target: string;
   ip: string;
@@ -25,7 +25,7 @@ export async function enqueueInboundMention(payload: {
   );
 }
 
-export async function enqueuePosseReplyFetch(
+export function enqueuePosseReplyFetch(
   slug: string,
   docId: number,
   platform: "mastodon" | "bluesky"
@@ -39,7 +39,7 @@ export async function enqueuePosseReplyFetch(
   );
 }
 
-export async function enqueueOutboundSyndication(
+export function enqueueOutboundSyndication(
   docId: number,
   slug: string,
   content: string
@@ -53,10 +53,7 @@ export async function enqueueOutboundSyndication(
   );
 }
 
-export async function enqueueIndexing(
-  slug: string,
-  rawMdx: string
-): Promise<string> {
+export function enqueueIndexing(slug: string, rawMdx: string): Promise<string> {
   return schedule(
     "indexing",
     { slug, rawMdx },
@@ -66,16 +63,14 @@ export async function enqueueIndexing(
   );
 }
 
-export async function enqueuePdfGeneration(slug: string): Promise<string> {
+export function enqueuePdfGeneration(slug: string): Promise<string> {
   return schedule("pdf-generation", { slug }, { maxAttempts: 2 });
 }
 
-export async function enqueueEpubGeneration(
-  collectionName: string
-): Promise<string> {
+export function enqueueEpubGeneration(collectionName: string): Promise<string> {
   return schedule("epub-generation", { collectionName }, { maxAttempts: 2 });
 }
 
-export async function enqueueIpfsPinning(slug: string): Promise<string> {
+export function enqueueIpfsPinning(slug: string): Promise<string> {
   return schedule("ipfs-pinning", { slug }, { maxAttempts: 3 });
 }

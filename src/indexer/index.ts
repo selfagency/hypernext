@@ -77,7 +77,7 @@ async function scheduleAiFeatures(
   frontmatter: Record<string, unknown>,
   config: HypernextConfig
 ): Promise<void> {
-  if (!config.agent?.enabled || !config.ai?.enabled) {
+  if (!(config.agent?.enabled && config.ai?.enabled)) {
     return;
   }
 
@@ -189,7 +189,7 @@ export function watchStorage(config: HypernextConfig): () => void {
       try {
         indexDocument(slug, content);
       } catch (err) {
-        logger.error(`Failed to index document in watcher`, {
+        logger.error("Failed to index document in watcher", {
           slug,
           error: err instanceof Error ? err.message : String(err),
         });

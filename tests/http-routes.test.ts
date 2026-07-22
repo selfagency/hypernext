@@ -3,8 +3,8 @@ import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { closeOrm, initOrm } from "../src/database/index.js";
 import { reindexAll } from "../src/indexer/index.js";
-import { createStorage } from "../src/storage/index.js";
 import { createHttpServer } from "../src/servers/http.js";
+import { createStorage } from "../src/storage/index.js";
 import type { HypernextConfig } from "../src/types/config.js";
 
 const tmpDir = path.resolve("./tmp-http-test");

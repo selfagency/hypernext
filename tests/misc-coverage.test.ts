@@ -22,8 +22,8 @@ import {
   initOrm,
   insertDoc,
 } from "../src/database/index.js";
-import { createStorage, getStorage } from "../src/storage/index.js";
 import { initJobsTable } from "../src/jobs/queue.js";
+import { createStorage, getStorage } from "../src/storage/index.js";
 import type { HypernextConfig } from "../src/types/config.js";
 
 // ── Mocks ──
@@ -128,7 +128,7 @@ const NOT_FOUND_RE = /not found/i;
 const IPFS_NOT_ENABLED_RE = /ipfs is not enabled/i;
 const MISSING_URL_RE = /missing url/i;
 const COLLECTION_NOT_FOUND_RE = /collection not found/i;
-const AI_SERVICE_UNAVAILABLE_RE = /ai service unavailable/i;
+const _AI_SERVICE_UNAVAILABLE_RE = /ai service unavailable/i;
 const INVALID_SPAM_STATUS_RE = /invalid spam_status/i;
 const COMMENT_NOT_FOUND_RE = /comment not found/i;
 const MISSING_TYPE_OR_VALUE_RE = /missing type or value/i;

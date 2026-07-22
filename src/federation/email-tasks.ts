@@ -28,7 +28,9 @@ async function renderEmailTemplate(
   try {
     const { readLayoutRaw } = await import("../parser/layout.js");
     const raw = readLayoutRaw("templates", `${templateName}.mdx`);
-    if (!raw) return null;
+    if (!raw) {
+      return null;
+    }
 
     // Replace template variables like {{title}} with context values
     let processed = raw;

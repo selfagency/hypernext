@@ -21,6 +21,8 @@ const U_PHOTO_REGEX = /class="[^"]*\bu-photo\b[^"]*"[^>]*src="([^"]+)"/i;
 const HTML_TAG_REGEX = /<[^>]+>/g;
 const WHITESPACE_REGEX = /\s+/g;
 const REGEX_ESCAPE_REGEX = /[.*+?^${}()|[\]\\]/g;
+const METHOD_NAME_REGEX = /<methodName>\s*([^<]+?)\s*<\/methodName>/i;
+const VALUE_REGEX = /<value>\s*<string>\s*([^<]*?)\s*<\/string>\s*<\/value>/gi;
 
 function extractTargetSlug(
   target: string,
@@ -316,15 +318,15 @@ export function registerInboundRoutes(
   function parseXmlRpcMethodCall(
     xml: string
   ): { methodName: string; params: string[] } | null {
-    const methodMatch = xml.match(/<methodName>\s*([^<]+?)\s*<\/methodName>/i);
-    if (!methodMatch) return null;
-    const methodName = methodMatch[1]!.trim();
+    const methodMatch = xml.match(METHOD_NAME_REGEX);
+    if (!methodMatch) {
+      return null;
+    }
+    const methodName = (methodMatch[1] ?? "").trim();
     const params: string[] = [];
-    const valueRegex =
-      /<value>\s*<string>\s*([^<]*?)\s*<\/string>\s*<\/value>/gi;
-    let valMatch: RegExpExecArray | null;
-    while ((valMatch = valueRegex.exec(xml)) !== null) {
-      params.push(valMatch[1]!);
+    const valMatches = xml.matchAll(VALUE_REGEX);
+    for (const valMatch of valMatches) {
+      params.push(valMatch[1] ?? "");
     }
     return { methodName, params };
   }
@@ -342,14 +344,10 @@ export function registerInboundRoutes(
       contentType.includes("application/xml");
     if (isXml && typeof body === "string") {
       const parsed = parseXmlRpcMethodCall(body);
-      if (
-        !parsed ||
-        parsed.methodName !== "pingback.ping" ||
-        parsed.params.length < 2
-      ) {
+      if (parsed?.methodName !== "pingback.ping" || parsed.params.length < 2) {
         return null;
       }
-      return { source: parsed.params[0]!, target: parsed.params[1]! };
+      return { source: parsed.params[0] ?? "", target: parsed.params[1] ?? "" };
     }
     // JSON fallback (used in tests and some clients)
     const jsonBody = body as Record<string, unknown> | null;
@@ -360,7 +358,9 @@ export function registerInboundRoutes(
       if (params && params.length >= 2) {
         const source = params[0]?.value?.string;
         const target = params[1]?.value?.string;
-        if (source && target) return { source, target };
+        if (source && target) {
+          return { source, target };
+        }
       }
     }
     return null;

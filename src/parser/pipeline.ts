@@ -164,13 +164,21 @@ function convertMdxJsxNode(
 
   function tryParseJsxExpression(expr: string): unknown {
     // Handle numeric literals
-    if (/^-?\d+(\.\d+)?$/.test(expr)) return Number(expr);
+    if (/^-?\d+(\.\d+)?$/.test(expr)) {
+      return Number(expr);
+    }
     // Handle boolean literals
-    if (expr === "true") return true;
-    if (expr === "false") return false;
+    if (expr === "true") {
+      return true;
+    }
+    if (expr === "false") {
+      return false;
+    }
     // Handle string literals
     const strMatch = expr.match(/^"([^"]*)"$/);
-    if (strMatch) return strMatch[1]!;
+    if (strMatch) {
+      return strMatch[1]!;
+    }
     // Default: return as string
     return expr;
   }
@@ -245,7 +253,7 @@ function copyIrNode(target: IrNode, source: IrNode): void {
   Object.assign(target, source);
 }
 
-const MAX_RESOLVE_DEPTH = 10;
+const _MAX_RESOLVE_DEPTH = 10;
 
 export async function resolveComponentNodes(
   ir: IrNode,

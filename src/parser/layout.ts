@@ -110,7 +110,9 @@ function mergeFrontmatter(
  * for single document pages. This replaces the old hard-coded skeleton.
  */
 function wrapDocContent(content: IrNode[], slug?: string): IrNode[] {
-  if (!slug) return content;
+  if (!slug) {
+    return content;
+  }
 
   return [
     {

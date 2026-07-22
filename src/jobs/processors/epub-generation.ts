@@ -1,5 +1,5 @@
-import path from "node:path";
 import fs from "node:fs";
+import path from "node:path";
 import { parseToIR } from "../../parser/pipeline.js";
 
 export async function processEpubGeneration(
@@ -41,8 +41,7 @@ export async function processEpubGeneration(
       EPub as unknown as new (
         options: Record<string, unknown>,
         output: string
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ) => any
+      ) => { render: () => Promise<{ result: string }> }
     )(
       {
         title: collectionName,

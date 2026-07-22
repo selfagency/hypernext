@@ -135,9 +135,13 @@ async function verifyHttpSignature(request: {
 
   // Parse the Signature header as key="value" pairs in any order
   const sigMap = new Map<string, string>();
-  let sigMatch: RegExpExecArray | null;
-  while ((sigMatch = HTTP_SIGNATURE_REGEX.exec(sigHeader)) !== null) {
-    sigMap.set(sigMatch[1]!.toLowerCase(), sigMatch[2]!);
+  const sigMatches = sigHeader.matchAll(HTTP_SIGNATURE_REGEX);
+  for (const m of sigMatches) {
+    const key = m[1];
+    const value = m[2];
+    if (key && value) {
+      sigMap.set(key.toLowerCase(), value);
+    }
   }
 
   const keyId = sigMap.get("keyid") ?? "";

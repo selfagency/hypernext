@@ -11,6 +11,7 @@ import type { HypernextConfig } from "../types/config.js";
 const PDF_EXT_REGEX = /\.pdf$/;
 const IPFS_SUFFIX = "/ipfs";
 const PIN_SUFFIX = "/pin";
+const SLUG_VALID_REGEX = /^[a-z0-9][a-z0-9/-]*$/;
 
 async function handleIpfsCidRequest(
   slug: string,
@@ -166,7 +167,7 @@ export function registerApiRoutes(
   fastify.put("/api/v1/docs/*", async (request, reply) => {
     const slug = (request.params as { "*": string })["*"];
     // Validate slug: no path traversal, alphanumeric + hyphens/slashes only
-    if (!/^[a-z0-9][a-z0-9/-]*$/.test(slug) || slug.includes("..")) {
+    if (!SLUG_VALID_REGEX.test(slug) || slug.includes("..")) {
       reply.code(400).send({ error: "Invalid slug" });
       return;
     }
@@ -264,8 +265,7 @@ export function registerApiRoutes(
           EPub as unknown as new (
             options: Record<string, unknown>,
             output: string
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ) => any
+          ) => { render: () => Promise<{ result: string }> }
         )(epubOptions, tmpPath);
         await epub.render();
         const buffer = fs.readFileSync(tmpPath);

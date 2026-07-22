@@ -16,8 +16,8 @@ const PRIVATE_IPV6_REGEX = /^[fF][cCdD]/;
 const LINK_LOCAL_IPV6_REGEX = /^fe[89ab][0-9a-f]/i;
 // IPv4-mapped IPv6 (::ffff:0:0/96)
 const IPV4_MAPPED_IPV6_REGEX = /^::ffff:/i;
+const IPV4_MAPPED_PREFIX_RE = /^::ffff:/i;
 
-const LOCALHOST_REGEX = /^localhost$/i;
 const LOCALHOST_NAMES = [
   "localhost",
   "localhost.localdomain",
@@ -31,7 +31,7 @@ const LOCALHOST_NAMES = [
  * and return the embedded IPv4 address, or null if not an IPv4-mapped address.
  */
 function extractMappedIpv4(ip: string): string | null {
-  const afterPrefix = ip.replace(/^::ffff:/i, "");
+  const afterPrefix = ip.replace(IPV4_MAPPED_PREFIX_RE, "");
   if (afterPrefix === ip) {
     return null; // Not an IPv4-mapped address
   }
@@ -46,9 +46,10 @@ function extractMappedIpv4(ip: string): string | null {
     // Parse the hex groups to reconstruct the IPv4
     const parts = afterPrefix.split(":");
     if (parts.length === 2) {
-      const high = Number.parseInt(parts[0]!, 16);
-      const low = Number.parseInt(parts[1]!, 16);
-      if (!Number.isNaN(high) && !Number.isNaN(low)) {
+      const high = Number.parseInt(parts[0] ?? "", 16);
+      const low = Number.parseInt(parts[1] ?? "", 16);
+      if (!(Number.isNaN(high) || Number.isNaN(low))) {
+        // biome-ignore lint/suspicious/noBitwiseOperators: IPv4 hex reconstruction
         return `${(high >> 8) & 0xff}.${high & 0xff}.${(low >> 8) & 0xff}.${low & 0xff}`;
       }
     }

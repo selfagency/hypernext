@@ -22,7 +22,7 @@ export interface RouteMatch {
     | "health";
 }
 
-function matchRoute(
+export function matchRoute(
   pathname: string,
   config: HypernextConfig
 ): RouteMatch | null {

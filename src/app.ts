@@ -12,17 +12,16 @@ import { registerStatsRoutes } from "./api/stats.js";
 import { registerIndieAuthRoutes } from "./auth/indieauth.js";
 import { registerInboundRoutes } from "./federation/inbound.js";
 import { registerFederationRoutes } from "./federation/index.js";
-import { schedule as scheduleJob } from "./jobs/queue.js";
 import { registerMcpSseTransport, startMcpServer } from "./mcp/index.js";
 import { registerMicropubEndpoint } from "./micropub/index.js";
 import { startFingerServer } from "./servers/finger.js";
 import { startGeminiServer } from "./servers/gemini.js";
-import { createStorage } from "./storage/index.js";
 import { startGopherServer } from "./servers/gopher.js";
 import { createHttpServer } from "./servers/http.js";
 import { startNexServer } from "./servers/nex.js";
 import { startSpartanServer } from "./servers/spartan.js";
 import { startTextServer } from "./servers/text.js";
+import { createStorage } from "./storage/index.js";
 import type { HypernextConfig } from "./types/config.js";
 import { initLogger } from "./utils/logger.js";
 

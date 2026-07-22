@@ -17,7 +17,9 @@ function formToMicropubJson(
   const properties: Record<string, unknown[]> = {};
 
   for (const [key, value] of Object.entries(formBody)) {
-    if (key === "h" || key === "access_token") continue;
+    if (key === "h" || key === "access_token") {
+      continue;
+    }
     if (Array.isArray(value)) {
       properties[key] = value;
     } else if (typeof value === "string") {

@@ -9,6 +9,7 @@ import {
   insertDoc,
   recordSyndication,
 } from "../src/database";
+import { initJobsTable, listJobs } from "../src/jobs/queue";
 import {
   enqueueEpubGeneration,
   enqueueInboundMention,
@@ -18,7 +19,6 @@ import {
   enqueuePdfGeneration,
   enqueuePosseReplyFetch,
 } from "../src/jobs/schedule";
-import { initJobsTable, listJobs } from "../src/jobs/queue";
 import type { HypernextConfig } from "../src/types/config";
 
 const testConfig: HypernextConfig = {
@@ -74,7 +74,7 @@ describe("job queue (migrated from workmatic)", () => {
     });
     const jobs = await listJobs({ type: "inbound-mentions", limit: 10 });
     expect(jobs.length).toBeGreaterThanOrEqual(1);
-    expect(jobs[0]!.type).toBe("inbound-mentions");
+    expect(jobs[0]?.type).toBe("inbound-mentions");
   });
 
   it("enqueues a POSSE reply fetch job", async () => {
@@ -91,7 +91,7 @@ describe("job queue (migrated from workmatic)", () => {
     await enqueuePosseReplyFetch("blog/queue-test", docId, "mastodon");
     const jobs = await listJobs({ type: "posse-replies", limit: 10 });
     expect(jobs.length).toBeGreaterThanOrEqual(1);
-    expect(jobs[0]!.type).toBe("posse-replies");
+    expect(jobs[0]?.type).toBe("posse-replies");
   });
 
   it("skips POSSE reply fetch when no syndication record exists", async () => {
@@ -117,28 +117,28 @@ describe("job queue (migrated from workmatic)", () => {
     );
     const jobs = await listJobs({ type: "outbound-syndication", limit: 10 });
     expect(jobs.length).toBeGreaterThanOrEqual(1);
-    expect(jobs[0]!.type).toBe("outbound-syndication");
+    expect(jobs[0]?.type).toBe("outbound-syndication");
   });
 
   it("enqueues indexing job", async () => {
     await enqueueIndexing("blog/index-me", "# Index Me");
     const jobs = await listJobs({ type: "indexing", limit: 10 });
     expect(jobs.length).toBeGreaterThanOrEqual(1);
-    expect(jobs[0]!.type).toBe("indexing");
+    expect(jobs[0]?.type).toBe("indexing");
   });
 
   it("enqueues IPFS pinning job", async () => {
     await enqueueIpfsPinning("blog/pin-me");
     const jobs = await listJobs({ type: "ipfs-pinning", limit: 10 });
     expect(jobs.length).toBeGreaterThanOrEqual(1);
-    expect(jobs[0]!.type).toBe("ipfs-pinning");
+    expect(jobs[0]?.type).toBe("ipfs-pinning");
   });
 
   it("enqueues PDF generation job", async () => {
     await enqueuePdfGeneration("blog/pdf-me");
     const jobs = await listJobs({ type: "pdf-generation", limit: 10 });
     expect(jobs.length).toBeGreaterThanOrEqual(1);
-    expect(jobs[0]!.type).toBe("pdf-generation");
+    expect(jobs[0]?.type).toBe("pdf-generation");
   });
 
   it("enqueues EPUB generation job", async () => {
@@ -148,6 +148,6 @@ describe("job queue (migrated from workmatic)", () => {
     ]);
     const jobs = await listJobs({ type: "epub-generation", limit: 10 });
     expect(jobs.length).toBeGreaterThanOrEqual(1);
-    expect(jobs[0]!.type).toBe("epub-generation");
+    expect(jobs[0]?.type).toBe("epub-generation");
   });
 });

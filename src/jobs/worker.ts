@@ -1,7 +1,6 @@
-import { getEm } from "../database/index.js";
 import { claimNext, markComplete, markFailed, markRetry } from "./queue.js";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// biome-ignore lint/suspicious/noExplicitAny: piscina types are dynamically imported
 let pool: any = null;
 
 const POLL_INTERVAL_MS = 500;
@@ -21,7 +20,7 @@ export async function startWorkerPool(
   }
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // biome-ignore lint/suspicious/noExplicitAny: piscina types are dynamically imported
     const Piscina: any = (await import("piscina")).default;
     pool = new Piscina({
       filename: new URL("./processors/index.js", import.meta.url).href,

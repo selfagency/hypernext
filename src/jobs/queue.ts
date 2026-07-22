@@ -6,24 +6,24 @@ import { getEm } from "../database/index.js";
 export type JobStatus = "pending" | "running" | "completed" | "failed";
 
 export interface JobRecord {
-  id: string;
-  type: string;
-  payload: string;
-  status: JobStatus;
   attempts: number;
+  completedAt: string | null;
+  createdAt: string;
+  error: string | null;
+  id: string;
   maxAttempts: number;
+  payload: string;
+  result: string | null;
   scheduledAt: string;
   startedAt: string | null;
-  completedAt: string | null;
-  error: string | null;
-  result: string | null;
-  createdAt: string;
+  status: JobStatus;
+  type: string;
 }
 
 export interface JobOptions {
+  idempotencyKey?: string;
   maxAttempts?: number;
   scheduledAt?: Date;
-  idempotencyKey?: string;
 }
 
 // ── Schema DDL ──
@@ -65,7 +65,7 @@ export async function schedule(
         idempotencyKey,
       ]);
     if (existing.length > 0) {
-      return existing[0]!.id;
+      return existing[0]?.id ?? idempotencyKey;
     }
   }
 
@@ -113,7 +113,7 @@ export async function claimNext(types?: string[]): Promise<JobRecord | null> {
     [now, now]
   );
 
-  return rows.length > 0 ? rows[0]! : null;
+  return rows.length > 0 ? (rows[0] ?? null) : null;
 }
 
 export async function markComplete(
@@ -149,7 +149,7 @@ export async function markRetry(
   );
 }
 
-export async function listJobs(filter?: {
+export function listJobs(filter?: {
   type?: string;
   status?: JobStatus;
   limit?: number;
