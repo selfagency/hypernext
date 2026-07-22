@@ -53,8 +53,7 @@ if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
 } else {
   console.log(`Generating self-signed certificate (${days} days)...`);
   execSync(
-    // NOSONAR — PATH restricted to fixed, unwriteable directories
-    "openssl",
+    "openssl", // NOSONAR — PATH restricted to fixed, unwriteable directories
     [
       "req",
       "-x509",
