@@ -364,7 +364,7 @@ export async function createHttpServer(config: HypernextConfig) {
       const filterSuffix = monthNum
         ? `:${String(monthNum).padStart(2, "0")}`
         : "";
-      const rawMdx = `<Archive filter="year:${yearNum}${filterSuffix}" limit={50} />`;
+      const rawMdx = `<Archive filter="year:${esc(String(yearNum))}${esc(filterSuffix)}" limit={50} />`;
       const slugSuffix = month ? `/${month}` : "";
       const result = await resolveLayoutWithComponents(
         config,

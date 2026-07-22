@@ -337,3 +337,4 @@ certs/
 # Test reports and coverage
 test-report*.xml
 coverage/
+activitypub.pem

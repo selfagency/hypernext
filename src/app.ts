@@ -10,8 +10,7 @@ import { registerNewsletterRoutes } from "./api/newsletter.js";
 import { registerApiRoutes } from "./api/routes.js";
 import { registerStatsRoutes } from "./api/stats.js";
 import { registerIndieAuthRoutes } from "./auth/indieauth.js";
-import { registerInboundRoutes } from "./federation/inbound.js";
-import { registerFederationRoutes } from "./federation/index.js";
+// Federation routes are registered inside createHttpServer
 import { registerMcpSseTransport, startMcpServer } from "./mcp/index.js";
 import { registerMicropubEndpoint } from "./micropub/index.js";
 import { startFingerServer } from "./servers/finger.js";
@@ -88,8 +87,7 @@ export async function startAllServers(config: HypernextConfig): Promise<void> {
     registerNewsletterRoutes(fastify);
     registerStatsRoutes(fastify);
     registerMcpSseTransport(fastify, config);
-    registerFederationRoutes(fastify, config);
-    registerInboundRoutes(fastify, config);
+    // Federation & inbound routes registered inside createHttpServer
     registerMicropubEndpoint(fastify, config);
     registerAiRoutes(fastify, config);
     await fastify.listen({ port: protocols.http.port, host: "0.0.0.0" });

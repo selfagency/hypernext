@@ -24,33 +24,28 @@ interface JobPayload {
   type: string;
 }
 
+const HANDLERS: Record<
+  string,
+  (payload: Record<string, unknown>) => Promise<unknown>
+> = {
+  "inbound-mentions": processInboundMention,
+  indexing: processIndexing,
+  "outbound-syndication": processOutboundSyndication,
+  "posse-replies": processPosseReplies,
+  "ai-embedding": processAiEmbedding,
+  "ai-text": processAiText,
+  "ipfs-pinning": processIpfsPinning,
+  "pdf-generation": processPdfGeneration,
+  "epub-generation": processEpubGeneration,
+  "email-verification": processEmailVerification,
+  "email-send": processEmailSend,
+  "email-digest": processEmailDigest,
+};
+
 export default function processJob(job: JobPayload): Promise<unknown> {
-  switch (job.type) {
-    case "inbound-mentions":
-      return processInboundMention(job.payload);
-    case "indexing":
-      return processIndexing(job.payload);
-    case "outbound-syndication":
-      return processOutboundSyndication(job.payload);
-    case "posse-replies":
-      return processPosseReplies(job.payload);
-    case "ai-embedding":
-      return processAiEmbedding(job.payload);
-    case "ai-text":
-      return processAiText(job.payload);
-    case "ipfs-pinning":
-      return processIpfsPinning(job.payload);
-    case "pdf-generation":
-      return processPdfGeneration(job.payload);
-    case "epub-generation":
-      return processEpubGeneration(job.payload);
-    case "email-verification":
-      return processEmailVerification(job.payload);
-    case "email-send":
-      return processEmailSend(job.payload);
-    case "email-digest":
-      return processEmailDigest(job.payload);
-    default:
-      throw new Error(`Unknown job type: ${job.type}`);
+  const handler = HANDLERS[job.type];
+  if (!handler) {
+    throw new Error(`Unknown job type: ${job.type}`);
   }
+  return handler(job.payload);
 }

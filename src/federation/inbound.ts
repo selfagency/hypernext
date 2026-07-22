@@ -52,6 +52,36 @@ function extractPingbackFromXml(
   return { source: parsed.params[0] ?? "", target: parsed.params[1] ?? "" };
 }
 
+/**
+ * Extract source+target from a pingback request, supporting both
+ * XML-RPC (text/xml) and JSON (application/json) content types.
+ */
+function extractPingbackParams(
+  body: unknown,
+  contentType: string
+): { source: string; target: string } | null {
+  const isXml =
+    contentType.includes("text/xml") || contentType.includes("application/xml");
+  if (isXml && typeof body === "string") {
+    return extractPingbackFromXml(body);
+  }
+  // JSON fallback (used in tests and some clients)
+  const jsonBody = body as Record<string, unknown> | null;
+  if (jsonBody?.methodName === "pingback.ping") {
+    const params = jsonBody.params as
+      | Array<{ value?: { string?: string } }>
+      | undefined;
+    if (params && params.length >= 2) {
+      const source = params[0]?.value?.string;
+      const target = params[1]?.value?.string;
+      if (source && target) {
+        return { source, target };
+      }
+    }
+  }
+  return null;
+}
+
 function extractTargetSlug(
   target: string,
   config: HypernextConfig
@@ -356,37 +386,6 @@ export function registerInboundRoutes(
 
     reply.code(202).send({ status: "accepted" });
   });
-
-  /**
-   * Extract source+target from a pingback request, supporting both
-   * XML-RPC (text/xml) and JSON (application/json) content types.
-   */
-  function extractPingbackParams(
-    body: unknown,
-    contentType: string
-  ): { source: string; target: string } | null {
-    const isXml =
-      contentType.includes("text/xml") ||
-      contentType.includes("application/xml");
-    if (isXml && typeof body === "string") {
-      return extractPingbackFromXml(body);
-    }
-    // JSON fallback (used in tests and some clients)
-    const jsonBody = body as Record<string, unknown> | null;
-    if (jsonBody?.methodName === "pingback.ping") {
-      const params = jsonBody.params as
-        | Array<{ value?: { string?: string } }>
-        | undefined;
-      if (params && params.length >= 2) {
-        const source = params[0]?.value?.string;
-        const target = params[1]?.value?.string;
-        if (source && target) {
-          return { source, target };
-        }
-      }
-    }
-    return null;
-  }
 
   // POST /pingback (XML-RPC)
   fastify.post("/pingback", (request, reply) => {

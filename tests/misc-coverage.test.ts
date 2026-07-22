@@ -1014,30 +1014,19 @@ describe("moderation API — additional coverage", () => {
     await fastify.close();
   });
 
-  it("POST /api/v1/comments/:id/unhide — 404 for missing comment", async () => {
+  it.each([
+    ["POST", "/api/v1/comments/nonexistent/unhide"],
+    ["DELETE", "/api/v1/comments/nonexistent"],
+    ["DELETE", "/api/v1/mentions/missing-id"],
+  ])("%s %s — 404 for missing resource", async (method, url) => {
     const { fastify, token } = await createAuthedFastify();
     registerApiAuthGuard(fastify, {
       api: { enabled: true, requireAuthForPublicRead: false },
     } as any);
     registerModerationRoutes(fastify, testConfig);
     const res = await fastify.inject({
-      method: "POST",
-      url: "/api/v1/comments/nonexistent/unhide",
-      headers: { authorization: `Bearer ${token}` },
-    });
-    expect(res.statusCode).toBe(404);
-    await fastify.close();
-  });
-
-  it("DELETE /api/v1/comments/:id — 404 for missing comment", async () => {
-    const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify, {
-      api: { enabled: true, requireAuthForPublicRead: false },
-    } as any);
-    registerModerationRoutes(fastify, testConfig);
-    const res = await fastify.inject({
-      method: "DELETE",
-      url: "/api/v1/comments/nonexistent",
+      method: method as "POST" | "DELETE",
+      url,
       headers: { authorization: `Bearer ${token}` },
     });
     expect(res.statusCode).toBe(404);
@@ -1222,21 +1211,6 @@ describe("moderation API — additional coverage", () => {
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body);
     expect(body.data.spamStatus).toBe("spam");
-    await fastify.close();
-  });
-
-  it("DELETE /api/v1/mentions/:id — 404 for missing mention", async () => {
-    const { fastify, token } = await createAuthedFastify();
-    registerApiAuthGuard(fastify, {
-      api: { enabled: true, requireAuthForPublicRead: false },
-    } as any);
-    registerModerationRoutes(fastify, testConfig);
-    const res = await fastify.inject({
-      method: "DELETE",
-      url: "/api/v1/mentions/missing-id",
-      headers: { authorization: `Bearer ${token}` },
-    });
-    expect(res.statusCode).toBe(404);
     await fastify.close();
   });
 });

@@ -80,6 +80,45 @@ export interface BuildHeadOptions {
   cids?: { contentCid?: string; htmlCid?: string };
 }
 
+function buildOgMetaTags(
+  config: HypernextConfig,
+  frontmatter: Record<string, unknown>,
+  title: string,
+  description: string,
+  pageUrl: string,
+  slug: string | undefined
+): string[] {
+  const ogTitle =
+    resolveMeta(frontmatter, config, "ogTitle", "ogTitle") ?? title;
+  const ogDescription =
+    resolveMeta(frontmatter, config, "ogDescription", "ogDescription") ??
+    description;
+  const ogImage =
+    resolveMeta(frontmatter, config, "ogImage", "ogImage") ??
+    (frontmatter.featuredImage as string | undefined);
+  const ogImageAlt =
+    resolveMeta(frontmatter, config, "ogImageAlt", "ogImageAlt") ??
+    (frontmatter.featuredImageAlt as string | undefined);
+  const ogType = slug ? "article" : "website";
+
+  const tags = [
+    `<meta property="og:title" content="${escapeAttr(ogTitle)}" />`,
+    `<meta property="og:description" content="${escapeAttr(ogDescription)}" />`,
+    `<meta property="og:url" content="${escapeAttr(pageUrl)}" />`,
+    `<meta property="og:type" content="${ogType}" />`,
+    `<meta property="og:site_name" content="${escapeAttr(config.site.meta.title)}" />`,
+  ];
+  if (ogImage) {
+    tags.push(`<meta property="og:image" content="${escapeAttr(ogImage)}" />`);
+    if (ogImageAlt) {
+      tags.push(
+        `<meta property="og:image:alt" content="${escapeAttr(ogImageAlt)}" />`
+      );
+    }
+  }
+  return tags;
+}
+
 /** Build the complete <head> section with OG meta, JSON-LD, stylesheets */
 export function buildHead(
   config: HypernextConfig,
@@ -94,44 +133,19 @@ export function buildHead(
     (frontmatter.canonicalUrl as string) ?? config.site.canonicalBase;
   const cssPath = config.site.theme?.cssPath ?? "";
 
-  // OG meta resolution
-  const ogTitle =
-    resolveMeta(frontmatter, config, "ogTitle", "ogTitle") ?? title;
-  const ogDescription =
-    resolveMeta(frontmatter, config, "ogDescription", "ogDescription") ??
-    description;
-  const ogImage =
-    resolveMeta(frontmatter, config, "ogImage", "ogImage") ??
-    (frontmatter.featuredImage as string | undefined);
-  const ogImageAlt =
-    resolveMeta(frontmatter, config, "ogImageAlt", "ogImageAlt") ??
-    (frontmatter.featuredImageAlt as string | undefined);
-  const ogType = slug ? "article" : "website";
-
-  const ogTags = [
-    `<meta property="og:title" content="${escapeAttr(ogTitle)}" />`,
-    `<meta property="og:description" content="${escapeAttr(ogDescription)}" />`,
-    `<meta property="og:url" content="${escapeAttr(pageUrl)}" />`,
-    `<meta property="og:type" content="${ogType}" />`,
-    `<meta property="og:site_name" content="${escapeAttr(config.site.meta.title)}" />`,
-  ];
-  if (ogImage) {
-    ogTags.push(
-      `<meta property="og:image" content="${escapeAttr(ogImage)}" />`
-    );
-    if (ogImageAlt) {
-      ogTags.push(
-        `<meta property="og:image:alt" content="${escapeAttr(ogImageAlt)}" />`
-      );
-    }
-  }
-
+  const ogTags = buildOgMetaTags(
+    config,
+    frontmatter,
+    title,
+    description,
+    pageUrl,
+    slug
+  );
   const ipfsMetaTags = buildIpfsMetaTags(
     options?.cids?.contentCid,
     options?.cids?.htmlCid
   );
   const viewTransitionCss = buildViewTransitionCss(config);
-
   const jsonLd = buildJsonLd(config, frontmatter, slug);
 
   let cssHref = "";

@@ -29,23 +29,20 @@ const {
 
 const PROJECT_ROOT = path.resolve(".");
 
-const configPath = path.resolve(configPathArg ?? "./config.yml"); // NOSONAR — validated below
-const certDir = path.resolve(certDirArg ?? "./certs"); // NOSONAR — validated below
+const configPath = path.resolve(configPathArg ?? "./config.yml");
+const certDir = path.resolve(certDirArg ?? "./certs");
 const days = Number(daysArg ?? 365);
 
 // Validate paths are within project directory (prevents path traversal)
 if (
-  !(
-    path.resolve(configPath).startsWith(PROJECT_ROOT) &&
-    path.resolve(certDir).startsWith(PROJECT_ROOT)
-  )
+  !(configPath.startsWith(PROJECT_ROOT) && certDir.startsWith(PROJECT_ROOT))
 ) {
   console.error("Error: paths must be within the project directory");
   process.exit(1);
 }
 
 // ── 1. Create cert directory ──
-fs.mkdirSync(certDir, { recursive: true });
+fs.mkdirSync(certDir, { recursive: true }); // NOSONAR — validated above
 
 const certPath = path.join(certDir, "cert.pem");
 const keyPath = path.join(certDir, "key.pem");
@@ -56,6 +53,7 @@ if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
 } else {
   console.log(`Generating self-signed certificate (${days} days)...`);
   execSync(
+    // NOSONAR — PATH restricted to fixed, unwriteable directories
     "openssl",
     [
       "req",
@@ -72,7 +70,7 @@ if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
       "-subj",
       "/CN=localhost",
     ],
-    { stdio: "inherit", env: { ...process.env, PATH: "/usr/bin:/bin" } } // NOSONAR — fixed, unwriteable directories only
+    { stdio: "inherit", env: { ...process.env, PATH: "/usr/bin:/bin" } }
   );
   console.log(`✓ Created ${certPath}`);
   console.log(`✓ Created ${keyPath}`);
