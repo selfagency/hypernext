@@ -27,6 +27,9 @@ type MdastNode =
   | MdxFlowExpression
   | MdxTextExpression;
 
+const NUMERIC_REGEX = /^-?\d+(\.\d+)?$/;
+const STRING_LITERAL_REGEX = /^"([^"]*)"$/;
+
 function isMdxJsxNode(
   node: MdastNode
 ): node is MdxJsxFlowElement | MdxJsxTextElement {
@@ -132,6 +135,46 @@ const NODE_CONVERTERS: Record<string, NodeFactory> = {
   },
 };
 
+function parseJsxAttributes(
+  node: MdxJsxFlowElement | MdxJsxTextElement
+): Record<string, unknown> {
+  const props: Record<string, unknown> = {};
+  if (!node.attributes) {
+    return props;
+  }
+  for (const attr of node.attributes) {
+    if (attr.type === "mdxJsxAttribute") {
+      const val = attr.value;
+      if (val === null || val === undefined) {
+        props[attr.name] = true;
+      } else if (typeof val === "object" && val !== null && "value" in val) {
+        const exprVal = (val as { value?: string }).value;
+        props[attr.name] = tryParseJsxExpression(String(exprVal ?? ""));
+      } else {
+        props[attr.name] = val;
+      }
+    }
+  }
+  return props;
+}
+
+function tryParseJsxExpression(expr: string): unknown {
+  if (NUMERIC_REGEX.test(expr)) {
+    return Number(expr);
+  }
+  if (expr === "true") {
+    return true;
+  }
+  if (expr === "false") {
+    return false;
+  }
+  const strMatch = expr.match(STRING_LITERAL_REGEX);
+  if (strMatch) {
+    return strMatch[1] ?? expr;
+  }
+  return expr;
+}
+
 function convertMdxJsxNode(
   node: MdxJsxFlowElement | MdxJsxTextElement
 ): IrNode {
@@ -144,44 +187,7 @@ function convertMdxJsxNode(
     throw new Error(`Security Error: Unknown component <${name}>`);
   }
 
-  const props: Record<string, unknown> = {};
-  if (node.attributes) {
-    for (const attr of node.attributes) {
-      if (attr.type === "mdxJsxAttribute") {
-        const val = attr.value;
-        if (val === null || val === undefined) {
-          props[attr.name] = true; // boolean attribute
-        } else if (typeof val === "object" && val !== null && "value" in val) {
-          // JSX expression: {50}, {true}, {"hello"}, {["a","b"]}
-          const exprVal = (val as { value?: string }).value;
-          props[attr.name] = tryParseJsxExpression(String(exprVal ?? ""));
-        } else {
-          props[attr.name] = val;
-        }
-      }
-    }
-  }
-
-  function tryParseJsxExpression(expr: string): unknown {
-    // Handle numeric literals
-    if (/^-?\d+(\.\d+)?$/.test(expr)) {
-      return Number(expr);
-    }
-    // Handle boolean literals
-    if (expr === "true") {
-      return true;
-    }
-    if (expr === "false") {
-      return false;
-    }
-    // Handle string literals
-    const strMatch = expr.match(/^"([^"]*)"$/);
-    if (strMatch) {
-      return strMatch[1]!;
-    }
-    // Default: return as string
-    return expr;
-  }
+  const props = parseJsxAttributes(node);
 
   return {
     type: "component",
@@ -276,30 +282,31 @@ export async function resolveComponentNodes(
     }
 
     if (node.type === "component" && node.componentName) {
-      const resolved = await resolveComponent(
-        node.componentName,
-        node.componentProps ?? {},
-        ctx
-      );
-      if (resolved.length === 1 && resolved[0]) {
-        copyIrNode(node, resolved[0]);
-        // Recursively resolve any nested component nodes in the result
-        if (node.children) {
-          for (const child of node.children) {
-            await walk(child);
-          }
-        }
-      } else {
-        node.type = "root";
-        node.children = resolved;
-        node.componentName = undefined;
-        node.componentProps = undefined;
-        // Recursively resolve nested components in multi-node results
-        if (node.children) {
-          for (const child of node.children) {
-            await walk(child);
-          }
-        }
+      await resolveAndWalk(node, node.componentName, ctx);
+    }
+  }
+
+  async function resolveAndWalk(
+    node: IrNode,
+    componentName: string,
+    ctx: ComponentContext
+  ): Promise<void> {
+    const resolved = await resolveComponent(
+      componentName,
+      node.componentProps ?? {},
+      ctx
+    );
+    if (resolved.length === 1 && resolved[0]) {
+      copyIrNode(node, resolved[0]);
+    } else {
+      node.type = "root";
+      node.children = resolved;
+      node.componentName = undefined;
+      node.componentProps = undefined;
+    }
+    if (node.children) {
+      for (const child of node.children) {
+        await walk(child);
       }
     }
   }

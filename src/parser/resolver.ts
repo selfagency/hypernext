@@ -160,8 +160,7 @@ export const COMPONENT_RESOLVERS: Record<string, ComponentResolver> = {
     // First crumb always links to root
     crumbs.push(listItemNode([linkNode("/", [textNode("Home")])]));
     let accumulated = "";
-    for (let i = 0; i < parts.length; i++) {
-      const part = parts[i] ?? "";
+    for (const part of parts) {
       accumulated += `/${part}`;
       const label = part;
       crumbs.push(listItemNode([linkNode(accumulated, [textNode(label)])]));

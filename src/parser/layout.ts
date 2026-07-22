@@ -128,6 +128,16 @@ function wrapDocContent(content: IrNode[], slug?: string): IrNode[] {
   ];
 }
 
+function getSlotMerged(
+  slotResult: { replaced: boolean; nodes: IrNode[] },
+  fallback: IrNode
+): IrNode {
+  if (slotResult.nodes.length === 1) {
+    return slotResult.nodes[0] ?? fallback;
+  }
+  return { type: "root" as const, children: slotResult.nodes };
+}
+
 /** Map of lowercase JSX element names to their corresponding IR node types. */
 const HTML_TAG_TO_IR_TYPE: Partial<Record<string, IrNodeType>> = {
   header: "header",
@@ -160,7 +170,7 @@ function convertHtmlComponents(ir: IrNode): IrNode {
   if (ir.type === "component") {
     const name = ir.componentName;
     if (name && HTML_TAG_TO_IR_TYPE[name]) {
-      const targetType = HTML_TAG_TO_IR_TYPE[name]!;
+      const targetType = HTML_TAG_TO_IR_TYPE[name] as IrNodeType;
       const converted: IrNode = {
         type: targetType as IrNodeType,
         className: ir.componentProps?.className as string | undefined,
@@ -225,9 +235,7 @@ export function resolveLayout(
   // Convert layout HTML elements (header, nav, main, etc.) from component
   // IR nodes to their proper types for cross-protocol renderer compatibility
   const slotMerged = slotResult.replaced
-    ? slotResult.nodes.length === 1
-      ? slotResult.nodes[0]!
-      : { type: "root" as const, children: slotResult.nodes }
+    ? getSlotMerged(slotResult, layoutParse.ir)
     : layoutParse.ir;
   const mergedIr = convertHtmlComponents(slotMerged);
 
