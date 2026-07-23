@@ -190,7 +190,10 @@ export function watchStorage(config: HypernextConfig): () => void {
       const slug = filename
         .replace(MD_EXT_REGEX, "")
         .replace(BACKSLASH_REGEX, "/");
-      const fullPath = path.join(storagePath, filename);
+      const fullPath = path.resolve(storagePath, filename);
+      if (!fullPath.startsWith(path.resolve(storagePath))) {
+        return;
+      }
 
       if (eventType === "rename" && !fs.existsSync(fullPath)) {
         invalidateAll(slug);
