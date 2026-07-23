@@ -9,14 +9,12 @@ import {
   insertDoc,
   recordSyndication,
 } from "../src/database";
-import { initJobsTable, listJobs } from "../src/jobs/queue";
+import { initJobsTable, listJobs, schedule } from "../src/jobs/queue";
 import {
-  enqueueEpubGeneration,
   enqueueInboundMention,
   enqueueIndexing,
   enqueueIpfsPinning,
   enqueueOutboundSyndication,
-  enqueuePdfGeneration,
   enqueuePosseReplyFetch,
 } from "../src/jobs/schedule";
 import type { HypernextConfig } from "../src/types/config";
@@ -135,17 +133,17 @@ describe("job queue (migrated from workmatic)", () => {
   });
 
   it("enqueues PDF generation job", async () => {
-    await enqueuePdfGeneration("blog/pdf-me");
+    await schedule("pdf-generation", { slug: "blog/pdf-me" });
     const jobs = await listJobs({ type: "pdf-generation", limit: 10 });
     expect(jobs.length).toBeGreaterThanOrEqual(1);
     expect(jobs[0]?.type).toBe("pdf-generation");
   });
 
   it("enqueues EPUB generation job", async () => {
-    await enqueueEpubGeneration("blog-collection", [
-      "blog/epub-1",
-      "blog/epub-2",
-    ]);
+    await schedule("epub-generation", {
+      collectionName: "blog-collection",
+      slugs: ["blog/epub-1", "blog/epub-2"],
+    });
     const jobs = await listJobs({ type: "epub-generation", limit: 10 });
     expect(jobs.length).toBeGreaterThanOrEqual(1);
     expect(jobs[0]?.type).toBe("epub-generation");

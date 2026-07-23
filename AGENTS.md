@@ -6,7 +6,7 @@ This document provides essential guidelines, architectural rules, and workflows 
 
 Hypernext is a TypeScript-based, multi-protocol Markdown document server and IndieWeb publishing engine. It transforms Markdown files (`.md` and `.mdx`) into a unified interface accessible via HTTP, REST API, Gemini, Gopher, Spartan, NEX, Text Protocol, Finger, RSS, PDF, and EPUB. It is designed to run on a $5 VPS as a single [Node.js](https://Node.js) process with zero external daemons (using SQLite and in-memory caching).
 
-**Current Status (as of July 2026):** Post-audit remediation phase. Foundation is solid (50 test files, 271+ tests, 3600+ test assertions, ~80% coverage). Critical integration gaps have been identified and are being systematically resolved. Single malformed MDX file can crash the indexer. Background job infrastructure (PDF generation, AI embeddings, IPFS pinning) exists but is wired into the system — needs validation that it actually runs. All core features demand verification in live dev/preview environment before sign-off.
+**Current Status (as of July 2026):** Post-audit remediation phase. Foundation is solid (76 test files, 300+ tests, ~80% coverage). Significant dead-wiring issues identified across the background job system, AI feature pipeline, and renderer error handling. See §9 Known Issues for the full catalog. All core features demand verification in live dev/preview environment before sign-off.
 
 ## 2. CRITICAL AGENT CONSTRAINTS (DO NOT VIOLATE)
 
@@ -318,19 +318,45 @@ git commit -m "feat: descriptive message"
 
 ## 9. Known Issues & Remediation Status
 
-### P0 (Critical)
-- **Indexing crash on malformed MDX:** Single bad file can crash entire site
-  - Status: Root cause identified (no try-catch in parser pipeline)
-  - Fix: Wrap indexing in transaction + graceful error handling
-  - Tests: Add coverage for malformed MDX scenarios
+### P0 (Critical) — Silent Failures, No Error Signal
 
-### P1 (High)
-- **Background jobs not wired:** PDF, AI embeddings, IPFS jobs exist but are never called
-  - Status: Infrastructure exists, integration missing
-  - Fix: Verify jobs execute from indexer or API
-  - Tests: E2E tests for each job
+#### P0.1 — `config` dropped on every `indexDocument` call
+`scheduleAiFeatures()` (auto-tagging, SEO meta generation) is gated on a `config` parameter passed to `indexDocument()`. Every call site omits this parameter — AI features have never fired in production.
 
-### P2 (Medium)
+- Status: Identified (4 call sites, tracked in `plans/dead-wiring-remediation.md`)
+- Fix: Pass `config` at all call sites
+- Tests: Verify AI features execute on document index
+
+#### P0.2 — Async indexing chain is orphaned
+`enqueueIndexing` has zero callers outside `src/jobs/schedule.ts`. The entire chain (`processIndexing` → `ai-embedding` + `ipfs-pinning`) never executes. `sqlite-vec` embeddings table initialized but permanently empty.
+
+- Status: Identified
+- Fix: Wire `enqueueIndexing` into `reindexAll`/`watchStorage` OR inline AI/IPFS into `indexDocument`
+- Tests: E2E test verifying embedding is stored after indexing
+
+#### P0.3 — `parseToIR` unguarded in RSS and HTTP renderers
+`parseToIR` throws on malformed MDX. The indexer wraps it in try-catch. The RSS renderer and HTTP server do not. One bad stored doc breaks the RSS feed for all subscribers.
+
+- Status: Identified (2 call sites in `src/renderers/rss.ts` and `src/servers/http.ts`)
+- Fix: Add try-catch around `parseToIR` in both locations
+- Tests: Seed a malformed document and verify feed survives
+
+### P1 (High) — Orphaned Infrastructure
+
+#### P1.1 — PDF/EPUB job processors are dead code
+`pdf-generation.ts` and `epub-generation.ts` are real implementations but nothing enqueues them. The sync API routes (`GET *.pdf`, `GET *.epub`) handle these inline and work correctly.
+
+- Status: Identified — processor files are unreachable duplicates
+- Fix: Delete processors or add enqueue calls at meaningful points
+- Tests: Verify sync routes still work after deletion
+
+#### P1.2 — `enqueuePdfGeneration`, `enqueueEpubGeneration`, `enqueueIpfsPinning` have zero callers
+Same root cause as P0.2 — these schedule functions exist but nothing calls them.
+
+- Status: Identified
+- Fix: Wire into index pipeline or remove
+
+### P2 (Medium) — Previously Fixed
 - **Auth guards blocking public APIs:** Global IndieAuth middleware was blocking newsletter/contact form
   - Status: Fixed (exempted public endpoints)
   - Tests: Verify public routes don't require auth

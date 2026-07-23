@@ -84,8 +84,16 @@ export async function renderRSS(
       (doc.publishedAt as string | undefined) ??
       "";
     const guid = buildGuid(config, slug, date);
-    const result = parseToIR(rawMdx, slug);
-    const bodyContent = renderHTMLBody(result.ir);
+    let bodyContent: string;
+    try {
+      const result = parseToIR(rawMdx, slug);
+      bodyContent = renderHTMLBody(result.ir);
+    } catch (err) {
+      console.error(
+        `RSS: skipping malformed document ${slug}: ${err instanceof Error ? err.message : String(err)}`
+      );
+      continue;
+    }
     const enclosures = parseEnclosures(
       attributes.enclosure ?? attributes.enclosures
     );

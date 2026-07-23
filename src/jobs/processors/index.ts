@@ -10,12 +10,10 @@ import { processAiText } from "./ai-text.js";
 import { processEmailDigest } from "./email-digest.js";
 import { processEmailSend } from "./email-send.js";
 import { processEmailVerification } from "./email-verification.js";
-import { processEpubGeneration } from "./epub-generation.js";
 import { processInboundMention } from "./inbound-mentions.js";
 import { processIndexing } from "./indexing.js";
 import { processIpfsPinning } from "./ipfs-pinning.js";
 import { processOutboundSyndication } from "./outbound-syndication.js";
-import { processPdfGeneration } from "./pdf-generation.js";
 import { processPosseReplies } from "./posse-replies.js";
 
 interface JobPayload {
@@ -35,8 +33,6 @@ const HANDLERS: Record<
   "ai-embedding": processAiEmbedding,
   "ai-text": processAiText,
   "ipfs-pinning": processIpfsPinning,
-  "pdf-generation": processPdfGeneration,
-  "epub-generation": processEpubGeneration,
   "email-verification": processEmailVerification,
   "email-send": processEmailSend,
   "email-digest": processEmailDigest,

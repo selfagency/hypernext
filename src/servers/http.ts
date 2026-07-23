@@ -33,6 +33,7 @@ import {
   isFutureDated,
   isFutureDatedFrontmatter,
 } from "../parser/frontmatter.js";
+import type { ParseResult } from "../parser/ir.js";
 import { resolveLayoutWithComponents } from "../parser/layout.js";
 import { parseToIR } from "../parser/pipeline.js";
 import { registerWellKnownEndpoints } from "../renderers/agent-readiness.js";
@@ -519,7 +520,16 @@ export async function createHttpServer(config: HypernextConfig) {
         return;
       }
       const rawMdx = (doc.rawMdx as string) ?? "";
-      const result = getCachedParse(slug) ?? parseToIR(rawMdx, slug);
+      let result: ParseResult;
+      try {
+        result = getCachedParse(slug) ?? parseToIR(rawMdx, slug);
+      } catch (err) {
+        console.error(
+          `Markdown content negotiation: parse failure for ${slug}: ${err instanceof Error ? err.message : String(err)}`
+        );
+        reply.code(500).type("text/plain").send("Internal server error");
+        return;
+      }
       const markdown = (
         await import("../renderers/markdown.js")
       ).renderMarkdown(result.ir);
