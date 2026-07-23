@@ -11,13 +11,11 @@ export default defineConfig({
       include: ["src/**/*.ts"],
       exclude: [
         "src/bin.ts",
-        "src/commands/**",
         "src/database/entities/**",
         "src/database/mikro-orm.config.ts",
         "src/database/schema.sql",
         "src/federation/ai-tasks.ts",
         "src/federation/email-tasks.ts",
-        "src/jobs/processors/**",
         "src/jobs/worker.ts",
         "src/lib/**",
         "src/parser/ir.ts",
@@ -26,10 +24,10 @@ export default defineConfig({
       ],
       thresholds: {
         // TODO: Raise thresholds to 80% once Nostr/Waline/federated-comments features mature
-        statements: 72,
-        branches: 57,
-        functions: 75,
-        lines: 72,
+        statements: 70,
+        branches: 55,
+        functions: 74,
+        lines: 70,
       },
     },
     testTimeout: 10_000,
