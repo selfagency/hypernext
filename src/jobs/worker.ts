@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { claimNext, markComplete, markFailed, markRetry } from "./queue.js";
 
 // biome-ignore lint/suspicious/noExplicitAny: piscina types are dynamically imported
@@ -20,12 +22,40 @@ export async function startWorkerPool(
   }
 
   try {
+    // In tsx dev mode, skip Piscina entirely. tsx's resolver hooks redirect
+    // Worker thread module resolution to outDir paths that don't exist.
+    const isTsx = process.execArgv.some((a) => a.includes("tsx"));
+    if (isTsx) {
+      console.warn(
+        "Worker pool: disabled in tsx dev mode (background jobs run inline)"
+      );
+      return;
+    }
+
     // biome-ignore lint/suspicious/noExplicitAny: piscina types are dynamically imported
     const Piscina: any = (await import("piscina")).default;
+
+    // Construct the processor entry path relative to the project root.
+    // tsx rewrites import.meta.url to the outDir, breaking relative URL
+    // resolution. Using process.cwd() gives us a consistent anchor.
+    const PROJECT_ROOT = process.cwd();
+    const srcEntry = resolve(PROJECT_ROOT, "src/jobs/processors/index.ts");
+    const distEntry = resolve(PROJECT_ROOT, "dist/jobs/processors/index.js");
+    const processorEntry = existsSync(srcEntry) ? srcEntry : distEntry;
+    console.error("[worker] using processor:", processorEntry);
+
     pool = new Piscina({
-      filename: new URL("./processors/index.js", import.meta.url).href,
+      filename: processorEntry,
+      execArgv: process.execArgv, // pass tsx hooks to worker threads in dev
       maxThreads: 1,
       idleTimeout: 30_000,
+    });
+
+    // Worker thread errors (e.g. module resolution failures inside the pool)
+    // are emitted as 'error' events. Catch them to avoid unhandled rejections
+    // crashing the process.
+    pool.on("error", (err: Error) => {
+      console.warn(`Worker thread error: ${err.message}`);
     });
     pollLoop();
   } catch (err) {
