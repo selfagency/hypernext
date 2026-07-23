@@ -47,7 +47,6 @@ import { renderSitemap } from "../renderers/sitemap.js";
 import type { HypernextConfig } from "../types/config.js";
 
 const NOT_FOUND_HTML = "<h1>404 Not Found</h1>";
-const INDEX_MD_REGEX = /\/index\.md$/;
 const ALPHANUMERIC_REGEX = /[^\w-]/g;
 
 /** Escape a string for safe use in MDX attribute values */
@@ -109,7 +108,10 @@ async function handlePageRoute(
 }
 
 export async function createHttpServer(config: HypernextConfig) {
-  const fastify = Fastify({ logger: false });
+  const fastify = Fastify({
+    logger: false,
+    routerOptions: { ignoreTrailingSlash: true },
+  });
 
   // Register Fastify ecosystem plugins
   fastify.register(formbody);
@@ -390,6 +392,12 @@ export async function createHttpServer(config: HypernextConfig) {
     if (!taxConfig) {
       // Not a taxonomy — treat as a doc slug
       const fullSlug = `${collection}/${taxonomy}/${term}`;
+
+      // Support /*/index.md for raw markdown access
+      if (await tryServeIndexMd(reply, config, collection, taxonomy, term)) {
+        return;
+      }
+
       const doc = await getDocBySlug(fullSlug);
       if (!doc) {
         reply.code(404).type("text/html").send(NOT_FOUND_HTML);
@@ -506,27 +514,6 @@ export async function createHttpServer(config: HypernextConfig) {
     });
   }
 
-  // Markdown index.md fallback
-  if (config.agent?.enabled && config.agent.markdownNegotiation) {
-    fastify.get("/*/index.md", async (request, reply) => {
-      const slug = (request.params as { "*": string })["*"].replace(
-        INDEX_MD_REGEX,
-        ""
-      );
-      const doc = await getDocBySlug(slug);
-      if (!doc) {
-        reply.code(404).type("text/plain").send("Not found");
-        return;
-      }
-      const rawMdx = (doc.rawMdx as string) ?? "";
-      const result = getCachedParse(slug) ?? parseToIR(rawMdx, slug);
-      const markdown = (
-        await import("../renderers/markdown.js")
-      ).renderMarkdown(result.ir);
-      reply.type("text/markdown; charset=utf-8").send(markdown);
-    });
-  }
-
   // Well-known endpoints
   registerWellKnownEndpoints(fastify, config);
 
@@ -556,6 +543,40 @@ export async function createHttpServer(config: HypernextConfig) {
   });
 
   return fastify;
+}
+
+/**
+ * Try to serve a document as raw markdown when the URL ends with /index.md.
+ * Called from the taxonomy route handler when the taxonomy is not recognized.
+ * Returns true if the markdown was served, false to continue normal handling.
+ */
+async function tryServeIndexMd(
+  reply: FastifyReply,
+  config: HypernextConfig,
+  collection: string,
+  taxonomy: string,
+  term: string
+): Promise<boolean> {
+  if (
+    term !== "index.md" ||
+    !config.agent?.enabled ||
+    !config.agent.markdownNegotiation
+  ) {
+    return false;
+  }
+  const parentSlug = `${collection}/${taxonomy}`;
+  const parentDoc = await getDocBySlug(parentSlug);
+  if (!parentDoc) {
+    return false;
+  }
+  const parentRawMdx = (parentDoc.rawMdx as string) ?? "";
+  const parseResult =
+    getCachedParse(parentSlug) ?? parseToIR(parentRawMdx, parentSlug);
+  const { renderMarkdown } = await import("../renderers/markdown.js");
+  reply
+    .type("text/markdown; charset=utf-8")
+    .send(renderMarkdown(parseResult.ir));
+  return true;
 }
 
 async function setupOpenTelemetry(config: HypernextConfig): Promise<void> {

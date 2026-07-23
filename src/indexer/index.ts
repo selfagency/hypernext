@@ -66,6 +66,7 @@ export async function indexDocument(
   // Schedule AI features (auto-tagging, SEO meta) after indexing
   if (config) {
     await scheduleAiFeatures(slug, rawMdx, frontmatter, config);
+    await scheduleIndexJobs(slug, rawMdx, config);
   }
 }
 
@@ -113,7 +114,31 @@ async function scheduleAiFeatures(
   }
 }
 
-export async function reindexAll(_config: HypernextConfig): Promise<void> {
+/**
+ * Schedule AI embedding generation and IPFS pinning after a document is indexed.
+ * These run as background jobs through the Piscina worker pool.
+ */
+async function scheduleIndexJobs(
+  slug: string,
+  rawMdx: string,
+  config: HypernextConfig
+): Promise<void> {
+  try {
+    const { schedule } = await import("../jobs/queue.js");
+
+    if (config.agent?.enabled && config.ai?.enabled) {
+      await schedule("ai-embedding", { slug, rawMdx });
+    }
+
+    if (config.ipfs?.enabled) {
+      await schedule("ipfs-pinning", { slug });
+    }
+  } catch {
+    // Queue may not be initialized (non-fatal)
+  }
+}
+
+export async function reindexAll(config: HypernextConfig): Promise<void> {
   const storage = getStorage();
   const em = getEm();
 
@@ -126,7 +151,7 @@ export async function reindexAll(_config: HypernextConfig): Promise<void> {
   for (const slug of slugs) {
     try {
       const content = await storage.read(slug);
-      await indexDocument(slug, content);
+      await indexDocument(slug, content, config);
     } catch (err) {
       failedCount++;
       logger.error(`Failed to index document: ${slug}`, {
@@ -165,7 +190,10 @@ export function watchStorage(config: HypernextConfig): () => void {
       const slug = filename
         .replace(MD_EXT_REGEX, "")
         .replace(BACKSLASH_REGEX, "/");
-      const fullPath = path.join(storagePath, filename);
+      const fullPath = path.resolve(storagePath, filename);
+      if (!fullPath.startsWith(path.resolve(storagePath))) {
+        return;
+      }
 
       if (eventType === "rename" && !fs.existsSync(fullPath)) {
         invalidateAll(slug);
@@ -180,7 +208,7 @@ export function watchStorage(config: HypernextConfig): () => void {
         return;
       }
       try {
-        await indexDocument(slug, content);
+        await indexDocument(slug, content, config);
       } catch (err) {
         logger.error("Failed to index document in watcher", {
           slug,

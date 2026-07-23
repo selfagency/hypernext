@@ -80,8 +80,7 @@ export function registerMicropubEndpoint(
 
     // Re-index the new post
     const content = await getStorage().read(slug);
-    await indexDocument(slug, content);
-
+    await indexDocument(slug, content, config);
     reply
       .code(201)
       .header("Location", `${config.site.canonicalBase}/${slug}`)

@@ -105,4 +105,17 @@ describe("RSS renderer", () => {
     expect(result).toContain('url="https://example.com/audio.mp3"');
     expect(result).toContain('type="audio/mpeg"');
   });
+
+  it("skips malformed documents without breaking the feed", async () => {
+    await insertDoc({
+      slug: "blog/bad",
+      title: "Bad Doc",
+      type: "post",
+      rawMdx: "---\ntitle: Bad Doc\ntype: post\n---\n\n<UnknownComponent />",
+    });
+
+    const result = await renderRSS(TEST_CONFIG);
+    expect(result).toContain("<item>");
+    expect(result).not.toContain("Bad Doc");
+  });
 });

@@ -14,7 +14,7 @@ export function registerWellKnownEndpoints(
   const base = config.site.canonicalBase.replace(TRAILING_SLASH_REGEX, "");
 
   // RFC 9727: API Catalog
-  if (config.agent.wellKnown.apiCatalog) {
+  if (config.agent.wellKnown?.apiCatalog) {
     fastify.get("/.well-known/api-catalog", (_request, reply) => {
       reply.send({
         apiCatalog: [
@@ -32,7 +32,7 @@ export function registerWellKnownEndpoints(
   }
 
   // Agent Skills Discovery (v0.2.0)
-  if (config.agent.wellKnown.agentSkills) {
+  if (config.agent.wellKnown?.agentSkills) {
     fastify.get("/.well-known/agent-skills/index.json", (_request, reply) => {
       reply.send({
         $schema: "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
@@ -68,7 +68,7 @@ export function registerWellKnownEndpoints(
   }
 
   // MCP Server Card
-  if (config.agent.wellKnown.mcpServerCard) {
+  if (config.agent.wellKnown?.mcpServerCard) {
     fastify.get("/.well-known/mcp/server-card.json", (_request, reply) => {
       reply.send({
         $schema:
@@ -135,7 +135,7 @@ export function registerWellKnownEndpoints(
   }
 
   // Web Bot Auth: HTTP Message Signatures Directory
-  if (config.agent.wellKnown.webBotAuth) {
+  if (config.agent.wellKnown?.webBotAuth) {
     fastify.get(
       "/.well-known/http-message-signatures-directory",
       (_request, reply) => {
@@ -149,7 +149,7 @@ export function registerWellKnownEndpoints(
   }
 
   // WebMCP
-  if (config.agent.wellKnown.webmcp) {
+  if (config.agent.wellKnown?.webmcp) {
     fastify.get("/.well-known/mcp.json", (_request, reply) => {
       reply.send({
         mcpServers: {

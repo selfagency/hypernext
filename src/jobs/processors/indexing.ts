@@ -5,10 +5,14 @@ export async function processIndexing(
   const dbPath = (payload.__dbPath as string) ?? ":memory:";
   await initOrm(dbPath);
 
-  const { indexDocument } = await import("../../indexer/index.js");
-  await indexDocument(payload.slug as string, payload.rawMdx as string);
-
   const config = payload.__config as Record<string, unknown> | undefined;
+
+  const { indexDocument } = await import("../../indexer/index.js");
+  await indexDocument(
+    payload.slug as string,
+    payload.rawMdx as string,
+    config as never
+  );
 
   // If AI is enabled, enqueue embedding generation
   const agent = config?.agent as Record<string, unknown> | undefined;

@@ -284,7 +284,7 @@ export function renderHTML(
   );
 
   return `<!DOCTYPE html>
-<html lang="${config.site.meta.lang}">
+<html lang="${config.site.meta.lang ?? "en"}">
 ${head}
 <body>${agentDirective}
   <main class="container">

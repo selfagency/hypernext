@@ -4,10 +4,12 @@ import type { HypernextConfig } from "../types/config.js";
 // Public-read paths: public docs, collections, AI summaries, MCP SSE
 const PUBLIC_READ_PATHS = [
   /^\/api\/v1\/docs$/,
-  /^\/api\/v1\/docs\/[^/]+$/,
-  /^\/api\/v1\/collections\/[^/]+$/,
-  /^\/api\/v1\/collections\/[^/]+\/posts$/,
-  /^\/api\/v1\/docs\/[^/]+\/summary$/,
+  /^\/api\/v1\/docs\/.+/,
+  /^\/api\/v1\/docs\/.+\.pdf$/,
+  /^\/api\/v1\/collections\/.+/,
+  /^\/api\/v1\/collections\/.+\.epub$/,
+  /^\/api\/v1\/collections\/.+\/posts$/,
+  /^\/api\/v1\/docs\/.+\/summary$/,
   /^\/api\/v1\/mcp$/,
 ];
 

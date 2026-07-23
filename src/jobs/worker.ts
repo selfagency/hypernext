@@ -1,3 +1,6 @@
+import { existsSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { claimNext, markComplete, markFailed, markRetry } from "./queue.js";
 
 // biome-ignore lint/suspicious/noExplicitAny: piscina types are dynamically imported
@@ -22,10 +25,40 @@ export async function startWorkerPool(
   try {
     // biome-ignore lint/suspicious/noExplicitAny: piscina types are dynamically imported
     const Piscina: any = (await import("piscina")).default;
+
+    // The processor entry runs in a separate Worker thread. Resolve the path
+    // for both source and dist layouts — whichever actually exists.
+    //   - source (tsx dev):   dist/commands/ depends on dist/worker-XXXX.js
+    //     → import.meta.url = dist/worker-XXXX.js
+    //   - built (node dist):  same layout
+    //   - direct (tsx src):   src/jobs/worker.ts
+    //     → import.meta.url = src/jobs/worker.ts
+    const moduleDir = dirname(fileURLToPath(import.meta.url));
+    const candidates = [
+      resolve(moduleDir, "processors/index.ts"), // src/jobs/ in tsx dev
+      resolve(moduleDir, "processors/index.js"), // dist/ when flattened
+      resolve(moduleDir, "jobs/processors/index.js"), // dist/jobs/ when preserved
+      resolve(process.cwd(), "dist/jobs/processors/index.js"), // project-root fallback
+    ];
+    const processorEntry = candidates.find(existsSync);
+    if (!processorEntry) {
+      throw new Error(
+        `Cannot find processor entry (tried:\n  ${candidates.join("\n  ")})`
+      );
+    }
+
     pool = new Piscina({
-      filename: new URL("./processors/index.js", import.meta.url).href,
+      filename: processorEntry,
+      execArgv: process.execArgv,
       maxThreads: 1,
       idleTimeout: 30_000,
+    });
+
+    // Worker thread errors (e.g. module resolution failures inside the pool)
+    // are emitted as 'error' events. Catch them to avoid unhandled rejections
+    // crashing the process.
+    pool.on("error", (err: Error) => {
+      console.warn(`Worker thread error: ${err.message}`);
     });
     pollLoop();
   } catch (err) {

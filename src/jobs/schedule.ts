@@ -63,14 +63,6 @@ export function enqueueIndexing(slug: string, rawMdx: string): Promise<string> {
   );
 }
 
-export function enqueuePdfGeneration(slug: string): Promise<string> {
-  return schedule("pdf-generation", { slug }, { maxAttempts: 2 });
-}
-
-export function enqueueEpubGeneration(collectionName: string): Promise<string> {
-  return schedule("epub-generation", { collectionName }, { maxAttempts: 2 });
-}
-
 export function enqueueIpfsPinning(slug: string): Promise<string> {
   return schedule("ipfs-pinning", { slug }, { maxAttempts: 3 });
 }

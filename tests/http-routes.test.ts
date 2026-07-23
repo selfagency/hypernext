@@ -35,6 +35,22 @@ const testConfig: HypernextConfig = {
   },
   micropub: { enabled: false },
   syndication: {},
+  agent: {
+    enabled: true,
+    sitemap: false,
+    llmsTxt: false,
+    markdownNegotiation: true,
+    linkHeaders: false,
+    viewTransitions: false,
+    hiddenAgentDirective: false,
+    wellKnown: {
+      apiCatalog: false,
+      agentSkills: false,
+      mcpServerCard: false,
+      webBotAuth: false,
+      webmcp: false,
+    },
+  },
   mcp: { enabled: false, transport: "stdio" },
 };
 
@@ -266,6 +282,27 @@ describe("HTTP server routes", () => {
 
   it("POST / returns 404 (route not defined for POST)", async () => {
     const res = await app.inject({ method: "POST", url: "/blog/welcome" });
+    expect(res.statusCode).toBe(404);
+  });
+
+  // ── Markdown content negotiation (/*/index.md) ──
+
+  it("GET /*/index.md returns markdown for existing doc", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/blog/welcome/index.md",
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers["content-type"]).toContain("text/markdown");
+    expect(res.body).toBeTruthy();
+    expect(res.body).toContain("# Welcome");
+  });
+
+  it("GET /*/index.md returns 404 for nonexistent slug", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/nonexistent/index.md",
+    });
     expect(res.statusCode).toBe(404);
   });
 });
