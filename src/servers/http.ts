@@ -110,7 +110,10 @@ async function handlePageRoute(
 }
 
 export async function createHttpServer(config: HypernextConfig) {
-  const fastify = Fastify({ logger: false });
+  const fastify = Fastify({
+    logger: false,
+    routerOptions: { ignoreTrailingSlash: true },
+  });
 
   // Register Fastify ecosystem plugins
   fastify.register(formbody);
@@ -509,11 +512,15 @@ export async function createHttpServer(config: HypernextConfig) {
 
   // Markdown index.md fallback
   if (config.agent?.enabled && config.agent.markdownNegotiation) {
-    fastify.get("/*/index.md", async (request, reply) => {
-      const slug = (request.params as { "*": string })["*"].replace(
-        INDEX_MD_REGEX,
-        ""
-      );
+    // Fastify v5 requires wildcard `*` to be the last character in a route
+    // path. Use a :wildcard param named param that swallows everything.
+    fastify.get("/(.*)/index.md", async (request, reply) => {
+      const captured = (request.params as Record<string, string>)["*"];
+      if (!captured) {
+        reply.code(404).type("text/plain").send("Not found");
+        return;
+      }
+      const slug = captured.replace(INDEX_MD_REGEX, "");
       const doc = await getDocBySlug(slug);
       if (!doc) {
         reply.code(404).type("text/plain").send("Not found");
