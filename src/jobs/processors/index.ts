@@ -13,6 +13,9 @@ import { processEmailVerification } from "./email-verification.js";
 import { processInboundMention } from "./inbound-mentions.js";
 import { processIndexing } from "./indexing.js";
 import { processIpfsPinning } from "./ipfs-pinning.js";
+import { processNostrDelete } from "./nostr-delete.js";
+import { processNostrProfile } from "./nostr-profile.js";
+import { processNostrPublish } from "./nostr-publish.js";
 import { processOutboundSyndication } from "./outbound-syndication.js";
 import { processPosseReplies } from "./posse-replies.js";
 
@@ -36,6 +39,9 @@ const HANDLERS: Record<
   "email-verification": processEmailVerification,
   "email-send": processEmailSend,
   "email-digest": processEmailDigest,
+  "nostr-publish": processNostrPublish,
+  "nostr-delete": processNostrDelete,
+  "nostr-profile": processNostrProfile,
 };
 
 export default function processJob(job: JobPayload): Promise<unknown> {

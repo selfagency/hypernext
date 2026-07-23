@@ -117,6 +117,78 @@ export interface CommentConfig {
   blocklist?: CommentBlocklistConfig;
   enabled: boolean;
   inbound: CommentInboundConfig;
+  waline?: WalineCommentConfig;
+}
+
+export interface WalineStorageConfig {
+  path: string;
+  type: "sqlite";
+}
+
+export interface WalineAuthConfig {
+  anonymous: boolean;
+  login: "enable" | "disable" | "force";
+  registration: "closed" | "open" | "admin-only";
+}
+
+export interface WalineOauthConfig {
+  gateway: string;
+  github?: {
+    clientId: string;
+    clientSecret: string;
+  };
+}
+
+export interface WalineNotificationEmailConfig {
+  host: string;
+  password: string;
+  port: number;
+  secure: boolean;
+  senderEmail: string;
+  senderName?: string;
+  user: string;
+}
+
+export interface WalineNotificationConfig {
+  discord?: string;
+  email?: WalineNotificationEmailConfig;
+  telegram?: {
+    botToken: string;
+    chatId: string;
+  };
+  webhook?: string;
+}
+
+export interface WalineAntiSpamConfig {
+  akismet: boolean;
+  audit: boolean;
+  ipqps: number;
+  secureDomains: string[];
+}
+
+export interface WalineMarkdownConfig {
+  emoji: boolean;
+  highlight: boolean;
+  tex: false | "katex" | "mathjax";
+}
+
+export interface WalinePageViewConfig {
+  enabled: boolean;
+  replaceNative: boolean;
+}
+
+export interface WalineCommentConfig {
+  antiSpam: WalineAntiSpamConfig;
+  auth: WalineAuthConfig;
+  enabled: boolean;
+  markdown: WalineMarkdownConfig;
+  mode: "embedded" | "external";
+  notifications: WalineNotificationConfig;
+  oauth?: WalineOauthConfig;
+  pageview: WalinePageViewConfig;
+  port?: number;
+  serverURL?: string;
+  storage: WalineStorageConfig;
 }
 
 export interface IndieAuthConfig {
@@ -177,9 +249,40 @@ export interface BlueskySyndicationConfig {
   standardSite?: boolean;
 }
 
+export interface NostrSignerNsecConfig {
+  encryptedNsec: string;
+  type: "nsec";
+}
+
+export interface NostrSignerNip46Config {
+  bunkerUri: string;
+  type: "nip46";
+}
+
+export interface NostrProfileConfig {
+  about?: string;
+  name?: string;
+  nip05?: string;
+  picture?: string;
+}
+
+export interface NostrSyndicationConfig {
+  announceOnFirstPublish?: boolean;
+  autoSyndicateOnPublish?: boolean;
+  defaultHashtags?: string[];
+  defaultRelayHints?: string[];
+  enabled: boolean;
+  profile?: NostrProfileConfig;
+  publishProfileOnStart?: boolean;
+  relays: string[];
+  signer: NostrSignerNsecConfig | NostrSignerNip46Config;
+  subscribeReplies?: boolean;
+}
+
 export interface SyndicationConfig {
   bluesky?: BlueskySyndicationConfig;
   mastodon?: MastodonSyndicationConfig;
+  nostr?: NostrSyndicationConfig;
 }
 
 export interface LoggingConfig {

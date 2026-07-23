@@ -101,7 +101,18 @@ micropub:
 indieauth:
   enabled: true
 
-syndication: {}
+syndication:
+  nostr:
+    enabled: false
+    relays: []
+    signer:
+      type: nsec
+      encryptedNsec: ""
+    profile:
+      name: "Hypernext"
+    publishProfileOnStart: false
+    announceOnFirstPublish: false
+    subscribeReplies: false
 
 email:
   enabled: true
@@ -139,6 +150,30 @@ comments:
     cacheTtl: 900
   akismet:
     enabled: true
+  waline:
+    enabled: false
+    mode: embedded
+    storage:
+      type: sqlite
+      path: ./db/waline.db
+    auth:
+      anonymous: true
+      login: disable
+      registration: closed
+    notifications: {}
+    antiSpam:
+      akismet: true
+      ipqps: 60
+      audit: false
+      secureDomains: []
+    markdown:
+      emoji: true
+      highlight: true
+      tex: false
+    pageview:
+      enabled: false
+      replaceNative: false
+    port: 8360
 
 mcp: {}
 
@@ -233,6 +268,10 @@ export function scaffoldDefaults(cwd: string): void {
   }
 }
 
+const WSS_RE = /^wss:\/\/[a-z0-9.-]+(:\d+)?(\/[^\s]*)?$/i;
+const HASHTAG_RE = /^[a-z0-9_]+$/i;
+const BUNKER_URI_RE = /^(nostrconnect|bunker):\/\/.+/;
+// biome-ignore lint: reason
 export function validateConfig(config: HypernextConfig): void {
   const required = ["site", "storage", "database"] as const;
   for (const key of required) {
@@ -243,6 +282,122 @@ export function validateConfig(config: HypernextConfig): void {
 
   if (!config.site?.canonicalBase) {
     throw new Error("Missing required config value: site.canonicalBase");
+  }
+
+  // Nostr syndication validation
+  const nostr = config.syndication?.nostr;
+  if (nostr?.enabled) {
+    if (!nostr.relays || nostr.relays.length === 0) {
+      throw new Error(
+        "nostr.enabled: true requires at least one relay in syndication.nostr.relays"
+      );
+    }
+    for (const relay of nostr.relays) {
+      if (!WSS_RE.test(relay)) {
+        throw new Error(
+          `Invalid relay URL "${relay}": must be a valid wss:// URL`
+        );
+      }
+    }
+    if (nostr.signer.type === "nsec") {
+      if (!nostr.signer.encryptedNsec) {
+        throw new Error(
+          "nsec signer requires syndication.nostr.signer.encryptedNsec"
+        );
+      }
+      if (!config.jwtSecret) {
+        throw new Error(
+          "nsec signer requires jwtSecret to be set (HYPERNEXT_JWT_SECRET env var)"
+        );
+      }
+    } else if (
+      nostr.signer.type === "nip46" &&
+      !BUNKER_URI_RE.test(nostr.signer.bunkerUri)
+    ) {
+      throw new Error(
+        "nip46 signer requires a valid nostrconnect:// or bunker:// URI"
+      );
+    }
+    if (nostr.defaultHashtags) {
+      for (const tag of nostr.defaultHashtags) {
+        if (!HASHTAG_RE.test(tag)) {
+          throw new Error(
+            `Invalid default hashtag "${tag}": must be alphanumeric (no spaces)`
+          );
+        }
+      }
+    }
+  }
+
+  // Waline comments validation
+  const waline = config.comments?.waline;
+  if (waline?.enabled) {
+    if (waline.mode === "external") {
+      if (!waline.serverURL) {
+        throw new Error(
+          "waline.mode: 'external' requires comments.waline.serverURL"
+        );
+      }
+      if (!waline.serverURL.startsWith("https://")) {
+        throw new Error("waline.serverURL must use HTTPS protocol");
+      }
+    }
+    if (waline.mode === "embedded") {
+      if (!waline.storage) {
+        throw new Error(
+          "waline.enabled: true with mode 'embedded' requires comments.waline.storage"
+        );
+      }
+      if (waline.storage.type === "sqlite") {
+        if (!waline.storage.path) {
+          throw new Error(
+            "waline.storage.type: 'sqlite' requires comments.waline.storage.path"
+          );
+        }
+        if (path.isAbsolute(waline.storage.path)) {
+          throw new Error(
+            "waline.storage.path must be a relative path, not absolute"
+          );
+        }
+        if (waline.storage.path.includes("..")) {
+          throw new Error(
+            "waline.storage.path must not contain '..' path traversal"
+          );
+        }
+      }
+    }
+    if (
+      waline.auth.login === "force" &&
+      waline.auth.registration === "closed"
+    ) {
+      throw new Error(
+        "waline.auth.login: 'force' requires waline.auth.registration to be 'open' or 'admin-only', not 'closed'"
+      );
+    }
+    if (waline.notifications?.email) {
+      const email = waline.notifications.email;
+      if (!(email.host && email.user && email.password && email.senderEmail)) {
+        throw new Error(
+          "waline.notifications.email requires all fields: host, user, password, senderEmail"
+        );
+      }
+    }
+    if (
+      waline.oauth?.github &&
+      !(waline.oauth.github.clientId && waline.oauth.github.clientSecret)
+    ) {
+      throw new Error("waline.oauth.github requires clientId and clientSecret");
+    }
+    if (waline.antiSpam?.secureDomains?.length) {
+      const siteOrigin = new URL(
+        config.site?.canonicalBase || "http://localhost"
+      ).origin;
+      if (!waline.antiSpam.secureDomains.includes(siteOrigin)) {
+        console.warn(
+          `Warning: waline.antiSpam.secureDomains should include ${siteOrigin} (site origin)`
+        );
+      }
+    }
   }
 }
 
@@ -290,6 +445,7 @@ export function resolveConfigPaths(
     { obj: config.logging, key: "filePath" },
     { obj: config.author, key: "photo" },
     { obj: config.site?.organization, key: "logo" },
+    { obj: config.comments?.waline?.storage, key: "path" },
   ];
   for (const { obj, key } of pathFields) {
     if (obj && typeof obj[key] === "string") {

@@ -11,10 +11,53 @@ import {
   relateDocToTerm,
   upsertTerm,
 } from "../database/index.js";
+import { extractFrontmatter } from "../parser/frontmatter.js";
 import { parseToIR } from "../parser/pipeline.js";
 import { getStorage } from "../storage/index.js";
 import type { HypernextConfig } from "../types/config.js";
 import { logger } from "../utils/logger.js";
+
+/**
+ * Trigger Nostr syndication for a document if enabled and frontmatter says so.
+ */
+async function triggerNostrSyndication(
+  config: HypernextConfig,
+  slug: string,
+  rawMdx: string
+): Promise<void> {
+  const nostr = config.syndication?.nostr;
+
+  // Check if Nostr syndication is globally enabled
+  if (!nostr?.enabled) {
+    return;
+  }
+
+  // Check if this specific post should be syndicated
+  const { attributes } = extractFrontmatter(rawMdx);
+  const nostrFlag = attributes.nostr as boolean | undefined;
+
+  // If frontmatter explicitly sets nostr: false, skip
+  if (nostrFlag === false) {
+    return;
+  }
+
+  // If nostr: true is set, or no explicit flag (default to syndication if global enabled)
+  if (nostrFlag === true || nostrFlag === undefined) {
+    try {
+      const { scheduleNostrPublish } = await import(
+        "../federation/nostr/schedule.js"
+      );
+      await scheduleNostrPublish(slug, "create");
+      logger.info(`Nostr syndication triggered for ${slug}`);
+    } catch (err) {
+      // Non-critical - log but don't fail the index
+      logger.error(`Failed to trigger Nostr syndication for ${slug}`, {
+        slug,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+}
 
 const MD_EXT_REGEX = /\.mdx?$/;
 const BACKSLASH_REGEX = /\\/g;
@@ -152,6 +195,9 @@ export async function reindexAll(config: HypernextConfig): Promise<void> {
     try {
       const content = await storage.read(slug);
       await indexDocument(slug, content, config);
+
+      // Trigger Nostr syndication if enabled and post has nostr: true in frontmatter
+      await triggerNostrSyndication(config, slug, content);
     } catch (err) {
       failedCount++;
       logger.error(`Failed to index document: ${slug}`, {
@@ -209,6 +255,9 @@ export function watchStorage(config: HypernextConfig): () => void {
       }
       try {
         await indexDocument(slug, content, config);
+
+        // Trigger Nostr syndication on file changes
+        await triggerNostrSyndication(config, slug, content);
       } catch (err) {
         logger.error("Failed to index document in watcher", {
           slug,

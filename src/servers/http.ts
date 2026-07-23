@@ -225,6 +225,19 @@ export async function createHttpServer(config: HypernextConfig) {
   registerFederationRoutes(fastify, config);
   registerInboundRoutes(fastify, config);
 
+  // Waline comment server proxy routes
+  const { registerWalineProxyRoutes, registerWalineApiRoutes } = await import(
+    "../comments/waline/routes.js"
+  );
+  registerWalineProxyRoutes(fastify, config);
+  registerWalineApiRoutes(fastify, config);
+
+  // Federated comments API routes
+  const { registerFederatedCommentsRoutes } = await import(
+    "../comments/federated/routes.js"
+  );
+  registerFederatedCommentsRoutes(fastify);
+
   // Home page
   fastify.get("/", async (_request, reply) => {
     const cached = getCachedParse("index");

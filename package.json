@@ -103,6 +103,7 @@
     "lru-cache": "^11.1.0",
     "md-to-pdf": "^5.2.5",
     "node-email-verifier": "^4.0.0",
+    "nostr-tools": "^2.24.1",
     "openai": "^6.48.0",
     "piscina": "^5.3.0",
     "remark": "^15.0.1",
