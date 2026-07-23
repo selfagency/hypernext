@@ -2,7 +2,11 @@ import fs from "node:fs";
 import path from "node:path";
 import yaml from "yaml";
 import { DEFAULT_TEMPLATES } from "./constants/default-templates.js";
-import type { CliOptions, HypernextConfig } from "./types/config.js";
+import type {
+  CliOptions,
+  HypernextConfig,
+  WalineCommentConfig,
+} from "./types/config.js";
 import { deepMerge } from "./utils/deep-merge.js";
 import { substituteEnvInYaml } from "./utils/env.js";
 
@@ -271,7 +275,6 @@ export function scaffoldDefaults(cwd: string): void {
 const WSS_RE = /^wss:\/\/[a-z0-9.-]+(:\d+)?(\/[^\s]*)?$/i;
 const HASHTAG_RE = /^[a-z0-9_]+$/i;
 const BUNKER_URI_RE = /^(nostrconnect|bunker):\/\/.+/;
-// biome-ignore lint: reason
 export function validateConfig(config: HypernextConfig): void {
   const required = ["site", "storage", "database"] as const;
   for (const key of required) {
@@ -284,120 +287,156 @@ export function validateConfig(config: HypernextConfig): void {
     throw new Error("Missing required config value: site.canonicalBase");
   }
 
-  // Nostr syndication validation
+  // Delegate to specialized validators
+  validateNostrConfig(config);
+  validateWalineConfig(config);
+}
+
+function validateNostrConfig(config: HypernextConfig): void {
   const nostr = config.syndication?.nostr;
-  if (nostr?.enabled) {
-    if (!nostr.relays || nostr.relays.length === 0) {
+  if (!nostr?.enabled) {
+    return;
+  }
+
+  if (!nostr.relays || nostr.relays.length === 0) {
+    throw new Error(
+      "nostr.enabled: true requires at least one relay in syndication.nostr.relays"
+    );
+  }
+  for (const relay of nostr.relays) {
+    if (!WSS_RE.test(relay)) {
       throw new Error(
-        "nostr.enabled: true requires at least one relay in syndication.nostr.relays"
+        `Invalid relay URL "${relay}": must be a valid wss:// URL`
       );
     }
-    for (const relay of nostr.relays) {
-      if (!WSS_RE.test(relay)) {
-        throw new Error(
-          `Invalid relay URL "${relay}": must be a valid wss:// URL`
-        );
-      }
-    }
-    if (nostr.signer.type === "nsec") {
-      if (!nostr.signer.encryptedNsec) {
-        throw new Error(
-          "nsec signer requires syndication.nostr.signer.encryptedNsec"
-        );
-      }
-      if (!config.jwtSecret) {
-        throw new Error(
-          "nsec signer requires jwtSecret to be set (HYPERNEXT_JWT_SECRET env var)"
-        );
-      }
-    } else if (
-      nostr.signer.type === "nip46" &&
-      !BUNKER_URI_RE.test(nostr.signer.bunkerUri)
-    ) {
+  }
+  if (nostr.signer.type === "nsec") {
+    if (!nostr.signer.encryptedNsec) {
       throw new Error(
-        "nip46 signer requires a valid nostrconnect:// or bunker:// URI"
+        "nsec signer requires syndication.nostr.signer.encryptedNsec"
       );
     }
-    if (nostr.defaultHashtags) {
-      for (const tag of nostr.defaultHashtags) {
-        if (!HASHTAG_RE.test(tag)) {
-          throw new Error(
-            `Invalid default hashtag "${tag}": must be alphanumeric (no spaces)`
-          );
-        }
+    if (!config.jwtSecret) {
+      throw new Error(
+        "nsec signer requires jwtSecret to be set (HYPERNEXT_JWT_SECRET env var)"
+      );
+    }
+  } else if (
+    nostr.signer.type === "nip46" &&
+    !BUNKER_URI_RE.test(nostr.signer.bunkerUri)
+  ) {
+    throw new Error(
+      "nip46 signer requires a valid nostrconnect:// or bunker:// URI"
+    );
+  }
+  if (nostr.defaultHashtags) {
+    for (const tag of nostr.defaultHashtags) {
+      if (!HASHTAG_RE.test(tag)) {
+        throw new Error(
+          `Invalid default hashtag "${tag}": must be alphanumeric (no spaces)`
+        );
       }
     }
   }
+}
 
-  // Waline comments validation
+function validateWalineConfig(config: HypernextConfig): void {
   const waline = config.comments?.waline;
-  if (waline?.enabled) {
-    if (waline.mode === "external") {
-      if (!waline.serverURL) {
-        throw new Error(
-          "waline.mode: 'external' requires comments.waline.serverURL"
-        );
-      }
-      if (!waline.serverURL.startsWith("https://")) {
-        throw new Error("waline.serverURL must use HTTPS protocol");
-      }
-    }
-    if (waline.mode === "embedded") {
-      if (!waline.storage) {
-        throw new Error(
-          "waline.enabled: true with mode 'embedded' requires comments.waline.storage"
-        );
-      }
-      if (waline.storage.type === "sqlite") {
-        if (!waline.storage.path) {
-          throw new Error(
-            "waline.storage.type: 'sqlite' requires comments.waline.storage.path"
-          );
-        }
-        if (path.isAbsolute(waline.storage.path)) {
-          throw new Error(
-            "waline.storage.path must be a relative path, not absolute"
-          );
-        }
-        if (waline.storage.path.includes("..")) {
-          throw new Error(
-            "waline.storage.path must not contain '..' path traversal"
-          );
-        }
-      }
-    }
-    if (
-      waline.auth.login === "force" &&
-      waline.auth.registration === "closed"
-    ) {
+  if (!waline?.enabled) {
+    return;
+  }
+
+  validateWalineMode(waline);
+  validateWalineStorage(waline);
+  validateWalineAuth(waline);
+  validateWalineNotifications(waline);
+  validateWalineOauth(waline);
+  validateWalineAntiSpam(waline, config);
+}
+
+function validateWalineMode(waline: WalineCommentConfig): void {
+  if (waline.mode === "external") {
+    if (!waline.serverURL) {
       throw new Error(
-        "waline.auth.login: 'force' requires waline.auth.registration to be 'open' or 'admin-only', not 'closed'"
+        "waline.mode: 'external' requires comments.waline.serverURL"
       );
     }
-    if (waline.notifications?.email) {
-      const email = waline.notifications.email;
-      if (!(email.host && email.user && email.password && email.senderEmail)) {
-        throw new Error(
-          "waline.notifications.email requires all fields: host, user, password, senderEmail"
-        );
-      }
+    if (!waline.serverURL.startsWith("https://")) {
+      throw new Error("waline.serverURL must use HTTPS protocol");
     }
-    if (
-      waline.oauth?.github &&
-      !(waline.oauth.github.clientId && waline.oauth.github.clientSecret)
-    ) {
-      throw new Error("waline.oauth.github requires clientId and clientSecret");
+  }
+}
+
+function validateWalineStorage(waline: WalineCommentConfig): void {
+  if (waline.mode !== "embedded") {
+    return;
+  }
+  if (!waline.storage) {
+    throw new Error(
+      "waline.enabled: true with mode 'embedded' requires comments.waline.storage"
+    );
+  }
+  if (waline.storage.type === "sqlite") {
+    if (!waline.storage.path) {
+      throw new Error(
+        "waline.storage.type: 'sqlite' requires comments.waline.storage.path"
+      );
     }
-    if (waline.antiSpam?.secureDomains?.length) {
-      const siteOrigin = new URL(
-        config.site?.canonicalBase || "http://localhost"
-      ).origin;
-      if (!waline.antiSpam.secureDomains.includes(siteOrigin)) {
-        console.warn(
-          `Warning: waline.antiSpam.secureDomains should include ${siteOrigin} (site origin)`
-        );
-      }
+    if (path.isAbsolute(waline.storage.path)) {
+      throw new Error(
+        "waline.storage.path must be a relative path, not absolute"
+      );
     }
+    if (waline.storage.path.includes("..")) {
+      throw new Error(
+        "waline.storage.path must not contain '..' path traversal"
+      );
+    }
+  }
+}
+
+function validateWalineAuth(waline: WalineCommentConfig): void {
+  if (waline.auth.login === "force" && waline.auth.registration === "closed") {
+    throw new Error(
+      "waline.auth.login: 'force' requires waline.auth.registration to be 'open' or 'admin-only', not 'closed'"
+    );
+  }
+}
+
+function validateWalineNotifications(waline: WalineCommentConfig): void {
+  if (!waline.notifications?.email) {
+    return;
+  }
+  const email = waline.notifications.email;
+  if (!(email.host && email.user && email.password && email.senderEmail)) {
+    throw new Error(
+      "waline.notifications.email requires all fields: host, user, password, senderEmail"
+    );
+  }
+}
+
+function validateWalineOauth(waline: WalineCommentConfig): void {
+  if (
+    waline.oauth?.github &&
+    !(waline.oauth.github.clientId && waline.oauth.github.clientSecret)
+  ) {
+    throw new Error("waline.oauth.github requires clientId and clientSecret");
+  }
+}
+
+function validateWalineAntiSpam(
+  waline: WalineCommentConfig,
+  config: HypernextConfig
+): void {
+  if (!waline.antiSpam?.secureDomains?.length) {
+    return;
+  }
+  const siteOrigin = new URL(config.site?.canonicalBase || "http://localhost")
+    .origin;
+  if (!waline.antiSpam.secureDomains.includes(siteOrigin)) {
+    console.warn(
+      `Warning: waline.antiSpam.secureDomains should include ${siteOrigin} (site origin)`
+    );
   }
 }
 
