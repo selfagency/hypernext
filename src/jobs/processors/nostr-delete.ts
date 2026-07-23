@@ -59,7 +59,7 @@ export async function processNostrDelete(
   const signer = createSigner(nostrConfig, {
     jwtSecret: config.jwtSecret ?? "",
   });
-  const pubkey = await signer.getPublicKey();
+  const pubkey = signer.getPublicKey();
 
   // Build a deletion event for the 30023 replaceable coordinate
   const tags = [

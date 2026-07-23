@@ -44,7 +44,7 @@ export default class NostrDelete extends BaseCommand {
 
       const frontmatter = parseSimpleFrontmatter(doc.rawMdx ?? "");
       const naddr = frontmatter.nostrNaddr as string | undefined;
-      const pubkey = await signer.getPublicKey();
+      const pubkey = signer.getPublicKey();
 
       const deletionTemplate = buildDeletionEvent({
         targetEventId: naddr ?? args.slug,

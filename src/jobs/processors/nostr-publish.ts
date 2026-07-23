@@ -9,6 +9,7 @@ import { createSigner } from "../../federation/nostr/signer.js";
 import type { HypernextConfig } from "../../types/config.js";
 
 const NUMBER_REGEX = /^\d+$/;
+const VALID_KEY_REGEX = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
 export async function processNostrPublish(
   payload: Record<string, unknown>
@@ -104,7 +105,7 @@ export async function processNostrPublish(
   );
 
   // Compute naddr for the permalink
-  const pubkey = await signer.getPublicKey();
+  const pubkey = signer.getPublicKey();
   const naddr = nip19.naddrEncode({
     pubkey,
     kind: 30_023,
@@ -198,6 +199,10 @@ function updateFrontmatterField(
   const yamlBlock = rawMdx.slice(3, endIdx);
   const rest = rawMdx.slice(endIdx);
 
+  // Validate key to prevent ReDoS
+  if (!VALID_KEY_REGEX.test(key)) {
+    throw new Error(`Invalid frontmatter key: ${key}`);
+  }
   const lineRegex = new RegExp(`^${key}:\\s*.*$`, "m");
   const newYamlBlock = lineRegex.test(yamlBlock)
     ? yamlBlock.replace(lineRegex, `${key}: ${value}`)
