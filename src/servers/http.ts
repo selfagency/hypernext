@@ -33,7 +33,6 @@ import {
   isFutureDated,
   isFutureDatedFrontmatter,
 } from "../parser/frontmatter.js";
-import type { ParseResult } from "../parser/ir.js";
 import { resolveLayoutWithComponents } from "../parser/layout.js";
 import { parseToIR } from "../parser/pipeline.js";
 import { registerWellKnownEndpoints } from "../renderers/agent-readiness.js";
@@ -48,7 +47,6 @@ import { renderSitemap } from "../renderers/sitemap.js";
 import type { HypernextConfig } from "../types/config.js";
 
 const NOT_FOUND_HTML = "<h1>404 Not Found</h1>";
-const INDEX_MD_REGEX = /\/index\.md$/;
 const ALPHANUMERIC_REGEX = /[^\w-]/g;
 
 /** Escape a string for safe use in MDX attribute values */
@@ -394,6 +392,12 @@ export async function createHttpServer(config: HypernextConfig) {
     if (!taxConfig) {
       // Not a taxonomy — treat as a doc slug
       const fullSlug = `${collection}/${taxonomy}/${term}`;
+
+      // Support /*/index.md for raw markdown access
+      if (await tryServeIndexMd(reply, config, collection, taxonomy, term)) {
+        return;
+      }
+
       const doc = await getDocBySlug(fullSlug);
       if (!doc) {
         reply.code(404).type("text/html").send(NOT_FOUND_HTML);
@@ -510,40 +514,6 @@ export async function createHttpServer(config: HypernextConfig) {
     });
   }
 
-  // Markdown index.md fallback
-  if (config.agent?.enabled && config.agent.markdownNegotiation) {
-    // Fastify v5 requires wildcard `*` to be the last character in a route
-    // path. Use a :wildcard param named param that swallows everything.
-    fastify.get("/(.*)/index.md", async (request, reply) => {
-      const captured = (request.params as Record<string, string>)["*"];
-      if (!captured) {
-        reply.code(404).type("text/plain").send("Not found");
-        return;
-      }
-      const slug = captured.replace(INDEX_MD_REGEX, "");
-      const doc = await getDocBySlug(slug);
-      if (!doc) {
-        reply.code(404).type("text/plain").send("Not found");
-        return;
-      }
-      const rawMdx = (doc.rawMdx as string) ?? "";
-      let result: ParseResult;
-      try {
-        result = getCachedParse(slug) ?? parseToIR(rawMdx, slug);
-      } catch (err) {
-        console.error(
-          `Markdown content negotiation: parse failure for ${slug}: ${err instanceof Error ? err.message : String(err)}`
-        );
-        reply.code(500).type("text/plain").send("Internal server error");
-        return;
-      }
-      const markdown = (
-        await import("../renderers/markdown.js")
-      ).renderMarkdown(result.ir);
-      reply.type("text/markdown; charset=utf-8").send(markdown);
-    });
-  }
-
   // Well-known endpoints
   registerWellKnownEndpoints(fastify, config);
 
@@ -573,6 +543,40 @@ export async function createHttpServer(config: HypernextConfig) {
   });
 
   return fastify;
+}
+
+/**
+ * Try to serve a document as raw markdown when the URL ends with /index.md.
+ * Called from the taxonomy route handler when the taxonomy is not recognized.
+ * Returns true if the markdown was served, false to continue normal handling.
+ */
+async function tryServeIndexMd(
+  reply: FastifyReply,
+  config: HypernextConfig,
+  collection: string,
+  taxonomy: string,
+  term: string
+): Promise<boolean> {
+  if (
+    term !== "index.md" ||
+    !config.agent?.enabled ||
+    !config.agent.markdownNegotiation
+  ) {
+    return false;
+  }
+  const parentSlug = `${collection}/${taxonomy}`;
+  const parentDoc = await getDocBySlug(parentSlug);
+  if (!parentDoc) {
+    return false;
+  }
+  const parentRawMdx = (parentDoc.rawMdx as string) ?? "";
+  const parseResult =
+    getCachedParse(parentSlug) ?? parseToIR(parentRawMdx, parentSlug);
+  const { renderMarkdown } = await import("../renderers/markdown.js");
+  reply
+    .type("text/markdown; charset=utf-8")
+    .send(renderMarkdown(parseResult.ir));
+  return true;
 }
 
 async function setupOpenTelemetry(config: HypernextConfig): Promise<void> {
