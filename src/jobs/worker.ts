@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { claimNext, markComplete, markFailed, markRetry } from "./queue.js";
 
 // biome-ignore lint/suspicious/noExplicitAny: piscina types are dynamically imported
@@ -22,31 +23,33 @@ export async function startWorkerPool(
   }
 
   try {
-    // In tsx dev mode, skip Piscina entirely. tsx's resolver hooks redirect
-    // Worker thread module resolution to outDir paths that don't exist.
-    const isTsx = process.execArgv.some((a) => a.includes("tsx"));
-    if (isTsx) {
-      console.warn(
-        "Worker pool: disabled in tsx dev mode (background jobs run inline)"
-      );
-      return;
-    }
-
     // biome-ignore lint/suspicious/noExplicitAny: piscina types are dynamically imported
     const Piscina: any = (await import("piscina")).default;
 
-    // Construct the processor entry path relative to the project root.
-    // tsx rewrites import.meta.url to the outDir, breaking relative URL
-    // resolution. Using process.cwd() gives us a consistent anchor.
-    const PROJECT_ROOT = process.cwd();
-    const srcEntry = resolve(PROJECT_ROOT, "src/jobs/processors/index.ts");
-    const distEntry = resolve(PROJECT_ROOT, "dist/jobs/processors/index.js");
-    const processorEntry = existsSync(srcEntry) ? srcEntry : distEntry;
-    console.error("[worker] using processor:", processorEntry);
+    // The processor entry runs in a separate Worker thread. Resolve the path
+    // for both source and dist layouts — whichever actually exists.
+    //   - source (tsx dev):   dist/commands/ depends on dist/worker-XXXX.js
+    //     → import.meta.url = dist/worker-XXXX.js
+    //   - built (node dist):  same layout
+    //   - direct (tsx src):   src/jobs/worker.ts
+    //     → import.meta.url = src/jobs/worker.ts
+    const moduleDir = dirname(fileURLToPath(import.meta.url));
+    const candidates = [
+      resolve(moduleDir, "processors/index.ts"), // src/jobs/ in tsx dev
+      resolve(moduleDir, "processors/index.js"), // dist/ when flattened
+      resolve(moduleDir, "jobs/processors/index.js"), // dist/jobs/ when preserved
+      resolve(process.cwd(), "dist/jobs/processors/index.js"), // project-root fallback
+    ];
+    const processorEntry = candidates.find(existsSync);
+    if (!processorEntry) {
+      throw new Error(
+        `Cannot find processor entry (tried:\n  ${candidates.join("\n  ")})`
+      );
+    }
 
     pool = new Piscina({
       filename: processorEntry,
-      execArgv: process.execArgv, // pass tsx hooks to worker threads in dev
+      execArgv: process.execArgv,
       maxThreads: 1,
       idleTimeout: 30_000,
     });
