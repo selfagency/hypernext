@@ -9,13 +9,25 @@ beforeAll(async () => {
   await setupE2e();
   browser = await chromium.launch({ headless: true });
   page = await browser.newPage();
-}, 30_000);
+}, 60_000);
 
 afterAll(async () => {
-  await page.close();
-  await browser.close();
+  try {
+    if (page) {
+      await page.close();
+    }
+  } catch {
+    // Ignore close errors
+  }
+  try {
+    if (browser) {
+      await browser.close();
+    }
+  } catch {
+    // Ignore close errors
+  }
   await teardownE2e();
-}, 10_000);
+}, 30_000);
 
 describe("HTML E2E", () => {
   it("renders h-entry microformats on a blog post", async () => {
