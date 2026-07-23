@@ -1,3 +1,5 @@
+import { createWalineTools } from "../comments/waline/mcp-tools.js";
+import { createNostrTools } from "../federation/nostr/mcp-tools.js";
 import type { HypernextConfig } from "../types/config.js";
 import { createDocumentTools } from "./tools-documents.js";
 import { createEmailTools } from "./tools-email.js";
@@ -19,6 +21,10 @@ export function createTools(config: HypernextConfig): McpTool[] {
     ...createSyncTools(config),
     ...createModerationTools(),
     ...createEmailTools(config),
+    // Nostr MCP tools — gated by syndication.nostr.enabled only, not agent.enabled (per D2)
+    ...createNostrTools(config),
+    // Waline MCP tools — gated by comments.waline.enabled only, not agent.enabled
+    ...createWalineTools(config),
   ];
 
   // Add IPFS tools if IPFS is enabled

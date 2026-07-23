@@ -10,6 +10,7 @@ import { registerNewsletterRoutes } from "./api/newsletter.js";
 import { registerApiRoutes } from "./api/routes.js";
 import { registerStatsRoutes } from "./api/stats.js";
 import { registerIndieAuthRoutes } from "./auth/indieauth.js";
+import { startWaline, stopWaline } from "./comments/waline/process.js";
 // Federation routes are registered inside createHttpServer
 import { registerMcpSseTransport, startMcpServer } from "./mcp/index.js";
 import { registerMicropubEndpoint } from "./micropub/index.js";
@@ -54,6 +55,17 @@ export async function startAllServers(config: HypernextConfig): Promise<void> {
 
   // Initialize storage provider (must be available before any read/write operations)
   createStorage(config);
+
+  // Start Waline comment server (embedded mode)
+  if (
+    config.comments?.waline?.enabled &&
+    config.comments.waline.mode === "embedded"
+  ) {
+    await startWaline({
+      config,
+      jwtSecret: config.jwtSecret || "default-jwt-secret-change-me",
+    });
+  }
 
   // Start weekly digest cron if email is enabled
   let digestInterval: ReturnType<typeof setInterval> | null = null;
@@ -134,6 +146,9 @@ export async function startAllServers(config: HypernextConfig): Promise<void> {
     if (digestInterval) {
       clearInterval(digestInterval);
     }
+
+    // Stop Waline comment server
+    await stopWaline();
 
     // Close all servers
     await Promise.allSettled(

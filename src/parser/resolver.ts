@@ -1,4 +1,7 @@
 // fallow-ignore-file circular-dependency
+
+import { resolveFederatedComments } from "../comments/federated/component.js";
+import { resolveWalineComments } from "../comments/waline/component.js";
 import {
   getDocBySlug,
   getEm,
@@ -17,6 +20,7 @@ export interface ComponentContext {
   currentSlug?: string;
   frontmatter?: Record<string, unknown>;
   includeStack?: Set<string>;
+  slug?: string;
 }
 
 export type ComponentResolver = (
@@ -128,6 +132,8 @@ export const ALLOWED_COMPONENTS = new Set([
   "Footer",
   "EmailSubscribe",
   "ContactForm",
+  "WalineComments",
+  "FederatedComments",
   "slot",
   ...HTML_ELEMENTS,
 ]);
@@ -903,6 +909,28 @@ export const COMPONENT_RESOLVERS: Record<string, ComponentResolver> = {
         children,
       },
     ];
+  },
+
+  WalineComments(props, ctx) {
+    // Convert to IR node and resolve via the Waline component resolver
+    const node: IrNode = {
+      type: "component",
+      componentName: "WalineComments",
+      componentProps: props,
+      children: [],
+    };
+    return resolveWalineComments(ctx, node);
+  },
+
+  FederatedComments(props, ctx) {
+    // Convert to IR node and resolve via the FederatedComments resolver
+    const node: IrNode = {
+      type: "component",
+      componentName: "FederatedComments",
+      componentProps: props,
+      children: [],
+    };
+    return resolveFederatedComments(ctx, node);
   },
 };
 
