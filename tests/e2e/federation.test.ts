@@ -897,20 +897,18 @@ describe("AT Protocol", () => {
 // atproto-devnet integration (conditional)
 // ══════════════════════════════════════════════
 
-describe("atproto-devnet integration", () => {
-  const devnetPdsUrl = process.env.AT_PROTOCOL_DEVNET;
+const devnetPdsUrl = process.env.AT_PROTOCOL_DEVNET;
+const devnetDescribe = devnetPdsUrl ? describe : describe.skip;
 
-  it.runIf(!!devnetPdsUrl)(
-    "connects to atproto-devnet PDS health endpoint",
-    async () => {
-      const res = await fetch(`${devnetPdsUrl}/xrpc/_health`);
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.health).toBe("ok");
-    }
-  );
+devnetDescribe("atproto-devnet integration", () => {
+  it("connects to atproto-devnet PDS health endpoint", async () => {
+    const res = await fetch(`${devnetPdsUrl}/xrpc/_health`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.health).toBe("ok");
+  });
 
-  it.runIf(!!devnetPdsUrl)("resolves a handle on atproto-devnet", async () => {
+  it("resolves a handle on atproto-devnet", async () => {
     const res = await fetch(
       `${devnetPdsUrl}/xrpc/com.atproto.identity.resolveHandle?handle=admin.test`
     );
@@ -920,7 +918,7 @@ describe("atproto-devnet integration", () => {
     expect(body.did).toMatch(DID_PLC_REGEX);
   });
 
-  it.runIf(!!devnetPdsUrl)("creates a record on atproto-devnet", async () => {
+  it("creates a record on atproto-devnet", async () => {
     const res = await fetch(
       `${devnetPdsUrl}/xrpc/com.atproto.repo.createRecord`,
       {
@@ -940,9 +938,5 @@ describe("atproto-devnet integration", () => {
     const body = await res.json();
     expect(body.uri).toBeDefined();
     expect(body.cid).toBeDefined();
-  });
-
-  it("skips atproto-devnet tests when AT_PROTOCOL_DEVNET is not set", () => {
-    expect(devnetPdsUrl).toBeUndefined();
   });
 });
