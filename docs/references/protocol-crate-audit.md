@@ -233,6 +233,7 @@ The phase doc (`02-smolnet-protocols.md` §3.2) and worklog t2 label `guppy-prot
 **Is it a blocker?** Yes, for MSRV 1.83. Edition 2024 alone forces ≥1.85, and gemini forces ≥1.88.
 
 **Recommendation:** raise Hypernext MSRV to **1.88** (single coherent target that covers gemini's let-chains and all 8 crates' edition 2024). This is a documented decision, not silent drift. Update:
+
 - `Cargo.toml` `[workspace.package] rust-version = "1.88"`
 - CI toolchain pin to 1.88+ (local 1.97.1 already builds fine)
 - `AGENTS.md` §1 "Rust 1.83+" → 1.88+

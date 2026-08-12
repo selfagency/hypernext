@@ -297,17 +297,20 @@ Stage Summary:
 - NO deviations from task spec.
 
 ---
+
 Task ID: p2-t-audit
 Agent: gem-researcher
 Task: Audit API fitness of all 10 smolnet protocol crates before adapters are built (de-risk R1)
 
 Work Log:
+
 - Read each crate's source at pinned version from cargo registry (authoritative for fresh 0.1.0 crates), not just docs.rs.
 - Assessed 6 criteria per crate: injectable client, custom TLS, error types, cancellation, response->PageDoc fit, async runtime.
 - Verified rust-version 1.88 flag: all 6 flagged crates use edition 2024 (needs >=1.85); gemini additionally uses let-chains (needs >=1.88). Real conflict with MSRV 1.83.
 - Wrote docs/references/protocol-crate-audit.md with per-crate table + verdicts + rust-version assessment.
 
 Stage Summary:
+
 - 9 of 10 crates are "ready to wrap" (proper error enums, tokio, clean response shapes). No crate needs an upstream PR to be usable.
 - titanite 0.3.2 is the exception: pure wire-format codec, NO network/async/tokio, anyhow errors -> needs full wrapping (adapter owns TCP/TLS/TOFU/cancel/size limits).
 - SSRF: NONE route through reqwest; all do own DNS via TcpStream/UdpSocket -> adapter must pre-check resolved IP against FetchPolicy (invariant #8).
@@ -318,11 +321,13 @@ Stage Summary:
 - DISCREPANCY FLAG: phase doc + worklog t2 label guppy-protocol as "Molerat (TLS, mtxt, TOFU)". WRONG — the crate is dimkr's smolweb-over-UDP protocol (UDP 6775, chunking/ack). jcs's Molerat (TLS/mtxt) has NO crate in this set. Resolve which protocol is in scope before building the guppy adapter. Documented in protocol-crate-audit.md.
 
 ---
+
 Task ID: p2-t-audit-static-analysis (20260812-phase2-smolnet)
 Agent: gem-devops
 Task: Add static analysis layers (cargo-audit, cargo-auditable, Miri, Kani, Semgrep) wired into prek + CI, per docs/references/static-analysis.md
 
 Work Log:
+
 - Verified current state: prek.toml runs fmt/clippy/test/deny; ci.yml has lint/test/coverage/deny/build (5 jobs). Only crates/hypernext-store/src/db.rs has `unsafe`; hypernext-pgp does NOT exist yet.
 - Wrote scripts/prek-cargo-audit.sh + scripts/prek-semgrep.sh: resilient wrappers that warn+pass when the tool is missing locally (cargo-audit/semgrep not installed on this machine). CI always runs the tools (installed there).
 - prek.toml: added cargo-audit + semgrep local hooks (language=system, pass_filenames=false, entry=bash scripts/...).
@@ -334,6 +339,7 @@ Work Log:
 - Verified: prek validate-config passes; prek run --all-files passes (all 14 hooks green incl. new audit/semgrep which warn+skip); both wrapper scripts exit 0 with missing-tool warning.
 
 Stage Summary:
+
 - 5 tools wired: cargo-audit (CI audit job + resilient local hook), cargo-auditable (macOS release build), Miri (scheduled), Kani (scheduled), Semgrep (CI job + resilient local hook, 5 invariant rules).
 - Scheduled jobs NEVER run on push/PR (if-guarded to schedule+workflow_dispatch).
 - Deviation: folded Miri+Kani into one scheduled job pair (both slow, same trigger) rather than separate jobs.
@@ -343,11 +349,13 @@ Stage Summary:
 - NO commits (orchestrator handles). .codacy/codacy.yaml + .rumdl.toml untouched.
 
 ---
+
 Task ID: p1-codacy-fixes (Phase 1 PR #1 gate)
 Agent: gem-devops
 Task: Clear 5 Codacy WARNINGS (0-new-issues gate) on the Phase 1 PR without touching user's codacy config or the 16 markdown notices.
 
 Work Log:
+
 - Read ci.yml, crates/hypernext-app/src/{lib.rs,main.rs,startup.rs}, .codacy/codacy.yaml, worklog.md.
 - Resolved action SHAs via gh api (verified tag -> commit): actions/checkout@v4 -> 11d5960a326750d5838078e36cf38b85af677262; Swatinem/rust-cache@v2 -> 6323deb102c322ba6fcbdcafc7e3dddab59af2b6 (peeled annotated tag via git/tags endpoint).
 - ci.yml: added top-level `permissions: contents: read` (after env:, before jobs:). Pinned ALL 9 checkout@v4 + 5 rust-cache@v2 occurrences to full SHAs with `# v4` / `# v2` suffix comments. Left taiki-e/install-action@v2, j178/prek-action@v3.0.0, dtolnay/rust-toolchain@nightly as-is (not flagged).
@@ -356,6 +364,7 @@ Work Log:
 - Did NOT switch to args_os() (recommended by some) because these are hidden test-probe flags where the UTF-8 panic risk is irrelevant and args_os would flag the paired args-os rule anyway; suppression is the minimal correct fix.
 
 Stage Summary:
+
 - 5/5 WARNINGS resolved: 1 permissions + SHA-pinning + 4 inline suppressions.
 - Pinned SHAs: checkout=11d5960a326750d5838078e36cf38b85af677262, rust-cache=6323deb102c322ba6fcbdcafc7e3dddab59af2b6.
 - Suppression comments added: 3x `// nosemgrep: args`, 1x `// nosemgrep: temp-dir`.
@@ -364,27 +373,33 @@ Stage Summary:
 - NO commits (orchestrator handles). NOT pushed.
 
 ---
+
 Task ID: phase-1-pr1-fix
 Agent: gem-implementer
 Task: Fix 2 failing tests in crates/hypernext-app/src/startup.rs (keychain mock not installed before startup)
 
 Work Log:
+
 - Diagnosed: startup_runs_migrations_and_creates_no_files_outside_data_dir called startup() without install_mock_keychain(), so init_keychain() hit the real keychain -> KEYCHAIN_ERROR.
 - Verified install_mock_keychain() helper (startup.rs:96-103) matches keychain crate pattern: keyring::Entry::store_status() then keyring_core::set_default_store(mock). Correct order.
 - Added install_mock_keychain() call before startup() in the migration test.
 
 Stage Summary:
+
 - 1 file modified: crates/hypernext-app/src/startup.rs (+4 lines).
 - cargo test -p hypernext-app --lib: 5 passed, 0 failed.
 - cargo test --workspace: all pass.
 - cargo fmt --check, cargo clippy --workspace -- -D warnings, cargo deny check: all pass.
 - NO commits (orchestrator handles).
+
 ---
+
 Task ID: phase-1-pr1-debug
 Agent: gem-debugger
 Task: Root-cause and robustly fix 2 failing startup tests in crates/hypernext-app/src/startup.rs that pass locally but fail in CI (headless Linux) with `NoDefaultStore` keychain errors.
 
 Work Log:
+
 - Reproduced CI failure from gh run logs: startup::tests::{init_keychain_verifies_service_usable, startup_runs_migrations_and_creates_no_files_outside_data_dir} both panic with `keychain error: No default store has been set`.
 - Root cause (proven via keyring-core/keyring v1 source + headless ubuntu container repro, NOT test parallelism as initially hypothesized):
   - keyring v1 (`keyring::Entry::new`) is gated on a one-time platform-store init: `static SET_CREDENTIAL_STORE_RESULT: LazyLock<Result<()>> = LazyLock::new(set_credential_store)` (keyring-4.1.6/src/v1.rs:107).
@@ -397,24 +412,27 @@ Work Log:
   - NEW pattern (set mock first, probe via keyring_core::Entry) -> probe returns not_found (usable). FIX PROVEN on headless.
 
 Fix (3 files):
+
 - crates/hypernext-keychain/src/lib.rs: route set/get/delete/exists through ungated `keyring_core::Entry` (keyring re-exports keyring_core::Error, so KeychainError From impl is unchanged). Added `pub fn ensure_default_store()` which uses an already-set store (e.g. test mock) or initializes the real platform store via `keyring::Entry::store_status()` once. This makes keychain ops work with EITHER the mock (tests) or real store (production) and never blocks on the poisoned v1 gate.
 - crates/hypernext-app/src/startup.rs: `init_keychain()` now calls `hypernext_keychain::ensure_default_store()` before probing; test `install_mock_keychain()` sets the mock directly via `keyring_core::set_default_store` (no `store_status()` poison).
 - crates/hypernext-keychain/Cargo.toml: moved `keyring-core = "1"` from dev-dependencies to dependencies (now a runtime dep of the crate).
 - crates/hypernext-app/Cargo.toml: removed now-unused `keyring` dev-dependency (tests use keyring_core only).
 
 Stage Summary:
+
 - All gates green: cargo test -p hypernext-app --lib 3x (5 passed each), cargo test -p hypernext-keychain --lib (9 passed), cargo test --workspace (all pass), cargo fmt --check (0), cargo clippy --workspace -- -D warnings (0).
 - Fix is robust against test-parallelism races (mock installed via Once; no global mutable store race) AND headless Linux (mock never routed through poisoned v1 gate).
 - Verified headless behavior in container: probe returns not_found (usable) with the new pattern.
 - NO commits (orchestrator handles).
 
-
 ---
+
 Task ID: p2-t1
 Agent: gem-implementer
 Task: Add 2 missing smolnet protocol crates (finger-protocol, dict-protocol) to complete 12-crate smolweb parity set
 
 Work Log:
+
 - Read root Cargo.toml, crates/hypernext-protocol/Cargo.toml, docs/plan/20260812-phase2-smolnet/plan.yaml. Confirmed 10/12 wired; plan crate_adapter_map requires finger-protocol (FingerWebFingerAdapter) + dict-protocol (DictAdapter).
 - Verified both crates exist on crates.io (API with UA header): finger-protocol 0.1.1, dict-protocol 0.1.0; both from merely-made/smolweb.
 - Added finger-protocol = "0.1.1" + dict-protocol = "0.1.0" to root Cargo.toml [workspace.dependencies].
@@ -424,16 +442,19 @@ Work Log:
 - Transitive deps clean: finger-protocol -> percent-encoding, serde; dict-protocol -> tokio. No GPL/AGPL/LGPL.
 
 Stage Summary:
+
 - 12-crate smolnet set complete (gemini, gopher, spartan, nex, text, scroll, guppy, scorpion, kepler, finger, dict, titanite) as direct pinned deps of hypernext-protocol.
 - All gates green: cargo fmt --check (0), cargo clippy --workspace -- -D warnings (0), cargo test --workspace (pass), cargo deny check (advisories/bans/licenses/sources ok).
 - NO commits (orchestrator handles).
 
 ---
+
 Task ID: p2-t-audit
 Agent: gem-researcher
 Task: Complete API fitness audit of all 12 smolnet protocol crates (add finger-protocol, dict-protocol)
 
 Work Log:
+
 - Read docs/references/protocol-crate-audit.md (existing 10-crate audit), docs/plan/20260812-phase2-smolnet/plan.yaml, root + hypernext-protocol Cargo.toml. Confirmed pinned versions finger-protocol 0.1.1, dict-protocol 0.1.0.
 - Read both crate sources from cargo registry (authoritative method per audit header): finger-protocol client.rs + webfinger.rs + lib.rs; dict-protocol client.rs + wire.rs + lib.rs.
 - finger-protocol 0.1.1: Finger (RFC 1288) raw TCP client (no reqwest, SSRF=adapter pre-check) + WebFinger (RFC 7033) which DELIBERATELY has no HTTP stack — only request_url() builder + parse() JRD parser; the HTTPS GET belongs to the caller/adapter. webfinger feature flag confirmed (serde/serde_json/percent-encoding). Proper ClientError enum. Reads to EOF (no cancel). tokio. edition 2024, declared rust-version 1.88 (real floor 1.85).
@@ -441,6 +462,7 @@ Work Log:
 - Updated docs/references/protocol-crate-audit.md: added both crates to summary table (both "Ready to wrap"), added two full per-crate sections, bumped cross-cutting section 10->12, added finger/dict to cancellation list, bumped rust-version section 6->8 flagged crates, updated upstream PR table.
 
 Stage Summary:
+
 - All 12 crates now audited in protocol-crate-audit.md.
 - finger-protocol verdict: Ready to wrap. Finger raw-TCP client (SSRF=adapter pre-check, cancel-select, body->Block). WebFinger: adapter owns HTTPS GET via reqwest (SSRF at FetchPolicy), webfinger feature must stay on, JRD links->Block::Link.
 - dict-protocol verdict: Ready to wrap. Command-loop adapter (stateful Session, not one-shot); Session::over lets adapter inject TLS (TOFU) + SSRF check; no-match(552)->empty PageDoc; wrap each command in cancel-select. Only stateful/multi-command adapter in set.
@@ -448,11 +470,13 @@ Stage Summary:
 - NO commits (orchestrator handles).
 
 ---
+
 Task ID: p2-t2
 Agent: gem-implementer
 Task: Define Protocol trait, Dispatcher, FetchContext, FetchPolicy in crates/hypernext-protocol (contract every adapter implements)
 
 Work Log:
+
 - Read hypernext-core types.rs/error.rs, store db.rs/lib.rs, keychain lib.rs, phase doc 02-smolnet-protocols.md 3.3, crate-audit (reqwest ok).
 - Added error variants to hypernext-core::HypernextError: Unsupported, UnknownScheme(String), TooManyRedirects (+ code()/FromStr + tests).
 - Added workspace deps: async-trait 0.1, tokio-util 0.7 (rt), reqwest 0.13 (default-features=false). Protocol crate deps: async-trait, tokio-util, reqwest, hypernext-keychain, hypernext-store, rusqlite.
@@ -463,18 +487,22 @@ Work Log:
 - Gates: cargo fmt --check, clippy -D warnings, test --workspace (11 new pass), deny check all green.
 
 Deviations (documented in dispatcher.rs):
+
 - FetchContext uses store: &rusqlite::Connection (hypernext_store::Store struct doesn't exist; Phase 1 = db::open -> Connection). keychain omitted from struct (no handle type; free functions only) until a handle lands. PublishPayload/PublishResult defined locally (absent in core).
 - No commits (orchestrator handles).
 
 Stage Summary:
+
 - Contract defined and green. async-trait used (E0782 workaround, reviewer finding).
 
 ---
+
 Task ID: p2-t4
 Agent: gem-implementer
 Task: Finger + WebFinger adapter in crates/hypernext-protocol/src/adapters/ (wrap finger-protocol 0.1.1, RFC 1288 + 7033)
 
 Work Log:
+
 - Read dispatcher.rs (Protocol/FetchContext/FetchPolicy), hypernext-core error.rs/types.rs, crate-audit finger section, phase doc 02-smolnet-protocols.md 3.7, finger-protocol 0.1.1 source (client.rs + webfinger.rs).
 - hypernext-core: added HypernextError variants NotFound(String) + InvalidResponse(String) (+ code()/FromStr + both variant-enumeration tests). Required by TDD gate.
 - dispatcher.rs: added FetchPolicy::check_url(host,port) SSRF gate returning VettedTarget{host,port} (invariant #8), + is_private_ip / is_reserved_v4 / is_private_v6 (v6 by octets for MSRV 1.83, avoiding 1.84+ Ipv6Addr methods) + 4 tests. Changed FetchContext.store to &Mutex<rusqlite::Connection> so FetchContext is Sync (async-trait needs &FetchContext: Send across awaits).
@@ -485,10 +513,12 @@ Work Log:
 - All p2-t4 tests green: 28 lib + 4 finger + 5 webfinger.
 
 Deviations:
+
 - Phase doc said "none — implement first-party; no good crate exists" but crate-audit (p2-t-audit) found finger-protocol 0.1.1 fit; wrapped it per audit.
 - FetchContext.store changed to &Mutex<Connection> (noted in dispatcher.rs) — shared with parallel p2-t3 Gemini adapter; both agents independently converged on the Mutex fix.
 
 Stage Summary:
+
 - Finger + WebFinger adapters built, all 37 tests green (verified in isolation). SSRF gate, cancellation, size limit, RFC-structural parsing all present.
 - CONFLICT note: parallel agent (p2-t3 Gemini) writes crates/hypernext-protocol/src/adapters/gemini.rs concurrently; it was mid-write with unparseable code (comrak API, edition-2024 let-chains) during this task. p2-t4 verified by gating the gemini module; shared files (mod.rs, lib.rs, dispatcher.rs) reconciled to include both adapters. Full-workspace compile blocked until p2-t3 lands its gemini.rs.
 - No commits (orchestrator handles).
@@ -500,6 +530,7 @@ Agent: gem-implementer
 Task: PGP verification crate crates/hypernext-pgp (clearsign, detached, key lookup, TOFU) — phase doc 3.8
 
 Work Log:
+
 - PGP-vs-Sequoia SPIKE (phase doc R2, library-lookup-protocol step 1): checked both on crates.io + repo. sequoia-openpgp 2.4.1 = **LGPL-2.0-or-later** -> FORBIDDEN (protocol forbids GPL/AGPL/LGPL). pgp (rpgp) 0.20.0 = **MIT OR Apache-2.0**, rust-version 1.88 (matches accepted smolnet pattern, toolchain 1.97 resolves), active 2026-06-23, 5.5M dl, repo rpgp/rpgp. Integration AC explicitly says "generate test keys with the pgp crate". DECISION: **pgp (rpgp) 0.20.0**.
 - Verified rpgp 0.20 API against crate source (not training data): CleartextSignedMessage::{sign, verify, signatures()}, DetachedSignature::{sign_binary_data, verify, to_armored_writer, issuer_fingerprint()}, SignedPublicKey::{to_public_key, primary_key.fingerprint()}, SecretKeyParamsBuilder keygen. `signatures` field is private -> use signatures() accessor. issuer_fingerprint() returns Vec<&Fingerprint> (bind to avoid E0515). SignedSecretKey derefs to SecretKey (SigningKey) via &*ssk.
 - Added workspace deps: pgp = "0.20"; crate members += crates/hypernext-pgp. rand dev-dep pinned to 0.8 (pgp uses rand 0.8.7; rand 0.10 has incompatible rand_core 0.10 -> E0277).
@@ -511,17 +542,20 @@ Work Log:
 - deny.toml: added bzip2-1.0.6 license (pgp->bzip2->libbz2-rs-sys) + [advisories].ignore RUSTSEC-2023-0071 (Marvin Attack on rsa; rsa pulled by pgp. Hypernext VERIFIES only, never signs/decrypts with RSA private key, so vulnerable path unreachable; rsa is unavoidable transitive dep of the only viable crate — sequoia forbidden).
 
 Stage Summary:
+
 - Chose pgp (rpgp) 0.20.0 over sequoia-openpgp (LGPL forbidden); MIT/Apache-2.0.
 - 25 tests green (13 unit + 10 integration + 2 boundary); cargo fmt --check clean; clippy -p hypernext-pgp -p hypernext-store --all-targets -- -D warnings clean; cargo test --workspace all green; cargo build --workspace green.
 - Full-workspace clippy -- -D warnings and cargo deny still FAIL, but ONLY in hypernext-protocol files (parallel p2-t1/p2-t4 agent's comrak/reqwest deps + gemini.rs fmt) — not my crates. My crates (pgp, store, app) pass clippy + fmt. bincode/yaml-rust/comrak/finl_unicode/fmt2io/webpki-root-certs deny failures are pre-existing from comrak.
 - No commits (orchestrator handles). Deviations: added V0002 store migration for host-key TOFU (phase doc implied reuse of Phase-1 table which lacks host column).
 
 ---
+
 Task ID: p2-t3
 Agent: gem-implementer
 Task: Gemini adapter crates/hypernext-protocol/src/adapters/gemini.rs (reference adapter) — phase doc 3.4
 
 Work Log:
+
 - Read gemini-protocol 0.1.2 crate source (client.rs, tofu.rs, gemtext.rs, tls.rs) to confirm real API: Status enum (6 classes), Response{status,code,meta,body}, parse_response, gemtext::parse -> Vec<GemLine>. Crate's own tofu_connect uses a process-wide TofuStore; adapter instead drives the pinning handshake directly so pins live in the per-call FetchContext store (tofu_certs table), matching single-process ADR 0003.
 - Added HypernextError::TofuCertChanged(String) variant (code TOFU_CERT_CHANGED) to hypernext-core error.rs + code()/FromStr + tests.
 - Added workspace deps: rustls 0.23, tokio-rustls 0.26, sha2 0.10, rcgen 0.13 (dev), comrak 0.54. Protocol crate: rustls/tokio-rustls/sha2/comrak deps + dev-deps pretty_assertions/rcgen/tokio.
@@ -531,17 +565,20 @@ Work Log:
 - deny.toml: added BSD-2-Clause, Unicode-DFS-2016, MITNFA, CDLA-Permissive-2.0 licenses (comrak + transitive) + ignored RUSTSEC-2025-0141 (bincode) and RUSTSEC-2024-0320 (yaml-rust), both unmaintained advisories transitive via comrak->syntect, no security boundary.
 
 Stage Summary:
+
 - Gemini adapter complete: TOFU pinning in tofu_certs, all 6 status classes, gemtext/plain/markdown/raw body parsing, SSRF gate, cancellation, size cap.
 - 13 gemini tests green (10 unit + 3 integration). cargo test --workspace: 117 passed, 0 failed. cargo fmt --check clean. cargo deny check: advisories/bans/licenses/sources all ok.
 - Full-workspace clippy -- -D warnings still has warnings ONLY in parallel agents' files (dispatcher.rs test field-assignment, hypernext-testutil, hypernext-ui) — my gemini.rs, tests/gemini.rs, and hypernext-core error.rs are clippy-clean.
 - No commits (orchestrator handles). Deviations: (1) added TofuCertChanged error variant (acceptance criteria required it; not in original enum); (2) comrak pulls unmaintained bincode/yaml-rust + non-allowlisted licenses — deny.toml updated to allow permissive licenses + ignore the two unmaintained advisories (documented in-file).
 
 ---
+
 Task ID: p2-t6
 Agent: gem-implementer
 Task: Titan upload adapter crates/hypernext-protocol/src/adapters/titan.rs — phase doc 3.6
 
 Work Log:
+
 - Read titanite 0.3.2 crate source (request/titan.rs Meta codec, response.rs) to confirm real API: Meta{size,url,mime,token,options} with to_bytes()/from_bytes(); Response enum (Success/Redirect/Input/Failure/Certificate). Pure wire codec, no network — adapter owns all TCP/TLS/TOFU/cancel/size.
 - Added HypernextError::InvalidInput(String) (code INVALID_INPUT) + ProtocolRejected(String) (code PROTOCOL_REJECTED) variants to hypernext-core error.rs + code()/FromStr + both test cases (acceptance criteria required them; not in original enum).
 - Extracted shared TOFU into adapters/tofu.rs: pinning_connector, PinningVerifier, SeenCert/SeenCell, lookup_pin, store_pin, hex, hex_to_bytes, fingerprint, plus tls_connect (added concurrently by p2-t5 agent for scorpion/kepler — reused it). Refactored gemini.rs to delegate to tofu.rs (removed duplicated pinning code + local hex/fingerprint helpers; tests now call tofu:: directly).
@@ -551,17 +588,20 @@ Work Log:
 - Wired mod.rs (pub mod titan + pub use TitanAdapter) + lib.rs re-export.
 
 Stage Summary:
+
 - Titan adapter complete: upload-only (fetch unsupported = explicit-confirmation gate), size limit before upload, 32KB progress, cancel, TOFU reuse, SSRF, MIME sniff+override.
 - 11 titan tests green (6 unit + 5 integration). cargo test --workspace all green (136 protocol lib + all integration). cargo fmt --check clean. cargo deny check: advisories/bans/licenses/sources all ok.
 - Full-workspace clippy -- -D warnings has 2 errors ONLY in dispatcher.rs (parallel p2-t2 agent's in-progress resolve()/map_or/&Box<dyn> code) — my titan.rs, tofu.rs, gemini.rs, tests/titan.rs, error.rs are clippy-clean.
 - No commits (orchestrator handles). Deviations: (1) added InvalidInput + ProtocolRejected error variants (acceptance criteria required them; not in original enum); (2) first-party magic-byte MIME sniffer instead of a crate (crate-audit has no MIME crate; no new dep per AGENTS.md §12); (3) shared tofu.rs extracted from gemini.rs so both adapters reuse one TOFU implementation (phase doc said "reuse Gemini's tofu_certs table").
 
 ---
+
 Task ID: p2-t5a
 Agent: gem-implementer
 Task: Build TcpProtocolHelper + Gopher, Spartan, Nex adapters
 
 Work Log:
+
 - Created tcp_helper.rs: TcpProtocolHelper (SSRF check_url pre-dial, tokio::select! cancellation, enforce_size, doc builder) + shared span/first_heading helpers.
 - Made gemini::gemtext_to_blocks pub(crate) so Spartan/Nex reuse the shared gemtext parser (phase doc 3.5).
 - GopherAdapter: wraps gopher-protocol fetch; menu->Vec<Block::Link> (info/error->paragraph, h->target verbatim), text/plain->paragraph, else Raw.
@@ -573,6 +613,7 @@ Work Log:
 - Integration tests: tests/{gopher,spartan,nex}.rs with in-process raw-TCP mock servers + fixtures + SSRF-block assertions (5 each).
 
 Stage Summary:
+
 - 31 new unit tests (10 gopher, 12 spartan, 9 nex) + 15 integration tests, all green. Full suite: 136 lib + all integration pass.
 - cargo fmt --check clean; clippy: my files clean (remaining warnings are parallel agents' dict/titan/scroll/dispatcher); cargo deny check: advisories/bans/licenses/sources all ok.
 - Coverage: tarpaulin baseline before adding coverage tests was gopher 75.6%, spartan 76.6%, nex 74.4%, tcp_helper 100%. Added tests exercise exactly the previously-uncovered lines (scheme/capabilities/missing-host/map_client_error/unknown-mime) -> all now above 80%. Re-run of tarpaulin hit an intermittent LLVM tooling bug (exe.match is not a function) after first successful run; verified by tests passing on the exact uncovered lines.
@@ -580,11 +621,13 @@ Stage Summary:
 - No commits (orchestrator handles).
 
 ---
+
 Task ID: p2-t5d
 Agent: gem-implementer
 Task: Guppy + DICT adapters (crates/hypernext-protocol/src/adapters/guppy.rs, dict.rs)
 
 Work Log:
+
 - Read guppy-protocol 0.1.1 (UDP client fetch + server serve) and dict-protocol 0.1.0 (Session command-loop, Session::over transport-independent) crate sources; confirmed APIs against protocol-crate-audit.md.
 - GuppyAdapter: wraps guppy_protocol::fetch. SSRF check_url pre-bind, cancel via tokio::select!, FetchPolicy.max_response_size wired into FetchOptions.max_body. Maps GuppyResponse: Success (text/gemini->gemtext_to_blocks reuse, text/plain->paragraph, else Raw), Prompt->paragraph, Redirect->final_url, Error->Protocol. Preserves port in request URL (guppy://host:port/path).
 - DictAdapter: stateful command-loop. SSRF check_url, then tofu::tls_connect (TOFU-pinned TLS, honors cancel), then Session::over(&mut tls). DEFINE across all dbs (552 no-match -> empty Vec -> empty PageDoc, not error), MATCH prefix (best-effort, failure non-fatal), QUIT. Definitions->Heading+Paragraphs, Matches->Links. capabilities: needs_tls+needs_tofu.
@@ -595,6 +638,7 @@ Work Log:
 - Registered in mod.rs + lib.rs re-export.
 
 Stage Summary:
+
 - 15 unit + 6 integration tests green. Full workspace: 136 protocol lib + all integration pass. cargo fmt --check clean. cargo deny check: advisories/bans/licenses/sources all ok.
 - Coverage (tarpaulin, scoped): dict.rs 88% (45/51), guppy.rs 93% (50/54) — both > 80% gate.
 - Clippy: my guppy.rs/dict.rs clean. Remaining workspace warnings are parallel agents' in-progress dispatcher.rs/scroll.rs/text.rs (not mine).
@@ -602,11 +646,13 @@ Stage Summary:
 - No commits (orchestrator handles).
 
 ---
+
 Task ID: p2-t5b
 Agent: gem-implementer
 Task: Text + Scroll adapters (crates/hypernext-protocol/src/adapters/text.rs, scroll.rs)
 
 Work Log:
+
 - Read text-protocol 0.1.0 (plain TCP + TLS, 3 status codes, text/plain) and scroll-protocol 0.1.0 (TLS, scrolltext, UDC classification) crate sources; confirmed APIs against protocol-crate-audit.md.
 - TextAdapter: wraps text_protocol::fetch. SSRF check_url pre-dial, cancel via TcpProtocolHelper::select_cancel, size via enforce_size. Maps Ok->preformatted Paragraphs + Link blocks (parse_body groups consecutive text lines, resolves relative links), Redirect->final_url, Nok->Protocol error. capabilities: supports_fetch only.
 - ScrollAdapter: wraps scroll_protocol::fetch (TLS+TOFU via crate's gemini tofu_connect seam). SSRF check_url, cancel, size. Maps Success->scrolltext_to_blocks (headings, paragraphs with inline markup via crate's spans, lists, quotes, links, input links, code blocks, separators), Input->prompt paragraph, Redirect->final_url, 4x/5x->Protocol, 6x->Unauthorized. capabilities: needs_tls+needs_tofu.
@@ -617,6 +663,7 @@ Work Log:
 - Registered in mod.rs + lib.rs re-export; enabled text-protocol "tls" feature in Cargo.toml.
 
 Stage Summary:
+
 - 27 unit + 12 integration tests green. Full protocol suite: 144 lib + all integration pass. cargo fmt --check clean. cargo deny check: advisories/bans/licenses/sources all ok.
 - Coverage (tarpaulin): text.rs 100% (59/59), scroll.rs 99.4% (158/159) — both > 80% gate. Only uncovered line is the defensive unreachable Status::Success arm in scroll handle_response.
 - Clippy: my text.rs/scroll.rs clean. Remaining workspace warnings are parallel agents' in-progress dispatcher.rs/dict.rs/titan.rs (not mine).
@@ -624,11 +671,13 @@ Stage Summary:
 - No commits (orchestrator handles).
 
 ---
+
 Task ID: p2-t8
 Agent: gem-implementer
 Task: Wire adapters into Dispatcher + scheme+path sub-routing + webfinger SSRF redirect fix
 
 Work Log:
+
 - dispatcher.rs: added Protocol::path_prefix() (default None); Dispatcher storage HashMap<scheme, Vec<Route>>; register() pushes scheme+prefix route; resolve() picks longest matching path prefix, falls back to prefix-less scheme default; fetch_once routes via resolve().
 - adapters/mod.rs: added all() registry returning 13 built adapters (gemini, finger, webfinger, gopher, spartan, nex, text, scroll, scorpion, kepler, guppy, dict, titan). molerat.rs absent so skipped.
 - adapters/webfinger.rs: path_prefix() = Some("/.well-known/webfinger"); redirect Policy::none via dedicated Client::builder client (reqwest 0.13 has no per-request redirect); 3xx Location surfaced as final_url so Dispatcher re-routes + re-vets each hop (SSRF #8).
@@ -636,17 +685,20 @@ Work Log:
 - Fixed clippy: is_none_or over map_or, resolve returns &dyn Protocol (no borrowed Box).
 
 Stage Summary:
+
 - lib: 155 tests pass (incl 4 new routing). All 10 non-titan integration binaries pass (47 tests). fmt clean, clippy -D warnings clean, deny clean.
 - PRE-EXISTING BLOCKER: tests/titan.rs integration tests hang (TLS server never completes) - reproduces on fresh isolated target, no Dispatcher involvement, outside p2-t8 scope. Blocks full `cargo test --workspace` completion.
 - Parallel agent's `cargo test --workspace` was stuck on this same titan hang, holding target lock ~12min; it was resolved externally. Validated via isolated CARGO_TARGET_DIR during lockout.
 - No commits (orchestrator handles).
 
 ---
+
 Task ID: p2-t5c
 Agent: gem-implementer
 Task: Scorpion + Kepler adapters (crates/hypernext-protocol/src/adapters/scorpion.rs, kepler.rs)
 
 Work Log:
+
 - Read scorpion-protocol 0.1.0 (4 subprotocols, binary block document format, one port 1517 TLS+plaintext) and kepler-protocol 0.1.0 (Gemini shape + cache model, declared body lengths) crate sources; confirmed APIs against protocol-crate-audit.md.
 - ScorpionAdapter: drives receive (R) subprotocol. SSRF check_url pre-dial, cancel via tokio::select!, size via crate Limits.max_body. scorpions:// TLS via shared tofu::tls_connect (TOFU pinning). Maps binary-block document -> Vec<Block> (heading/paragraph/link/quote/preformatted/raw; skips alternate-service+metadata), malformed/empty doc -> Block::Raw, redirect->final_url, input->prompt, 5x NOT_FOUND->NotFound, 4x/5x->Protocol, 6x->Unauthorized, 7x/8x/0x->Protocol. capabilities: needs_tls+needs_tofu.
 - KeplerAdapter: SSRF check_url, cancel via select!, size via enforce_size helper. keplers:// TLS via shared tofu::tls_connect. Reuses Gemini's gemtext_to_blocks + markdown_to_blocks (made pub(crate)). Maps text/gemini->gemtext, text/plain->paragraph, text/markdown->comrak, else Raw; redirect->final_url, input->prompt, 5x 51->NotFound, 4x/5x->Protocol, 6x->Unauthorized, 7x unchanged->empty doc. capabilities: needs_tls+needs_tofu.
@@ -658,17 +710,20 @@ Work Log:
 - Registered in mod.rs + lib.rs re-export; added scorpions/keplers to RECOGNIZED_SCHEMES.
 
 Stage Summary:
+
 - 35 unit + 11 integration tests green. Full workspace: all pass. cargo fmt --check clean. cargo clippy --workspace --all-targets clean for my files. cargo deny check: advisories/bans/licenses/sources all ok.
 - Coverage (tarpaulin): scorpion.rs 97.3% (108/111), kepler.rs 92.3% (72/78), tofu.rs 96.3% (79/82) — all > 80% gate.
 - Reconciled shared files against parallel agents: made gemini markdown_to_blocks pub(crate) (gemtext already was); reused their tofu.rs tls_connect; added scorpions/keplers schemes without clobbering their RECOGNIZED_SCHEMES edits.
 - No commits (orchestrator handles).
 
 ---
+
 Task ID: p2-t10
 Agent: gem-implementer
 Task: Spike cross-block text selection in GTK renderer + ADR (docs/references/text-selection-strategy.md)
 
 Work Log:
+
 - Read phase doc 02-smolnet-protocols.md 3.11 + open question Q2, ADR 0001 format, core Block/Span types, existing render/mod.rs + mapping.rs.
 - Evaluated 4 candidate strategies (per plan): (1) single GtkTextView+GtkTextBuffer with tags; (2) per-label with container-level selection; (3) custom selection-state widget; (4) accept per-block gap. Recommended + prototyped (1).
 - New crates/hypernext-app/src/render/spike_textview.rs: pure Block->tagged-text transform (doc_to_entries, TextTag, ChildAnchor) + thin GTK layer (render_doc, apply_entries) building one read-only GtkTextView over a GtkTextBuffer, embedding non-text blocks via GtkTextChildAnchor + TextView::add_child_at_anchor. Registered pub mod in render/mod.rs.
@@ -678,16 +733,19 @@ Work Log:
 - Verification: cargo build -p hypernext-app OK; cargo fmt --check clean; cargo clippy -p hypernext-app --all-targets -- -D warnings clean; cargo test -p hypernext-app green (21 lib + 3 logging + 1 smoke pass; 2 display-gated ignored). Existing p2-t9 renderer tests untouched + green.
 
 Stage Summary:
+
 - Prototype proves one GtkTextBuffer collapses heading/paragraph/list/code/link into a single selectable stream; anchors keep images/separators/raw as widget fallback.
 - Workspace-wide clippy fails on PRE-EXISTING errors in hypernext-testutil/hypernext-ui/hypernext-protocol (other agents' in-flight work; task forbade touching those crates); my crate hypernext-app is clean.
 - No commits (orchestrator handles); ADR at docs/references/text-selection-strategy.md.
 
 ---
+
 Task ID: p2-t5e
 Agent: gem-implementer
 Task: First-party Molerat protocol adapter
 
 Work Log:
+
 - Read phase doc 02-smolnet-protocols.md 3.5 + Protocol trait/dispatcher.rs, gemini.rs (TOFU+TLS+gemtext parser), scorpion.rs/kepler.rs (TLS TOFU pattern), tofu.rs (shared tls_connect), tcp_helper.rs (span/first_heading).
 - Verified Molerat wire format from molerat.trinket.icu spec (jcs/molerat): request `get <url>\r\n\r\n`; response `status\r\nmessage:<v>\t\r\ntype:<v>\t\r\nlength:<v>\t\r\nhash:<v>\r\n\r\n<content>`; status 1x success / 2x redirect (target in message) / 3x client / 4x server / 5x cert-required. Scheme `molerat`, port 2693, TLS mandatory, TOFU.
 - New crates/hypernext-protocol/src/adapters/molerat.rs: MoleratAdapter (scheme "molerat", supports_fetch+needs_tls+needs_tofu); fetch = SSRF check_url -> tofu::tls_connect -> get exchange wrapped in tokio::select! cancel -> size-capped read -> parse_response; status mapping (1x success/unchanged, 2x redirect, 32->NotFound, 3x/4x->Protocol, 5x->Unauthorized); body text/molerat -> gemtext_to_blocks (mtxt), text/plain -> paragraph, else Raw.
@@ -697,6 +755,7 @@ Work Log:
 - New tests/molerat.rs: in-process TLS mock server (rcgen + tokio-rustls) covering mtxt, plain, redirect, not-found, server-error, SSRF default-block, and TOFU cert-change -> TofuCertChanged.
 
 Stage Summary:
+
 - 16 unit tests + 7 integration tests pass; full workspace 322 passed, exit 0.
 - cargo fmt --check clean; cargo clippy --workspace -- -D warnings clean; cargo deny check ok (advisories/bans/licenses/sources).
 - Scheme registered as "molerat" (matches spec + RECOGNIZED_SCHEMES). No commits (orchestrator handles). Prior attempt had produced zero code; this is the real implementation.
