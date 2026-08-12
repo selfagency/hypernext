@@ -3,34 +3,45 @@ objective: "Phase 1 Foundation & Architecture: cargo workspace, Relm4+GTK4 shell
 complexity: HIGH
 source_doc: docs/phases/01-foundation-and-architecture.md
 created: 2026-08-12
+revised: "2026-08-12 (post-review: de-risk R6/R1/R2, wire store+keychain into shell, trim YAGNI, CI earlier)"
 
 tasks:
+  - id: t0
+    title: "Relm4+GTK4 spike: hello window + gvsbuild bundling proof"
+    wave: 1
+    agent: gem-implementer
+    status: pending
+    deps: [t1]
+    conflicts_with: []
+    source: "phase-doc 2.2, risk R1/R6"
+    acceptance: "Minimal Relm4+GTK4 window opens on macOS; gvsbuild bundling path proven; docs/references/build-macos.md written; relm4-debugging.md notes file started. De-risks R6 (no production Relm4 precedent) and R1 (GTK bundling) BEFORE infrastructure is built."
+
   - id: t1
-    title: "Cargo workspace skeleton"
+    title: "Cargo workspace skeleton (6 crates)"
     wave: 1
     agent: gem-implementer
     status: pending
     deps: []
     conflicts_with: []
     source: "phase-doc 2.1"
-    acceptance: "cargo build --workspace && cargo test --workspace pass (stub tests)"
+    acceptance: "cargo build --workspace && cargo test --workspace pass (stub tests). Crates: hypernext-app, hypernext-ui, hypernext-core, hypernext-store, hypernext-keychain, hypernext-testutil. Future-phase crates (http/protocol/pgp/webmode/indieauth) NOT created yet - YAGNI."
 
   - id: t2
-    title: "Workspace dependencies manifest"
+    title: "Workspace dependencies manifest (Phase-1 only)"
     wave: 1
     agent: gem-implementer
     status: pending
     deps: [t1]
     conflicts_with: []
-    source: "phase-doc 2.9"
-    acceptance: "cargo update --dry-run clean; cargo deny check passes; crates inherit workspace versions"
+    source: "phase-doc 2.9, risk R2/R5"
+    acceptance: "Pin ONLY Phase-1 deps: tokio, rusqlite, refinery, sqlite-vec, keyring, relm4, gtk4, serde, serde_json, chrono, uuid, thiserror, anyhow, tracing, tracing-subscriber, + test deps. VERIFY each pinned version exists on crates.io/docs.rs (hard gate, per phase-doc 6.2). VERIFY rusqlite bundled+modernsqlite+sqlite-vec feature matrix resolves (de-risks R2). cargo update --dry-run clean; cargo deny check passes; crates inherit workspace versions."
 
   - id: t3
     title: "Core types (PageDoc, Block, Span, PgpInfo, DebugInfo)"
     wave: 2
     agent: gem-implementer
     status: pending
-    deps: [t1]
+    deps: [t1, t2]
     conflicts_with: []
     source: "phase-doc 2.5"
     acceptance: "serde round-trip tests pass; Display impls; PgpStatus strings match Bean shield UI"
@@ -40,74 +51,82 @@ tasks:
     wave: 2
     agent: gem-implementer
     status: pending
-    deps: [t1, t3]
+    deps: [t1, t2]
     conflicts_with: []
     source: "phase-doc 2.6"
-    acceptance: "error round-trip tests; stable string codes; ? propagation from rusqlite"
+    acceptance: "error round-trip tests; stable string codes; ? propagation from rusqlite. No dep on t3 - HypernextError variants reference no core types."
 
   - id: t5
     title: "Logging / tracing (subscriber, redaction)"
     wave: 2
     agent: gem-implementer
     status: pending
-    deps: [t1]
+    deps: [t1, t2]
     conflicts_with: []
     source: "phase-doc 2.7"
-    acceptance: "redaction test; RUST_LOG=debug enables debug spans; JSON format via HYPERNEXT_LOG_FORMAT"
+    acceptance: "redaction test; RUST_LOG=debug enables debug spans; JSON format via HYPERNEXT_LOG_FORMAT; docs/references/logging-policy.md written"
 
   - id: t6
     title: "SQLite store + migrations (rusqlite, refinery, sqlite-vec)"
-    wave: 3
+    wave: 2
     agent: gem-implementer
     status: pending
     deps: [t1, t2, t4]
     conflicts_with: []
     source: "phase-doc 2.3"
-    acceptance: "open_in_memory; migrations apply; FTS5 + sqlite-vec load; FK ON; WAL"
+    acceptance: "open(path) file-based + open_in_memory; migrations apply; re-open already-migrated DB is no-op; FTS5 + sqlite-vec load; FK ON; WAL; down-migration-reversible constraint documented"
 
   - id: t7
     title: "OS keychain integration (keyring crate)"
-    wave: 3
+    wave: 2
     agent: gem-implementer
     status: pending
     deps: [t1, t2, t4]
     conflicts_with: []
     source: "phase-doc 2.4"
-    acceptance: "set/get round-trip; get missing -> NotFound; delete; exists"
+    acceptance: "set/get round-trip; get missing -> NotFound; delete; exists; docs/references/keychain-testing.md written (incl. security unlock-keychain for CI, de-risks R4)"
 
   - id: t8
     title: "Relm4 + GTK4 app shell (window, header bar, clean shutdown)"
-    wave: 4
+    wave: 3
     agent: gem-implementer
     status: pending
-    deps: [t1, t2, t3, t4, t5]
+    deps: [t1, t2, t5]
     conflicts_with: []
     source: "phase-doc 2.2"
-    acceptance: "smoke test: window opens with title, exits code 0"
+    acceptance: "smoke test: window opens with title, exits code 0; docs/references/gtk-testing.md written (Linux xvfb-run for CI)"
+
+  - id: t10
+    title: "Wire store + keychain into app startup (migrations on first launch)"
+    wave: 3
+    agent: gem-implementer
+    status: pending
+    deps: [t6, t7, t8]
+    conflicts_with: []
+    source: "phase-doc 2.3 + exit criteria"
+    acceptance: "App first launch runs SQLite migrations (schema_migrations row count); app creates zero files outside ~/Library/Application Support/Hypernext/; keychain service initialized. Satisfies exit criteria that t8 alone cannot reach."
 
   - id: t9
     title: "CI pipeline (GitHub Actions, pre-commit, check-no-verify)"
-    wave: 5
+    wave: 4
     agent: gem-devops
     status: pending
-    deps: [t1, t2, t3, t4, t5, t6, t7, t8]
+    deps: [t1, t2, t3, t4, t5, t6, t7, t8, t10]
     conflicts_with: []
     source: "phase-doc 2.8"
-    acceptance: "CI green on main; coverage threshold 30% ratchet; no --no-verify"
+    acceptance: "CI green on main; coverage threshold 30% ratchet; no --no-verify; GTK tests + tarpaulin on Linux runner (xvfb-run) - macOS runner for build only; security unlock-keychain for keychain tests (R4)"
 
 waves:
-  1: [t1, t2]
-  2: [t3, t4, t5]
-  3: [t6, t7]
-  4: [t8]
-  5: [t9]
+  1: [t0, t1, t2]
+  2: [t3, t4, t5, t6, t7]
+  3: [t8, t10]
+  4: [t9]
 
 integration_gates:
   wave_1: true
   wave_2: true
   wave_3: true
   wave_4: true
-  wave_5: true
 
 exit_criteria:
   - "cargo build --workspace --release succeeds on macOS 14+"
@@ -123,3 +142,4 @@ exit_criteria:
   - "No --no-verify in git history"
   - "All ADRs committed at docs/references/"
   - "worklog.md up to date with every Phase 1 task ID"
+  - "docs/references/build-macos.md, gtk-testing.md, keychain-testing.md, logging-policy.md all written"
