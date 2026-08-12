@@ -3,6 +3,10 @@
 # Runs on every commit (via prek install) and in CI (via j178/prek-action).
 
 # Generic file hygiene checks (builtin, no external deps).
+# Exclude non-source files: user config (.codacy), session artifacts (.opencode),
+# and the vendored AGENTS.original backup.
+exclude = { glob = [".codacy/**", ".opencode/**", "AGENTS.original.md"] }
+
 [[repos]]
 repo = "builtin"
 hooks = [
