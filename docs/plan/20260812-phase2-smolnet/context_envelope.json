@@ -11,7 +11,7 @@
     "errors": "thiserror 2 (libraries) + anyhow 1 (app), ADR 0009",
     "logging": "tracing 0.1 + tracing-subscriber 0.3 (env-filter, json)",
     "serialization": "serde 1 + serde_json 1 + chrono 0.4 + uuid 1.24",
-    "protocol_crates": "gemini-protocol 0.1.2, scroll-protocol 0.1.0, text-protocol 0.1.0, spartan-protocol 0.1.1, nex-protocol 0.1.1, gopher-protocol 0.1.2, scorpion-protocol 0.1.0, kepler-protocol 0.1.0, guppy-protocol 0.1.1, titanite 0.3.2 (direct deps, ADR 0006)",
+    "protocol_crates": "12 direct deps (ADR 0006) from merely-made/smolweb: gemini-protocol 0.1.2, scroll-protocol 0.1.0, text-protocol 0.1.0, spartan-protocol 0.1.1, nex-protocol 0.1.1, gopher-protocol 0.1.2, guppy-protocol 0.1.1 (Guppy UDP), scorpion-protocol 0.1.0, kepler-protocol 0.1.0, finger-protocol, dict-protocol, titanite 0.3.2. Molerat first-party (no crate). misfin->4.0, fsp->3.0.",
     "pgp": "pgp 0.20 + sequoia-openpgp 2.4 (alternatives)",
     "tls": "rustls + tokio-rustls",
     "testing": "cargo test (unit/integration) + wiremock + tokio::net::TcpListener mock servers; pretty_assertions, rstest, mockall"
