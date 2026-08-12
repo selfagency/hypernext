@@ -47,7 +47,7 @@ Headless note: on a machine with no display the window cannot open. Verify with 
 
 With no GTK installed, `cargo check` fails in the `gdk4-sys` build script:
 
-```
+```text
 The system library `gtk4` required by crate `gdk4-sys` was not found.
 The file `gtk4.pc` needs to be installed and the PKG_CONFIG_PATH
 environment variable must contain its parent directory.
@@ -86,7 +86,7 @@ gvsbuild build --jobs=8 gtk4
 
 Output prefix defaults to `~/gtk/` (Windows: `C:\gtk-build`). The gvsbuild prefix layout is:
 
-```
+```text
 ~/gtk/bin
 ~/gtk/lib
 ~/gtk/share  # includes icons + glib-2.0/schemas
@@ -111,7 +111,7 @@ cargo build --release -p hypernext-app
 1. Build the release binary (above).
 2. Assemble `Hypernext.app`:
 
-```
+```text
 Hypernext.app/
   Contents/
     Info.plist
@@ -176,6 +176,6 @@ echo $?   # 0
 
 ## References
 
-- gvsbuild: https://github.com/wingtk/gvsbuild
+- gvsbuild: <https://github.com/wingtk/gvsbuild>
 - Homebrew gtk4 formula: `brew info gtk4`
-- gtk-rs installation guide: https://gtk-rs.org/gtk4-rs/stable/latest/book/
+- gtk-rs installation guide: <https://gtk-rs.org/gtk4-rs/stable/latest/book/>

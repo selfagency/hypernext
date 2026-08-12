@@ -9,6 +9,7 @@
 ## Context
 
 Hypernext needs persistent storage for:
+
 - Browsing history (with FTS5 full-text search)
 - Bookmarks / collections / folders / tags
 - Page cache (with TTL/size policy)
@@ -19,6 +20,7 @@ Hypernext needs persistent storage for:
 - Future: capture_fts (vector + FTS5 for semantic search), sync state, captures, etc.
 
 Requirements:
+
 - Embedded (no server)
 - Cross-platform (macOS, Linux, Windows)
 - FTS5 for full-text search (history, bookmarks)
@@ -94,10 +96,10 @@ Full schema is in `crates/hypernext-store/migrations/V0001__initial_schema.sql`.
 
 ## References
 
-- rusqlite: https://docs.rs/rusqlite/latest/rusqlite/
-- rusqlite features (`bundled`, `modernsqlite`): https://crates.io/crates/rusqlite
-- refinery: https://docs.rs/refinery/latest/refinery/
-- sqlite-vec: https://crates.io/crates/sqlite-vec
-- SQLite FTS5: https://www.sqlite.org/fts5.html
-- SQLite WAL mode: https://www.sqlite.org/wal.html
+- rusqlite: <https://docs.rs/rusqlite/latest/rusqlite/>
+- rusqlite features (`bundled`, `modernsqlite`): <https://crates.io/crates/rusqlite>
+- refinery: <https://docs.rs/refinery/latest/refinery/>
+- sqlite-vec: <https://crates.io/crates/sqlite-vec>
+- SQLite FTS5: <https://www.sqlite.org/fts5.html>
+- SQLite WAL mode: <https://www.sqlite.org/wal.html>
 - The original Bean's `internal/store/db.go` (consult upstream; schema is similar)

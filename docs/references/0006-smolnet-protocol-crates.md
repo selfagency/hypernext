@@ -114,6 +114,7 @@ Con: 10 protocols × ~1000 LOC each = 10K LOC of new code we have to write, test
 ## Decision review
 
 This ADR should be reviewed:
+
 - After Phase 2 hardening completes (verify each protocol adapter is production-grade)
 - When upstream releases a new version (decide whether to bump)
 - Before 1.0 ships (verify all 10 protocol adapters pass their tests with ≥70% coverage)

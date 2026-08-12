@@ -241,4 +241,5 @@ $RECYCLE.BIN/
 # End of https://www.toptal.com/developers/gitignore/api/windows,linux,macos,rust,rust-analyzer,node,dotenv
 
 .opencode/opencode-loop
-.opencode/magic-context
+.cortexkit/magic-context
+.rumdlcache

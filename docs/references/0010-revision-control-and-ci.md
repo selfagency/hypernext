@@ -31,14 +31,17 @@ Hypernext resets to a simpler, more conventional setup.
   - `perf(phase-N): <description>`
 - **Commit message body:** Optional but encouraged for non-trivial changes. Wrapped at 72 chars.
 - **Co-authored commits:** If an AI agent wrote the code, the commit message body includes:
-  ```
+
+  ```text
   Co-Authored-By: Claude <noreply@anthropic.com>
   ```
+
   (Or whatever agent is used.)
 
 ### Pre-commit hook (mandatory)
 
 A pre-commit hook via **prek** (`prek.toml`, installed with `prek install`) runs:
+
 1. `cargo fmt --check` — must pass
 2. `cargo clippy --workspace -- -D warnings` — must pass
 3. `cargo test --workspace` — must pass
@@ -123,9 +126,9 @@ Stage Summary:
 
 ## References
 
-- Conventional Commits: https://www.conventionalcommits.org/
-- cargo-husky: https://crates.io/crates/cargo-husky
-- cargo-deny: https://crates.io/crates/cargo-deny
-- cargo-tarpaulin: https://crates.io/crates/cargo-tarpaulin
-- Swatinem/rust-cache: https://github.com/Swatinem/rust-cache
+- Conventional Commits: <https://www.conventionalcommits.org/>
+- cargo-husky: <https://crates.io/crates/cargo-husky>
+- cargo-deny: <https://crates.io/crates/cargo-deny>
+- cargo-tarpaulin: <https://crates.io/crates/cargo-tarpaulin>
+- Swatinem/rust-cache: <https://github.com/Swatinem/rust-cache>
 - The original Bean's pre-commit setup (consult upstream)

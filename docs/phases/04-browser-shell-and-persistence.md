@@ -17,7 +17,7 @@ This is the largest phase by UI surface area. It's also where the Wails version 
 
 ## 2. Architecture
 
-```
+```text
 ┌──────────────────────────────────────────────────────────────────┐
 │ hypernext-app (binary)                                            │
 │   main.rs                                                         │
@@ -57,10 +57,10 @@ This is the largest phase by UI surface area. It's also where the Wails version 
 
 **References to consult:**
 
-- Relm4 worker/factory docs: https://relm4.org/docs/stable/factory.html — read in full
-- Relm4 examples for tabs: https://github.com/Relm4/relm4/tree/main/examples — `tab_queue` and `factory_list` examples
-- gtk4 `Notebook` widget: https://docs.gtk.org/gtk4/class.Notebook.html
-- gtk4 `ApplicationWindow`: https://docs.gtk.org/gtk4/class.ApplicationWindow.html
+- Relm4 worker/factory docs: <https://relm4.org/docs/stable/factory.html> — read in full
+- Relm4 examples for tabs: <https://github.com/Relm4/relm4/tree/main/examples> — `tab_queue` and `factory_list` examples
+- gtk4 `Notebook` widget: <https://docs.gtk.org/gtk4/class.Notebook.html>
+- gtk4 `ApplicationWindow`: <https://docs.gtk.org/gtk4/class.ApplicationWindow.html>
 - The original Bean's `frontend/src/lib/tabs.ts` and `frontend/src/components/browser-shell.tsx` (consult upstream)
 
 **Implementation:**
@@ -84,12 +84,14 @@ This is the largest phase by UI surface area. It's also where the Wails version 
 **TDD gate:**
 
 Unit tests (with mock Dispatcher):
+
 - `OpenTab(None)` adds a tab to the factory, switches active to it
 - `CloseTab(0)` removes it, switches to next or closes window if last
 - Load token: starting a new navigation before the old completes → old result is dropped
 - Session restore: save 3 tabs, close app, reopen → 3 tabs restored
 
 Integration tests:
+
 - Launch app, send `OpenTab(Some("gemini://localhost"))` (mock), wait for `LoadFinished`, assert tab count
 - Launch app, send `OpenTab` then `CloseTab`, assert tab count back to 0 → window closes
 
@@ -97,8 +99,8 @@ Integration tests:
 
 **References to consult:**
 
-- gtk4 `Entry` widget: https://docs.gtk.org/gtk4/class.Entry.html
-- gtk4 `EntryCompletion`: https://docs.gtk.org/gtk4/class.EntryCompletion.html
+- gtk4 `Entry` widget: <https://docs.gtk.org/gtk4/class.Entry.html>
+- gtk4 `EntryCompletion`: <https://docs.gtk.org/gtk4/class.EntryCompletion.html>
 - Original Bean's `frontend/src/components/command-bar.tsx` (consult upstream for command-bar semantics; we're using a simpler location bar in 1.0)
 - Original Bean's `frontend/src/lib/command-bar-parser.ts` (consult upstream)
 
@@ -122,6 +124,7 @@ Integration tests:
 **TDD gate:**
 
 Unit tests:
+
 - Typing `geminiprotocol.net` → Enter → navigates to `gemini://geminiprotocol.net/`
 - Typing `gem` → first suggestion is `gemini://`
 - Tab completes the protocol suggestion
@@ -130,6 +133,7 @@ Unit tests:
 - Enter always supersedes active load (verified by mock Dispatcher)
 
 Integration tests:
+
 - Real FTS5 query against in-memory SQLite with fixture bookmarks/history
 - Type, debounce, assert completion list updates
 
@@ -139,9 +143,9 @@ The original PRD called for "Tabs | History | Bookmarks" as three sidebar tabs. 
 
 **References to consult:**
 
-- Relm4 `FactoryVecDeque` for list rendering: https://relm4.org/docs/stable/factory.html
-- gtk4 `ListBox`: https://docs.gtk.org/gtk4/class.ListBox.html
-- gtk4 `TreeModel` + `ColumnView` for folder trees: https://docs.gtk.org/gtk4/class.ColumnView.html
+- Relm4 `FactoryVecDeque` for list rendering: <https://relm4.org/docs/stable/factory.html>
+- gtk4 `ListBox`: <https://docs.gtk.org/gtk4/class.ListBox.html>
+- gtk4 `TreeModel` + `ColumnView` for folder trees: <https://docs.gtk.org/gtk4/class.ColumnView.html>
 - The original Bean's `frontend/src/components/tab-sidebar.tsx` and `frontend/src/components/library/library-view.tsx` (consult upstream)
 
 **Implementation:**
@@ -160,6 +164,7 @@ The original PRD called for "Tabs | History | Bookmarks" as three sidebar tabs. 
 **TDD gate:**
 
 Unit tests:
+
 - `SavedLink` with `pinned=true` survives tab close
 - Creating a folder, adding 3 links, reordering → persists to DB
 - History search: type "gemini" → only gemini entries appear
@@ -167,6 +172,7 @@ Unit tests:
 - Site Nav: parse a fixture HTML with `<nav>` → produces a tree of links
 
 Integration tests:
+
 - Launch app, open 3 tabs, close 1, assert the saved-link still appears in the sidebar
 - Launch app, visit 5 URLs (mock), assert history list shows them in reverse chronological order
 
@@ -174,8 +180,8 @@ Integration tests:
 
 **References to consult:**
 
-- gtk4 `Button`: https://docs.gtk.org/gtk4/class.Button.html
-- gtk4 `Image`: https://docs.gtk.org/gtk4/class.Image.html
+- gtk4 `Button`: <https://docs.gtk.org/gtk4/class.Button.html>
+- gtk4 `Image`: <https://docs.gtk.org/gtk4/class.Image.html>
 - Original Bean's `frontend/src/components/nav-toolbar.tsx` (consult upstream)
 - favicon extraction: parse `<link rel="icon">` and `<link rel="shortcut icon">` from HTML; fetch via the same SSRF-bounded HTTP client
 - Protocol-colored fallback badge (PRD N-10): if no favicon, render a rounded square with the site initial, colored by protocol (Gemini = green, Gopher = blue, Finger = orange, etc.)
@@ -191,6 +197,7 @@ Integration tests:
 **TDD gate:**
 
 Unit tests:
+
 - Back button disabled when `history_idx == 0`
 - Forward button disabled when at end of history
 - Favicon URL extraction: fixture with `<link rel="icon" href="/favicon.ico">` → `https://example.com/favicon.ico`
@@ -201,8 +208,8 @@ Unit tests:
 
 **References to consult:**
 
-- gtk4 `SearchEntry`: https://docs.gtk.org/gtk4/class.SearchEntry.html
-- gtk4 `TextIter` for searching in `TextView`: https://docs.gtk.org/gtk4/struct.TextIter.html
+- gtk4 `SearchEntry`: <https://docs.gtk.org/gtk4/class.SearchEntry.html>
+- gtk4 `TextIter` for searching in `TextView`: <https://docs.gtk.org/gtk4/struct.TextIter.html>
 - Original Bean's `frontend/src/components/find-bar.tsx` (consult upstream)
 
 **Implementation:**
@@ -218,6 +225,7 @@ Unit tests:
 **TDD gate:**
 
 Unit tests:
+
 - Find "test" in a 3-paragraph document → 3 matches highlighted
 - Find non-existent string → "No matches" indicator
 - Next/Previous cycles correctly
@@ -226,8 +234,8 @@ Unit tests:
 
 **References to consult:**
 
-- Relm4 dialog patterns: https://relm4.org/docs/stable/component.html#dialogs
-- gtk4 `PreferencesWindow` or custom `Dialog`: https://docs.gtk.org/gtk4/class.Dialog.html
+- Relm4 dialog patterns: <https://relm4.org/docs/stable/component.html#dialogs>
+- gtk4 `PreferencesWindow` or custom `Dialog`: <https://docs.gtk.org/gtk4/class.Dialog.html>
 - Original Bean's `frontend/src/components/settings/` (consult upstream — 12 categories)
 
 **Implementation:**
@@ -246,6 +254,7 @@ Unit tests:
 **TDD gate:**
 
 Unit tests:
+
 - Every settings key has a UI control (verified by static check)
 - `set_settings({"reading.font_size": 18})` → `get_settings()["reading.font_size"] == 18`
 - Secret keys: setting "indieauth.token" via `set_settings` is rejected (must use keychain API)
@@ -254,9 +263,9 @@ Unit tests:
 
 **References to consult:**
 
-- IndieAuth spec: https://indieauth.spec.indieweb.org/ — read in full
-- PKCE (RFC 7636): https://www.rfc-editor.org/rfc/rfc7636
-- Loopback redirect: https://datatracker.ietf.org/doc/html/rfc8252#section-7.3
+- IndieAuth spec: <https://indieauth.spec.indieweb.org/> — read in full
+- PKCE (RFC 7636): <https://www.rfc-editor.org/rfc/rfc7636>
+- Loopback redirect: <https://datatracker.ietf.org/doc/html/rfc8252#section-7.3>
 - Original Bean's `internal/auth/indieauth.go` and `internal/auth/pkce.go` (consult upstream)
 
 **Implementation:**
@@ -276,6 +285,7 @@ Unit tests:
 **TDD gate:**
 
 Unit tests:
+
 - `discover` on a fixture HTML with the three `<link>` tags → returns correct endpoints
 - `generate_pkce` produces a 64-char verifier and a 43-char base64url challenge
 - `build_auth_url` includes all required params
@@ -283,6 +293,7 @@ Unit tests:
 - Loopback server: starts, accepts one request, extracts code, shuts down
 
 Integration tests:
+
 - Full flow against a mock IdP (wiremock):
   - Discover endpoints
   - Generate PKCE
@@ -299,7 +310,7 @@ WebFinger was implemented as a protocol adapter in Phase 2 §3.7. Here we expose
 
 **References to consult:**
 
-- RFC 7033: https://www.rfc-editor.org/rfc/rfc7033
+- RFC 7033: <https://www.rfc-editor.org/rfc/rfc7033>
 - Original Bean's `internal/webfinger/webfinger.go` (consult upstream)
 
 **Implementation:**
@@ -312,6 +323,7 @@ WebFinger was implemented as a protocol adapter in Phase 2 §3.7. Here we expose
 **TDD gate:**
 
 Unit tests:
+
 - `@user@example.com` triggers a WebFinger lookup
 - WebFinger returns 3 links → all 3 appear as completions
 - WebFinger returns 404 → no completions, input treated as raw string
@@ -321,8 +333,8 @@ Unit tests:
 
 **References to consult:**
 
-- gtk4 `Dialog`: https://docs.gtk.org/gtk4/class.Dialog.html
-- gtk4 `Entry`, `ComboBox`: https://docs.gtk.org/gtk4/class.Entry.html
+- gtk4 `Dialog`: <https://docs.gtk.org/gtk4/class.Dialog.html>
+- gtk4 `Entry`, `ComboBox`: <https://docs.gtk.org/gtk4/class.Entry.html>
 - Original Bean's `frontend/src/components/bookmark-dialog.tsx` and `frontend/src/components/library/` (consult upstream)
 
 **Implementation:**
@@ -338,6 +350,7 @@ Unit tests:
 **TDD gate:**
 
 Unit tests:
+
 - Save a bookmark → `bookmarks` row with expected fields
 - Edit a bookmark → row updated
 - Delete a bookmark → row removed; if folder is now empty, optionally delete folder
@@ -366,6 +379,7 @@ Unit tests:
 **TDD gate:**
 
 Unit tests:
+
 - Opening an incognito window uses an in-memory DB
 - Visiting a URL in incognito → no rows in `browsing_history` (verified on the main DB)
 - Closing the incognito window → in-memory DB is dropped (no trace)
@@ -376,9 +390,9 @@ Unit tests:
 
 **References to consult:**
 
-- gtk4 `ShortcutController`: https://docs.gtk.org/gtk4/class.ShortcutController.html
-- gtk4 `EventControllerKey`: https://docs.gtk.org/gtk4/class.EventControllerKey.html
-- GTK4 a11y: https://docs.gtk.org/gtk4/iface.Accessible.html
+- gtk4 `ShortcutController`: <https://docs.gtk.org/gtk4/class.ShortcutController.html>
+- gtk4 `EventControllerKey`: <https://docs.gtk.org/gtk4/class.EventControllerKey.html>
+- GTK4 a11y: <https://docs.gtk.org/gtk4/iface.Accessible.html>
 - Original Bean's `frontend/src/lib/shortcuts.ts` (consult upstream)
 
 **Implementation:**
@@ -402,20 +416,22 @@ Unit tests:
     - ⌘1..⌘9 → switch to tab N
     - Ctrl+Tab / Ctrl+Shift+Tab → cycle tabs
 - [ ] Accessibility:
-    - Every interactive widget has an `accessible_role` and `accessible_label`
-    - Tab list uses `gtk::AccessibleRole::TabList`
-    - Run `gtk4-inspector`'s a11y checker in CI (if possible; otherwise manual)
-    - AT-SPI on Linux, AXUIElement on macOS — GTK4 abstracts this
+  - Every interactive widget has an `accessible_role` and `accessible_label`
+  - Tab list uses `gtk::AccessibleRole::TabList`
+  - Run `gtk4-inspector`'s a11y checker in CI (if possible; otherwise manual)
+  - AT-SPI on Linux, AXUIElement on macOS — GTK4 abstracts this
 
 **TDD gate:**
 
 Unit tests:
+
 - Each shortcut is registered (verify via `ShortcutController` lookup)
 - ⌘T opens a tab and focuses location bar
 - ⌘W closes the active tab
 - ⌘D toggles debug view visibility
 
 Integration tests:
+
 - Launch app, simulate ⌘T keystroke, assert a new tab is created and location bar is focused
 
 ---
@@ -458,23 +474,23 @@ Integration tests:
 
 ### GTK / Relm4
 
-- Relm4 docs: https://relm4.org/docs/stable/
-- Relm4 book: https://relm4.org/book/stable/
-- Relm4 examples: https://github.com/Relm4/relm4/tree/main/examples
-- gtk4-rs book: https://gtk-rs.org/gtk4-rs/stable/latest/book/
-- gtk4-rs widget reference: https://gtk-rs.org/gtk4-rs/stable/latest/docs/
-- gtk4 `Notebook`: https://docs.gtk.org/gtk4/class.Notebook.html
-- gtk4 `ListBox`: https://docs.gtk.org/gtk4/class.ListBox.html
-- gtk4 `EntryCompletion`: https://docs.gtk.org/gtk4/class.EntryCompletion.html
-- gtk4 `ShortcutController`: https://docs.gtk.org/gtk4/class.ShortcutController.html
-- gtk4 `Accessible`: https://docs.gtk.org/gtk4/iface.Accessible.html
+- Relm4 docs: <https://relm4.org/docs/stable/>
+- Relm4 book: <https://relm4.org/book/stable/>
+- Relm4 examples: <https://github.com/Relm4/relm4/tree/main/examples>
+- gtk4-rs book: <https://gtk-rs.org/gtk4-rs/stable/latest/book/>
+- gtk4-rs widget reference: <https://gtk-rs.org/gtk4-rs/stable/latest/docs/>
+- gtk4 `Notebook`: <https://docs.gtk.org/gtk4/class.Notebook.html>
+- gtk4 `ListBox`: <https://docs.gtk.org/gtk4/class.ListBox.html>
+- gtk4 `EntryCompletion`: <https://docs.gtk.org/gtk4/class.EntryCompletion.html>
+- gtk4 `ShortcutController`: <https://docs.gtk.org/gtk4/class.ShortcutController.html>
+- gtk4 `Accessible`: <https://docs.gtk.org/gtk4/iface.Accessible.html>
 
 ### IndieAuth / WebFinger
 
-- IndieAuth spec: https://indieauth.spec.indieweb.org/
-- PKCE: https://www.rfc-editor.org/rfc/rfc7636
-- Loopback redirect: https://datatracker.ietf.org/doc/html/rfc8252#section-7.3
-- WebFinger: https://www.rfc-editor.org/rfc/rfc7033
+- IndieAuth spec: <https://indieauth.spec.indieweb.org/>
+- PKCE: <https://www.rfc-editor.org/rfc/rfc7636>
+- Loopback redirect: <https://datatracker.ietf.org/doc/html/rfc8252#section-7.3>
+- WebFinger: <https://www.rfc-editor.org/rfc/rfc7033>
 - Original Bean's `internal/auth/indieauth.go` (consult upstream)
 
 ### Original Bean reference (consult, do not copy)

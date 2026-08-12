@@ -20,7 +20,7 @@ When Phase 3 ships, typing `https://example.com` in the location bar fetches and
 
 ## 2. Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────┐
 │ hypernext-ui (Phase 4)                              │
 │  - location bar "https://example.com"               │
@@ -61,9 +61,9 @@ When Phase 3 ships, typing `https://example.com` in the location bar fetches and
 
 **References to consult:**
 
-- reqwest docs: https://docs.rs/reqwest/latest/reqwest/ — read "Making a GET request", "Custom Client", "Redirection"
-- reqwest redirect policy: https://docs.rs/reqwest/latest/reqwest/redirect/struct.Policy.html
-- SSRF defense patterns: https://owasp.org/www-community/attacks/Server_Side_Request_Forgery
+- reqwest docs: <https://docs.rs/reqwest/latest/reqwest/> — read "Making a GET request", "Custom Client", "Redirection"
+- reqwest redirect policy: <https://docs.rs/reqwest/latest/reqwest/redirect/struct.Policy.html>
+- SSRF defense patterns: <https://owasp.org/www-community/attacks/Server_Side_Request_Forgery>
 - The original Bean's `internal/httpclient/policy.go` (consult upstream)
 
 **Implementation:**
@@ -83,6 +83,7 @@ When Phase 3 ships, typing `https://example.com` in the location bar fetches and
 **TDD gate:**
 
 Unit tests:
+
 - `check_url("https://example.com")` with default policy → Ok
 - `check_url("http://127.0.0.1/x")` with `block_private_network=true` → `SsrfBlocked`
 - `check_url("http://192.168.1.1/x")` with `block_private_network=true` → `SsrfBlocked`
@@ -93,6 +94,7 @@ Unit tests:
 - Redirect to disallowed host → blocked at the redirect hop
 
 Integration tests:
+
 - Spin up `wiremock` server, fetch 100MB response with `max_response_size=10MB` → `SizeLimitExceeded` after 10MB
 - Spin up `wiremock` server returning 301 to `127.0.0.1` → blocked
 - Spin up `wiremock` with 6 chained redirects → 6th redirect fails
@@ -101,11 +103,11 @@ Integration tests:
 
 **References to consult:**
 
-- `legible` crate: https://crates.io/crates/legible (v0.5.1 — Rust port of Readability.js) — read the README and docs.rs page in full
-- `scraper` crate: https://docs.rs/scraper/latest/scraper/
-- `html5ever` (used by scraper): https://docs.rs/html5ever/latest/html5ever/
-- `lol_html` (streaming rewriter, alternative): https://docs.rs/lol_html/latest/lol_html/
-- Readability.js original: https://github.com/mozilla/readability — for algorithm reference
+- `legible` crate: <https://crates.io/crates/legible> (v0.5.1 — Rust port of Readability.js) — read the README and docs.rs page in full
+- `scraper` crate: <https://docs.rs/scraper/latest/scraper/>
+- `html5ever` (used by scraper): <https://docs.rs/html5ever/latest/html5ever/>
+- `lol_html` (streaming rewriter, alternative): <https://docs.rs/lol_html/latest/lol_html/>
+- Readability.js original: <https://github.com/mozilla/readability> — for algorithm reference
 - The original Bean's `internal/protocol/http.go` (consult upstream — they used `go-shiori/go-readability`)
 
 **Implementation:**
@@ -131,6 +133,7 @@ Integration tests:
 **TDD gate:**
 
 Unit tests:
+
 - Fixture: `tests/fixtures/http/simple-article.html` → expected `PageDoc` with title, paragraphs, no images stripped
 - Fixture: `tests/fixtures/http/article-with-ads.html` → ads stripped, main content preserved
 - Fixture: `tests/fixtures/http/feed.html` (HTML page that is actually a feed) → routed to feed-rs
@@ -141,6 +144,7 @@ Unit tests:
 - JSON-LD: fixture with `<script type="application/ld+json">` → parsed into `Metadata.json_ld`
 
 Integration tests:
+
 - Spin up `wiremock` returning a real article HTML → assert extraction matches expected `PageDoc`
 - Same with a 5MB HTML page → assert size limit enforced
 - Same with redirect to another article → assert final URL in `PageDoc.final_url`
@@ -149,10 +153,10 @@ Integration tests:
 
 **References to consult:**
 
-- `adblock` crate: https://crates.io/crates/adblock (v0.13.2 — Brave's Rust adblock crate) — read README + docs.rs
-- Brave's adblock-rust docs: https://github.com/brave/adblock-rust
-- EasyList format: https://adblockplus.org/filters
-- Cosmetic filtering reference: https://help.eyeo.com/en/adblockplus/how-to-write-filters#elemhide
+- `adblock` crate: <https://crates.io/crates/adblock> (v0.13.2 — Brave's Rust adblock crate) — read README + docs.rs
+- Brave's adblock-rust docs: <https://github.com/brave/adblock-rust>
+- EasyList format: <https://adblockplus.org/filters>
+- Cosmetic filtering reference: <https://help.eyeo.com/en/adblockplus/how-to-write-filters#elemhide>
 
 **Implementation:**
 
@@ -169,12 +173,14 @@ Integration tests:
 **TDD gate:**
 
 Unit tests:
+
 - `should_block` for a known tracker URL → true
 - `should_block` for a known non-tracker URL → false
 - Cosmetic rules for `example.com` → list of selectors
 - Empty EasyList (edge case) → engine initializes with no rules
 
 Integration tests:
+
 - Spin up `wiremock` serving a page with `<img src="https://doubleclick.net/...">` → image is not requested
 - Same with a tracker script → script not executed (in raw mode)
 - Cosmetic hiding: `<div class="ad-banner">` is removed from extracted `PageDoc`
@@ -185,14 +191,14 @@ This is the only place a webview exists in Hypernext. It's an embedded widget �
 
 **References to consult (per platform):**
 
-- macOS WKWebView: https://developer.apple.com/documentation/webkit/wkwebview
-- macOS via objc2: https://docs.rs/objc2/latest/objc2/ and https://docs.rs/objc2-web-kit/latest/objc2_web_kit/
-- Linux WebKitGTK: https://webkitgtk.org/reference/webkit2gtk/stable/
-- Linux via webkit6 crate: https://crates.io/crates/webkit6 (or webkit4-rs depending on GTK version)
-- Windows WebView2: https://learn.microsoft.com/en-us/microsoft-edge/webview2/
-- Windows via windows-rs: https://github.com/microsoft/windows-rs
-- Tauri's webview approach (reference): https://v2.tauri.app/concept/webview/
-- wry's platform detection (reference): https://github.com/tauri-apps/wry
+- macOS WKWebView: <https://developer.apple.com/documentation/webkit/wkwebview>
+- macOS via objc2: <https://docs.rs/objc2/latest/objc2/> and <https://docs.rs/objc2-web-kit/latest/objc2_web_kit/>
+- Linux WebKitGTK: <https://webkitgtk.org/reference/webkit2gtk/stable/>
+- Linux via webkit6 crate: <https://crates.io/crates/webkit6> (or webkit4-rs depending on GTK version)
+- Windows WebView2: <https://learn.microsoft.com/en-us/microsoft-edge/webview2/>
+- Windows via windows-rs: <https://github.com/microsoft/windows-rs>
+- Tauri's webview approach (reference): <https://v2.tauri.app/concept/webview/>
+- wry's platform detection (reference): <https://github.com/tauri-apps/wry>
 
 **Implementation:**
 
@@ -218,10 +224,12 @@ This is the only place a webview exists in Hypernext. It's an embedded widget �
 **TDD gate:**
 
 Unit tests:
+
 - `WebviewPolicy::default()` returns incognito-safe defaults
 - `RawWebView::new()` returns a widget (testable only on a real display — see `docs/references/gtk-testing.md`)
 
 Integration tests (require a display — `xvfb-run` on CI Linux):
+
 - Load `https://example.com` in raw mode → `load_changed` fires with `FINISHED`
 - Block a popup window → `create` returns `None` (no new webview)
 - Block a download → `decide_policy` for download returns `Reject`
@@ -253,6 +261,7 @@ This is the single biggest technical risk in Phase 3. Document the approach in `
 **TDD gate:**
 
 Unit tests:
+
 - `resolve_mode` for unknown origin → `Reader`
 - `set_mode_pref("https://example.com", Raw)` then `resolve_mode("https://example.com/some/page")` → `Raw`
 - Preference persists across DB re-open
@@ -296,6 +305,7 @@ Wire HTTP into the dispatcher from Phase 2.
 **TDD gate:**
 
 Integration tests:
+
 - `Dispatcher::fetch("https://example.com")` returns a `PageDoc` with blocks
 - `Dispatcher::fetch` against a server returning PGP-signed HTML → verifies signature, includes `PgpInfo` in result
 - `Dispatcher::fetch` against a server returning tampered PGP-signed HTML → `Error::PgpInvalid`
@@ -336,38 +346,38 @@ Integration tests:
 
 ### HTTP / HTML
 
-- reqwest: https://docs.rs/reqwest/latest/reqwest/
-- legible: https://crates.io/crates/legible
-- scraper: https://docs.rs/scraper/latest/scraper/
-- html5ever: https://docs.rs/html5ever/latest/html5ever/
-- lol_html: https://docs.rs/lol_html/latest/lol_html/
-- Readability.js (reference algorithm): https://github.com/mozilla/readability
-- comrak: https://docs.rs/comrak/latest/comrak/
-- feed-rs: https://docs.rs/feed-rs/latest/feed_rs/
-- microformats: https://docs.rs/microformats/latest/microformats/
+- reqwest: <https://docs.rs/reqwest/latest/reqwest/>
+- legible: <https://crates.io/crates/legible>
+- scraper: <https://docs.rs/scraper/latest/scraper/>
+- html5ever: <https://docs.rs/html5ever/latest/html5ever/>
+- lol_html: <https://docs.rs/lol_html/latest/lol_html/>
+- Readability.js (reference algorithm): <https://github.com/mozilla/readability>
+- comrak: <https://docs.rs/comrak/latest/comrak/>
+- feed-rs: <https://docs.rs/feed-rs/latest/feed_rs/>
+- microformats: <https://docs.rs/microformats/latest/microformats/>
 
 ### Ad filtering
 
-- adblock crate: https://crates.io/crates/adblock
-- Brave adblock-rust: https://github.com/brave/adblock-rust
-- EasyList: https://easylist.to/
+- adblock crate: <https://crates.io/crates/adblock>
+- Brave adblock-rust: <https://github.com/brave/adblock-rust>
+- EasyList: <https://easylist.to/>
 
 ### Raw-mode webview
 
-- macOS WKWebView: https://developer.apple.com/documentation/webkit/wkwebview
-- objc2: https://docs.rs/objc2/latest/objc2/
-- objc2-web-kit: https://docs.rs/objc2-web-kit/latest/objc2_web_kit/
-- Linux WebKitGTK: https://webkitgtk.org/reference/webkit2gtk/stable/
-- webkit6 crate: https://crates.io/crates/webkit6
-- Windows WebView2: https://learn.microsoft.com/en-us/microsoft-edge/webview2/
-- windows-rs: https://github.com/microsoft/windows-rs
-- wry (reference): https://github.com/tauri-apps/wry
-- Tauri webview concept: https://v2.tauri.app/concept/webview/
+- macOS WKWebView: <https://developer.apple.com/documentation/webkit/wkwebview>
+- objc2: <https://docs.rs/objc2/latest/objc2/>
+- objc2-web-kit: <https://docs.rs/objc2-web-kit/latest/objc2_web_kit/>
+- Linux WebKitGTK: <https://webkitgtk.org/reference/webkit2gtk/stable/>
+- webkit6 crate: <https://crates.io/crates/webkit6>
+- Windows WebView2: <https://learn.microsoft.com/en-us/microsoft-edge/webview2/>
+- windows-rs: <https://github.com/microsoft/windows-rs>
+- wry (reference): <https://github.com/tauri-apps/wry>
+- Tauri webview concept: <https://v2.tauri.app/concept/webview/>
 
 ### SSRF / Security
 
-- OWASP SSRF: https://owasp.org/www-community/attacks/Server_Side_Request_Forgery
-- RFC 1918 (private networks): https://www.rfc-editor.org/rfc/rfc1918
+- OWASP SSRF: <https://owasp.org/www-community/attacks/Server_Side_Request_Forgery>
+- RFC 1918 (private networks): <https://www.rfc-editor.org/rfc/rfc1918>
 
 ### Original Bean reference
 

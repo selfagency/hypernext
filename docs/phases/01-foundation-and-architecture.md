@@ -21,7 +21,7 @@ The single most important outcome of this phase: every later phase can be writte
 
 Hypernext is a cargo workspace with multiple crates. The layout:
 
-```
+```text
 hypernext/
 ├── Cargo.toml                          # workspace root
 ├── crates/
@@ -59,13 +59,13 @@ Build the minimal window that opens. No content yet — just an empty `Applicati
 
 **References to consult before writing code (AI agent: READ THESE FIRST):**
 
-- Relm4 main docs: https://relm4.org/docs/stable/ — read the "Getting started" and "Basic concepts" sections in full
-- Relm4 book: https://relm4.org/book/stable/ — read chapters 1-4 (Introduction, Installation, First app, Components)
-- gtk-rs book: https://gtk-rs.org/gtk4-rs/stable/latest/book/ — read chapters 1-3 (Installation, Hello World, Widgets)
-- GTK4 documentation: https://docs.gtk.org/gtk4/ — bookmark for widget reference
-- gtk4 crate on crates.io: https://crates.io/crates/gtk4 (v0.9.x as of writing)
-- relm4 crate on crates.io: https://crates.io/crates/relm4 (v0.9.x)
-- Relm4 examples: https://github.com/Relm4/relm4/tree/main/examples — read at least `basic/main.rs` and `macro_example/main.rs`
+- Relm4 main docs: <https://relm4.org/docs/stable/> — read the "Getting started" and "Basic concepts" sections in full
+- Relm4 book: <https://relm4.org/book/stable/> — read chapters 1-4 (Introduction, Installation, First app, Components)
+- gtk-rs book: <https://gtk-rs.org/gtk4-rs/stable/latest/book/> — read chapters 1-3 (Installation, Hello World, Widgets)
+- GTK4 documentation: <https://docs.gtk.org/gtk4/> — bookmark for widget reference
+- gtk4 crate on crates.io: <https://crates.io/crates/gtk4> (v0.9.x as of writing)
+- relm4 crate on crates.io: <https://crates.io/crates/relm4> (v0.9.x)
+- Relm4 examples: <https://github.com/Relm4/relm4/tree/main/examples> — read at least `basic/main.rs` and `macro_example/main.rs`
 
 **Implementation:**
 
@@ -81,11 +81,12 @@ Build the minimal window that opens. No content yet — just an empty `Applicati
     - Body: `gtk::Label` with "Hypernext 1.0 (in development)"
   - Connect `close-request` signal → exit cleanly
 - [ ] Add the `gresources` XML file for any application icons (placeholder for now)
-- [ ] macOS: bundle GTK via gvsbuild (https://github.com/wingtk/gvsbuild) — document the build setup in `docs/references/build-macos.md`
+- [ ] macOS: bundle GTK via gvsbuild (<https://github.com/wingtk/gvsbuild>) — document the build setup in `docs/references/build-macos.md`
 
 **TDD gate:**
 
 Integration test (`crates/hypernext-app/tests/smoke.rs`):
+
 - Launch the app via `RelmApp::new()` in test mode
 - Use GTK's `glib::idle_add_local` to assert the window title and then quit
 - Verify the process exits cleanly with code 0
@@ -96,16 +97,17 @@ NOTE: GTK testing requires a display. In CI, use `xvfb-run` on Linux; on macOS, 
 
 **References to consult before writing code:**
 
-- rusqlite docs: https://docs.rs/rusqlite/latest/rusqlite/ — read the "Opening a connection" and "Optional feature flags" sections
-- rusqlite feature flags: https://crates.io/crates/rusqlite — note `bundled` (ships SQLite), `modernsqlite` (enables FTS5 + JSON1), and the `sqlite-vec` integration approach
-- sqlite-vec Rust bindings: https://crates.io/crates/sqlite-vec (v0.1.9) — read the README for the loadable extension pattern
-- refinery docs: https://docs.rs/refinery/latest/refinery/ — read the "Embedded migrations" and "Using with rusqlite" sections
-- refinery crate: https://crates.io/crates/refinery (v0.9.2)
-- SQLite FTS5 docs: https://www.sqlite.org/fts5.html — skim section 1 (Overview) and 4 (FTS5 SQL Commands)
+- rusqlite docs: <https://docs.rs/rusqlite/latest/rusqlite/> — read the "Opening a connection" and "Optional feature flags" sections
+- rusqlite feature flags: <https://crates.io/crates/rusqlite> — note `bundled` (ships SQLite), `modernsqlite` (enables FTS5 + JSON1), and the `sqlite-vec` integration approach
+- sqlite-vec Rust bindings: <https://crates.io/crates/sqlite-vec> (v0.1.9) — read the README for the loadable extension pattern
+- refinery docs: <https://docs.rs/refinery/latest/refinery/> — read the "Embedded migrations" and "Using with rusqlite" sections
+- refinery crate: <https://crates.io/crates/refinery> (v0.9.2)
+- SQLite FTS5 docs: <https://www.sqlite.org/fts5.html> — skim section 1 (Overview) and 4 (FTS5 SQL Commands)
 
 **Implementation:**
 
 - [ ] Add to `hypernext-store/Cargo.toml`:
+
   ```toml
   [dependencies]
   rusqlite = { version = "0.40", features = ["bundled", "modernsqlite"] }
@@ -117,6 +119,7 @@ NOTE: GTK testing requires a display. In CI, use `xvfb-run` on Linux; on macOS, 
   thiserror = { workspace = true }
   tracing = { workspace = true }
   ```
+
 - [ ] Create `crates/hypernext-store/migrations/` directory with:
   - `V0001__initial_schema.sql` — creates: `schema_migrations` (refinery owns), `browsing_history`, `bookmarks`, `folders`, `tags`, `settings`, `page_cache`, `tofu_certs`, `tofu_pgp_keys`, `capture_fts` (FTS5 virtual table), `capture_vec` (sqlite-vec virtual table)
   - Each table has a clear comment explaining its purpose
@@ -132,6 +135,7 @@ NOTE: GTK testing requires a display. In CI, use `xvfb-run` on Linux; on macOS, 
 **TDD gate:**
 
 Unit tests (`crates/hypernext-store/src/db.rs::tests`):
+
 - `open_in_memory()` succeeds
 - All migrations apply cleanly
 - Re-opening an already-migrated DB is a no-op
@@ -141,6 +145,7 @@ Unit tests (`crates/hypernext-store/src/db.rs::tests`):
 - WAL mode is enabled (`PRAGMA journal_mode` returns `wal`)
 
 Integration tests (`crates/hypernext-store/tests/migrations.rs`):
+
 - Apply migrations to a temp file, then re-open — verify schema is stable
 - Down-migration (if any) is reversible — note: refinery doesn't support down migrations natively, so document this as a known constraint
 - Insert a row into each table, verify it round-trips
@@ -149,9 +154,9 @@ Integration tests (`crates/hypernext-store/tests/migrations.rs`):
 
 **References to consult:**
 
-- keyring crate: https://crates.io/crates/keyring (v4.1.6)
-- keyring docs: https://docs.rs/keyring/latest/keyring/ — read the "Usage" section and the platform-specific notes
-- macOS keychain via Security framework: cross-reference Apple docs at https://developer.apple.com/documentation/security/keychain_services
+- keyring crate: <https://crates.io/crates/keyring> (v4.1.6)
+- keyring docs: <https://docs.rs/keyring/latest/keyring/> — read the "Usage" section and the platform-specific notes
+- macOS keychain via Security framework: cross-reference Apple docs at <https://developer.apple.com/documentation/security/keychain_services>
 
 **Implementation:**
 
@@ -168,6 +173,7 @@ Integration tests (`crates/hypernext-store/tests/migrations.rs`):
 **TDD gate:**
 
 Unit tests:
+
 - `set` + `get` round-trip
 - `get` on missing returns `NotFound`
 - `delete` on missing is a no-op (or returns `NotFound` — decide in test)
@@ -182,8 +188,8 @@ Define the domain model in `hypernext-core`. These types are the contract betwee
 **References to consult:**
 
 - The original Bean's `internal/protocol/types.go` (consult the upstream repo at `selfagency/bean` for the prior art — DO NOT copy, use as reference)
-- serde docs: https://docs.rs/serde/latest/serde/ — for derive patterns
-- thiserror docs: https://docs.rs/thiserror/latest/thiserror/ — for error enums
+- serde docs: <https://docs.rs/serde/latest/serde/> — for derive patterns
+- thiserror docs: <https://docs.rs/thiserror/latest/thiserror/> — for error enums
 
 **Types to define (`crates/hypernext-core/src/lib.rs`):**
 
@@ -287,6 +293,7 @@ pub struct DebugInfo {
 **TDD gate:**
 
 Unit tests (`crates/hypernext-core/src/types.rs::tests`):
+
 - `PageDoc` serializes and deserializes round-trip via serde
 - `Block::Image` with caption round-trips
 - `Span` with mixed styles serializes correctly
@@ -297,8 +304,8 @@ Unit tests (`crates/hypernext-core/src/types.rs::tests`):
 
 **References to consult:**
 
-- thiserror: https://docs.rs/thiserror/latest/thiserror/
-- anyhow: https://docs.rs/anyhow/latest/anyhow/ — read "When to use anyhow vs thiserror"
+- thiserror: <https://docs.rs/thiserror/latest/thiserror/>
+- anyhow: <https://docs.rs/anyhow/latest/anyhow/> — read "When to use anyhow vs thiserror"
 - The original Bean's `internal/errors/errors.go` (consult the upstream repo)
 
 **Pattern:**
@@ -311,6 +318,7 @@ Unit tests (`crates/hypernext-core/src/types.rs::tests`):
 **TDD gate:**
 
 Unit tests:
+
 - Every error variant round-trips through `Display` + `FromStr` (or `Debug` parse)
 - Error codes are stable (test asserts the exact string)
 - `?` operator propagates from `rusqlite::Error` → `HypernextError::Storage(...)` without manual `map_err`
@@ -319,8 +327,8 @@ Unit tests:
 
 **References to consult:**
 
-- tracing crate: https://docs.rs/tracing/latest/tracing/ — read "Getting started" and "Spans"
-- tracing-subscriber: https://docs.rs/tracing-subscriber/latest/tracing_subscriber/
+- tracing crate: <https://docs.rs/tracing/latest/tracing/> — read "Getting started" and "Spans"
+- tracing-subscriber: <https://docs.rs/tracing-subscriber/latest/tracing_subscriber/>
 - The original Bean's logging setup (consult the upstream repo)
 
 **Implementation:**
@@ -340,6 +348,7 @@ Unit tests:
 **TDD gate:**
 
 Unit tests:
+
 - Assert that a redacted secret displays as `<redacted>`
 - Assert that `RUST_LOG=debug` enables debug-level spans
 - Integration test: spawn a subprocess, capture stderr, verify expected log lines appear
@@ -348,9 +357,9 @@ Unit tests:
 
 **References to consult:**
 
-- GitHub Actions docs for Rust: https://doc.rust-lang.org/cargo/guide/continuous-integration.html
-- cargo-tarpaulin for coverage: https://crates.io/crates/cargo-tarpaulin
-- cargo-deny for license/security audit: https://crates.io/crates/cargo-deny
+- GitHub Actions docs for Rust: <https://doc.rust-lang.org/cargo/guide/continuous-integration.html>
+- cargo-tarpaulin for coverage: <https://crates.io/crates/cargo-tarpaulin>
+- cargo-deny for license/security audit: <https://crates.io/crates/cargo-deny>
 
 **Implementation:**
 
@@ -479,19 +488,19 @@ All of these must be true before Phase 2 starts:
 
 ### Must read before writing code
 
-1. **Relm4 docs** — https://relm4.org/docs/stable/
-2. **Relm4 book** — https://relm4.org/book/stable/
-3. **gtk-rs book** — https://gtk-rs.org/gtk4-rs/stable/latest/book/
-4. **GTK4 reference** — https://docs.gtk.org/gtk4/
-5. **rusqlite docs** — https://docs.rs/rusqlite/latest/rusqlite/
-6. **refinery docs** — https://docs.rs/refinery/latest/refinery/
-7. **sqlite-vec docs** — https://crates.io/crates/sqlite-vec
-8. **keyring docs** — https://docs.rs/keyring/latest/keyring/
-9. **tokio docs** — https://docs.rs/tokio/latest/tokio/
-10. **tracing docs** — https://docs.rs/tracing/latest/tracing/
-11. **thiserror docs** — https://docs.rs/thiserror/latest/thiserror/
-12. **anyhow docs** — https://docs.rs/anyhow/latest/anyhow/
-13. **cargo workspace docs** — https://doc.rust-lang.org/cargo/reference/workspaces.html
+1. **Relm4 docs** — <https://relm4.org/docs/stable/>
+2. **Relm4 book** — <https://relm4.org/book/stable/>
+3. **gtk-rs book** — <https://gtk-rs.org/gtk4-rs/stable/latest/book/>
+4. **GTK4 reference** — <https://docs.gtk.org/gtk4/>
+5. **rusqlite docs** — <https://docs.rs/rusqlite/latest/rusqlite/>
+6. **refinery docs** — <https://docs.rs/refinery/latest/refinery/>
+7. **sqlite-vec docs** — <https://crates.io/crates/sqlite-vec>
+8. **keyring docs** — <https://docs.rs/keyring/latest/keyring/>
+9. **tokio docs** — <https://docs.rs/tokio/latest/tokio/>
+10. **tracing docs** — <https://docs.rs/tracing/latest/tracing/>
+11. **thiserror docs** — <https://docs.rs/thiserror/latest/thiserror/>
+12. **anyhow docs** — <https://docs.rs/anyhow/latest/anyhow/>
+13. **cargo workspace docs** — <https://doc.rust-lang.org/cargo/reference/workspaces.html>
 
 ### Reference material from the Wails version (consult, do not copy)
 
@@ -503,9 +512,9 @@ All of these must be true before Phase 2 starts:
 
 ### Standards
 
-- SQLite FTS5: https://www.sqlite.org/fts5.html
-- SQLite WAL mode: https://www.sqlite.org/wal.html
-- Conventional Commits: https://www.conventionalcommits.org/
+- SQLite FTS5: <https://www.sqlite.org/fts5.html>
+- SQLite WAL mode: <https://www.sqlite.org/wal.html>
+- Conventional Commits: <https://www.conventionalcommits.org/>
 
 ---
 

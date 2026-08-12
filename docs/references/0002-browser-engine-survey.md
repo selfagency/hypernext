@@ -85,6 +85,7 @@ This means:
 - WebKitGTK on Linux has different CSS rendering than WKWebView — same URL may render slightly differently across platforms
 
 **Non-conformance is a release blocker.** If Phase 3 spike reveals that the embedded webview widget cannot be cleanly integrated with GTK4 on macOS, fall back to one of:
+
 - **Fallback A:** Raw mode opens in a separate native window (not in-tab) — worse UX but ships
 - **Fallback B:** Drop raw mode from 1.0 entirely; document as 1.1 follow-on. Reduces 1.0 scope.
 
@@ -103,34 +104,35 @@ Until then, this ADR is final.
 
 ### Servo
 
-- Servo repo: https://github.com/servo/servo
-- Servo on crates.io: https://crates.io/crates/servo (v0.4.0)
-- Servo blog: https://servo.org/blog/
-- Made with Servo: https://servo.org/made-with
+- Servo repo: <https://github.com/servo/servo>
+- Servo on crates.io: <https://crates.io/crates/servo> (v0.4.0)
+- Servo blog: <https://servo.org/blog/>
+- Made with Servo: <https://servo.org/made-with>
 
 ### Verso (archived)
 
-- Verso repo: https://github.com/versotile-org/verso (archived Oct 8 2025)
-- Verso announcement: https://wusyong.github.io/posts/verso-0-1
-- Tauri-Verso integration blog: https://v2.tauri.app/blog/tauri-verso-integration
+- Verso repo: <https://github.com/versotile-org/verso> (archived Oct 8 2025)
+- Verso announcement: <https://wusyong.github.io/posts/verso-0-1>
+- Tauri-Verso integration blog: <https://v2.tauri.app/blog/tauri-verso-integration>
 
 ### wry
 
-- wry repo: https://github.com/tauri-apps/wry
-- wry CHANGELOG: https://github.com/tauri-apps/wry/blob/dev/CHANGELOG.md
-- Tauri funding discussion: https://github.com/orgs/tauri-apps/discussions/15235
+- wry repo: <https://github.com/tauri-apps/wry>
+- wry CHANGELOG: <https://github.com/tauri-apps/wry/blob/dev/CHANGELOG.md>
+- Tauri funding discussion: <https://github.com/orgs/tauri-apps/discussions/15235>
 
 ### Platform webviews
 
-- macOS WKWebView: https://developer.apple.com/documentation/webkit/wkwebview
-- objc2-web-kit: https://docs.rs/objc2-web-kit/latest/objc2_web_kit/
-- Linux WebKitGTK: https://webkitgtk.org/reference/webkit2gtk/stable/
-- webkit6 crate: https://crates.io/crates/webkit6
-- Windows WebView2: https://learn.microsoft.com/en-us/microsoft-edge/webview2/
+- macOS WKWebView: <https://developer.apple.com/documentation/webkit/wkwebview>
+- objc2-web-kit: <https://docs.rs/objc2-web-kit/latest/objc2_web_kit/>
+- Linux WebKitGTK: <https://webkitgtk.org/reference/webkit2gtk/stable/>
+- webkit6 crate: <https://crates.io/crates/webkit6>
+- Windows WebView2: <https://learn.microsoft.com/en-us/microsoft-edge/webview2/>
 
 ## Decision review
 
 This ADR should be reviewed:
+
 - After Phase 3 spike completes (verify embedded webview integration works on macOS)
 - After 1.0 ships (verify raw mode is actually used and worth the complexity)
 - When Servo v1.0 is released (revisit the Servo embedding question)

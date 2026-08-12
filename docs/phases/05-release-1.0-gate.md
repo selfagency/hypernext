@@ -23,9 +23,9 @@ End-to-end tests drive the running Hypernext app via Playwright. Each journey is
 
 **References to consult:**
 
-- Playwright docs: https://playwright.dev/docs/intro
-- Playwright + Rust desktop apps: https://github.com/tauri-apps/tauri-plugin-deep-link (reference for app launching patterns)
-- Tauri's WebDriver approach: https://v2.tauri.app/develop/tests/ (reference for desktop E2E patterns)
+- Playwright docs: <https://playwright.dev/docs/intro>
+- Playwright + Rust desktop apps: <https://github.com/tauri-apps/tauri-plugin-deep-link> (reference for app launching patterns)
+- Tauri's WebDriver approach: <https://v2.tauri.app/develop/tests/> (reference for desktop E2E patterns)
 - Original Bean's `frontend/src/test/integration/` and `e2e/coverage-plan.md` (consult upstream)
 
 **Journey list for 1.0:**
@@ -73,11 +73,11 @@ End-to-end tests drive the running Hypernext app via Playwright. Each journey is
 
 **References to consult:**
 
-- cargo-bundle: https://crates.io/crates/cargo-bundle
-- gtk4 macOS bundling: https://github.com/wingtk/gvsbuild (Windows) — for macOS, see below
-- gtk4-rs macOS deployment: https://gtk-rs.org/gtk4-rs/stable/latest/book/installation_macos.html
-- Apple code signing: https://developer.apple.com/developer-id/
-- Apple notarization: https://developer.apple.com/documentation/security/notarizing_macos_software_before_distribution
+- cargo-bundle: <https://crates.io/crates/cargo-bundle>
+- gtk4 macOS bundling: <https://github.com/wingtk/gvsbuild> (Windows) — for macOS, see below
+- gtk4-rs macOS deployment: <https://gtk-rs.org/gtk4-rs/stable/latest/book/installation_macos.html>
+- Apple code signing: <https://developer.apple.com/developer-id/>
+- Apple notarization: <https://developer.apple.com/documentation/security/notarizing_macos_software_before_distribution>
 
 **Implementation:**
 
@@ -102,8 +102,8 @@ End-to-end tests drive the running Hypernext app via Playwright. Each journey is
 
 **References to consult:**
 
-- Apple URL schemes: https://developer.apple.com/documentation/uniformtypeidentifierresources/uttype/identifier#3585343
-- macOS CFBundleURLTypes: https://developer.apple.com/documentation/bundleresources/information_property_list/cfbundleurltypes
+- Apple URL schemes: <https://developer.apple.com/documentation/uniformtypeidentifierresources/uttype/identifier#3585343>
+- macOS CFBundleURLTypes: <https://developer.apple.com/documentation/bundleresources/information_property_list/cfbundleurltypes>
 - The original Bean's `scripts/check-uri-handlers.sh` and `build/darwin/Info.plist` (consult upstream)
 
 **Implementation:**
@@ -216,6 +216,7 @@ Before adding any `use` statement for an external crate, an AI agent MUST:
    ```toml
    <crate> = "=1.2.3"  # or just "1.2" if you trust the maintainer's semver
    ```
+
 2. Use `cargo update -p <crate> --precise 1.2.3` to lock the lockfile
 3. Run `cargo tree -p <crate>` to verify no surprise transitive deps
 
@@ -233,7 +234,8 @@ Before adding any `use` statement for an external crate, an AI agent MUST:
 2. Use the `web-search` skill to search for the API.
 3. Use the `web-reader` skill to fetch the docs.rs page.
 4. If still unclear, document the question in `worklog.md` and propose a path forward.
-```
+
+```text
 
 **Action item:**
 

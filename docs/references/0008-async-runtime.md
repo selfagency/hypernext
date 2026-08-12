@@ -11,6 +11,7 @@
 Rust has multiple async runtimes: `tokio`, `async-std`, `smol`, `glommio`, `embassy-async`. Mixing them in one project causes integration pain (different executors, different IO drivers, different timer implementations).
 
 Hypernext's chosen dependencies strongly prefer tokio:
+
 - `reqwest` (HTTP client) — tokio-native
 - `russh` (SSH) — tokio
 - `async-imap` (IMAP) — tokio
@@ -38,6 +39,7 @@ Hypernext's chosen dependencies strongly prefer tokio:
 ### Why "full" features
 
 The `full` feature of tokio includes:
+
 - `rt-multi-thread` — multi-threaded executor (required for our concurrent protocol loads)
 - `rt` — single-threaded fallback (used in some tests)
 - `macros` — `#[tokio::main]`, `tokio::select!`
@@ -68,9 +70,9 @@ The binary-size cost of `full` is acceptable (~2MB). The alternative — cherry-
 
 ## References
 
-- tokio: https://docs.rs/tokio/latest/tokio/
-- tokio tutorial: https://tokio.rs/tokio/tutorial
-- tokio::task::spawn_blocking: https://docs.rs/tokio/latest/tokio/task/fn.spawn_blocking.html
-- tokio_util::sync::CancellationToken: https://docs.rs/tokio-util/latest/tokio_util/sync/struct.CancellationToken.html
-- tracing: https://docs.rs/tracing/latest/tracing/
-- tracing-subscriber: https://docs.rs/tracing-subscriber/latest/tracing_subscriber/
+- tokio: <https://docs.rs/tokio/latest/tokio/>
+- tokio tutorial: <https://tokio.rs/tokio/tutorial>
+- tokio::task::spawn_blocking: <https://docs.rs/tokio/latest/tokio/task/fn.spawn_blocking.html>
+- tokio_util::sync::CancellationToken: <https://docs.rs/tokio-util/latest/tokio_util/sync/struct.CancellationToken.html>
+- tracing: <https://docs.rs/tracing/latest/tracing/>
+- tracing-subscriber: <https://docs.rs/tracing-subscriber/latest/tracing_subscriber/>

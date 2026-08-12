@@ -9,6 +9,7 @@
 ## Context
 
 Rust has multiple error-handling patterns:
+
 - `Result<T, E>` with manual `From` impls (verbose but explicit)
 - `thiserror` — derive `Error` and `From` for library error enums
 - `anyhow` — boxed errors with context, for application-level code
@@ -152,7 +153,7 @@ The application binary MAY use `anyhow::Result` for setup and CLI code where the
 
 ## References
 
-- thiserror: https://docs.rs/thiserror/latest/thiserror/
-- anyhow: https://docs.rs/anyhow/latest/anyhow/
+- thiserror: <https://docs.rs/thiserror/latest/thiserror/>
+- anyhow: <https://docs.rs/anyhow/latest/anyhow/>
 - The original Bean's `internal/errors/errors.go` (consult upstream — same idea, Go flavor)
-- Rust API Guidelines on error handling: https://rust-lang.github.io/api-guidelines/interoperability.html#c-good-error
+- Rust API Guidelines on error handling: <https://rust-lang.github.io/api-guidelines/interoperability.html#c-good-error>

@@ -79,8 +79,8 @@ These secrets must never be stored in plaintext. The Wails version had a hard-wo
 
 ## References
 
-- `keyring` crate: https://crates.io/crates/keyring (v4.1.6)
-- keyring docs: https://docs.rs/keyring/latest/keyring/
-- macOS Keychain Services: https://developer.apple.com/documentation/security/keychain_services
-- Windows Credential Manager: https://learn.microsoft.com/en-us/windows/win32/secauthn/credential-manager
-- Linux Secret Service API: https://specifications.freedesktop.org/secret-service/
+- `keyring` crate: <https://crates.io/crates/keyring> (v4.1.6)
+- keyring docs: <https://docs.rs/keyring/latest/keyring/>
+- macOS Keychain Services: <https://developer.apple.com/documentation/security/keychain_services>
+- Windows Credential Manager: <https://learn.microsoft.com/en-us/windows/win32/secauthn/credential-manager>
+- Linux Secret Service API: <https://specifications.freedesktop.org/secret-service/>

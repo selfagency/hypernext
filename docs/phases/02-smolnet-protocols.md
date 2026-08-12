@@ -17,7 +17,7 @@ The single most important outcome of this phase: every protocol adapter returns 
 
 ## 2. Architecture overview
 
-```
+```text
                     ┌─────────────────────────┐
                     │   hypernext-ui (Phase 4)│
                     │   - location bar        │
@@ -65,16 +65,16 @@ Per the user's decision (see `docs/references/0006-smolnet-protocol-crates.md`),
 **Action items:**
 
 - [ ] Add each crate to the root `Cargo.toml` `[workspace.dependencies]` block with a pinned version:
-  - `gemini-protocol` v0.1.2 — https://crates.io/crates/gemini-protocol
-  - `scroll-protocol` v0.1.0 — https://crates.io/crates/scroll-protocol
-  - `text-protocol` v0.1.0 — https://crates.io/crates/text-protocol
-  - `spartan-protocol` v0.1.1 — https://crates.io/crates/spartan-protocol
-  - `nex-protocol` v0.1.1 — https://crates.io/crates/nex-protocol
-  - `gopher-protocol` v0.1.2 — https://crates.io/crates/gopher-protocol
-  - `scorpion-protocol` v0.1.0 — https://crates.io/crates/scorpion-protocol
-  - `kepler-protocol` v0.1.0 — https://crates.io/crates/kepler-protocol
-  - `guppy-protocol` v0.1.1 — https://crates.io/crates/guppy-protocol
-  - `titanite` v0.3.2 — https://crates.io/crates/titanite (Titan — note this is more mature than the others)
+  - `gemini-protocol` v0.1.2 — <https://crates.io/crates/gemini-protocol>
+  - `scroll-protocol` v0.1.0 — <https://crates.io/crates/scroll-protocol>
+  - `text-protocol` v0.1.0 — <https://crates.io/crates/text-protocol>
+  - `spartan-protocol` v0.1.1 — <https://crates.io/crates/spartan-protocol>
+  - `nex-protocol` v0.1.1 — <https://crates.io/crates/nex-protocol>
+  - `gopher-protocol` v0.1.2 — <https://crates.io/crates/gopher-protocol>
+  - `scorpion-protocol` v0.1.0 — <https://crates.io/crates/scorpion-protocol>
+  - `kepler-protocol` v0.1.0 — <https://crates.io/crates/kepler-protocol>
+  - `guppy-protocol` v0.1.1 — <https://crates.io/crates/guppy-protocol>
+  - `titanite` v0.3.2 — <https://crates.io/crates/titanite> (Titan — note this is more mature than the others)
 - [ ] Run `cargo add` for each crate in the consuming crate (`hypernext-protocol`), pinning the version
 - [ ] Verify the lockfile pins the exact resolved versions (`cargo tree -p <crate>`)
 - [ ] Confirm no surprise transitive dependencies via `cargo tree`
@@ -110,18 +110,18 @@ Each direct dependency is 0.1.0 — fresh, possibly incomplete. We harden our ad
 
 | Protocol | Spec URL | Notes |
 |---|---|---|
-| Gemini | https://geminiprotocol.net/ | TLS with TOFU; gemtext format; status codes 1x-6x; client certs |
-| Gopher | https://www.rfc-editor.org/rfc/rfc1436 | RFC 1436; Gopher+ attributes; RFC 4266 URLs |
-| Spartan | https://portal.mozest.com/protocol/spartan | Plaintext TCP; `=:selector\tquery` for input; no TLS |
-| Nex | https://nightfall.city/nex/ | Plaintext TCP; `=>` link lines |
-| Text | https://textprotocol.org/ | Plain TCP + TLS; minimal status codes; text/plain |
-| Scroll | https://scrollprotocol.com/ | TLS; scrolltext format; UDC classification |
-| Molerat | https://github.com/jcs/molerat | TLS; mtxt/gemtext rendering; TOFU |
-| Scorpion | https://github.com/jcs/scorpion | 4 subprotocols (receive, send, interactive, meta); binary block format |
+| Gemini | <https://geminiprotocol.net/> | TLS with TOFU; gemtext format; status codes 1x-6x; client certs |
+| Gopher | <https://www.rfc-editor.org/rfc/rfc1436> | RFC 1436; Gopher+ attributes; RFC 4266 URLs |
+| Spartan | <https://portal.mozest.com/protocol/spartan> | Plaintext TCP; `=:selector\tquery` for input; no TLS |
+| Nex | <https://nightfall.city/nex/> | Plaintext TCP; `=>` link lines |
+| Text | <https://textprotocol.org/> | Plain TCP + TLS; minimal status codes; text/plain |
+| Scroll | <https://scrollprotocol.com/> | TLS; scrolltext format; UDC classification |
+| Molerat | <https://github.com/jcs/molerat> | TLS; mtxt/gemtext rendering; TOFU |
+| Scorpion | <https://github.com/jcs/scorpion> | 4 subprotocols (receive, send, interactive, meta); binary block format |
 | Kepler | (in gemrendr README; cite upstream) | Gemini's shape + cache model with declared body lengths |
-| Titan | https://community.gemini-protocol.com/protocol/titan | Upload via TLS; size limits; progress/cancel |
-| Finger | https://www.rfc-editor.org/rfc/rfc1288 | RFC 1288; `/W` verbose; structured Plan section |
-| WebFinger | https://www.rfc-editor.org/rfc/rfc7033 | RFC 7033; `/.well-known/webfinger`; rel links |
+| Titan | <https://community.gemini-protocol.com/protocol/titan> | Upload via TLS; size limits; progress/cancel |
+| Finger | <https://www.rfc-editor.org/rfc/rfc1288> | RFC 1288; `/W` verbose; structured Plan section |
+| WebFinger | <https://www.rfc-editor.org/rfc/rfc7033> | RFC 7033; `/.well-known/webfinger`; rel links |
 
 ### 3.3 The `Protocol` trait and dispatcher (Week 2)
 
@@ -129,9 +129,9 @@ Define the protocol trait in `hypernext-protocol`. Every adapter (direct depende
 
 **References to consult before writing code:**
 
-- Rust API Guidelines on traits: https://rust-lang.github.io/api-guidelines/interoperability.html
+- Rust API Guidelines on traits: <https://rust-lang.github.io/api-guidelines/interoperability.html>
 - The original Bean's `internal/protocol/types.go` and `internal/protocol/dispatch.go` (consult upstream, DO NOT copy)
-- async-trait crate (if needed for async traits): https://docs.rs/async-trait/latest/async_trait/ — note: Rust 1.75+ has native async traits, so we don't need this
+- async-trait crate (if needed for async traits): <https://docs.rs/async-trait/latest/async_trait/> — note: Rust 1.75+ has native async traits, so we don't need this
 
 **Implementation:**
 
@@ -206,6 +206,7 @@ impl Dispatcher {
 **TDD gate:**
 
 Unit tests (`crates/hypernext-protocol/src/dispatcher.rs::tests`):
+
 - `normalize_address("geminiprotocol.net")` → `gemini://geminiprotocol.net/`
 - `normalize_address("https://example.com")` → unchanged
 - `normalize_address("feed:https://blog.example.com/rss")` → `https://blog.example.com/rss` (feed: is a hint, not a protocol)
@@ -217,12 +218,12 @@ Unit tests (`crates/hypernext-protocol/src/dispatcher.rs::tests`):
 
 **References to consult:**
 
-- Gemini spec: https://geminiprotocol.net/ — read all sections
-- Gemini certificate TOFU: https://geminiprotocol.net/docs/protocol-documentation%20draft%20-%20Appendix%201.gmi
-- gemtext format: https://geminiprotocol.net/docs/gemtext.gmi
+- Gemini spec: <https://geminiprotocol.net/> — read all sections
+- Gemini certificate TOFU: <https://geminiprotocol.net/docs/protocol-documentation%20draft%20-%20Appendix%201.gmi>
+- gemtext format: <https://geminiprotocol.net/docs/gemtext.gmi>
 - The `gemini-protocol` crate API (see docs.rs for the pinned version)
-- rustls docs (for TLS): https://docs.rs/rustls/latest/rustls/
-- tokio-rustls: https://docs.rs/tokio-rustls/latest/tokio_rustls/
+- rustls docs (for TLS): <https://docs.rs/rustls/latest/rustls/>
+- tokio-rustls: <https://docs.rs/tokio-rustls/latest/tokio_rustls/>
 
 **Implementation:**
 
@@ -237,6 +238,7 @@ Unit tests (`crates/hypernext-protocol/src/dispatcher.rs::tests`):
 **TDD gate:**
 
 Unit tests:
+
 - Parse all 6 status code classes correctly
 - TOFU: first connection stores cert; second connection with same cert succeeds; second with different cert returns `TofuCertChanged`
 - Redirect limit enforced
@@ -244,6 +246,7 @@ Unit tests:
 - 10MB response size limit triggers `SizeLimitExceeded`
 
 Integration tests (`crates/hypernext-protocol/tests/gemini.rs`):
+
 - Spin up a local TLS server with `tokio-rustls` using a self-signed cert
 - Server serves a fixed gemtext response
 - Assert: `Dispatcher::fetch("gemini://localhost:<port>/")` returns the expected `PageDoc`
@@ -256,13 +259,13 @@ Each of these is structurally similar: a TCP connection (some with TLS), a reque
 
 **References to consult (per protocol — AI agent: read these in full before each adapter):**
 
-- Gopher: https://www.rfc-editor.org/rfc/rfc1436 + RFC 4266 (URLs) + Gopher+ spec
-- Spartan: https://portal.mozest.com/protocol/spartan
-- Nex: https://nightfall.city/nex/
-- Text: https://textprotocol.org/
-- Scroll: https://scrollprotocol.com/
-- Molerat: https://github.com/jcs/molerat (read README + spec)
-- Scorpion: https://github.com/jcs/scorpion (read README + spec)
+- Gopher: <https://www.rfc-editor.org/rfc/rfc1436> + RFC 4266 (URLs) + Gopher+ spec
+- Spartan: <https://portal.mozest.com/protocol/spartan>
+- Nex: <https://nightfall.city/nex/>
+- Text: <https://textprotocol.org/>
+- Scroll: <https://scrollprotocol.com/>
+- Molerat: <https://github.com/jcs/molerat> (read README + spec)
+- Scorpion: <https://github.com/jcs/scorpion> (read README + spec)
 - Kepler: read the `kepler-protocol` crate's README (no public spec URL found in audit; upstream README is authoritative)
 
 **Implementation pattern (per adapter):**
@@ -292,7 +295,7 @@ Titan is the upload counterpart to Gemini — same TLS, same TOFU, but writes in
 
 **References to consult:**
 
-- Titan spec: https://community.gemini-protocol.com/protocol/titan
+- Titan spec: <https://community.gemini-protocol.com/protocol/titan>
 - The `titanite` crate (more mature than the other 0.1.0 crates)
 
 **Implementation:**
@@ -311,6 +314,7 @@ Titan is the upload counterpart to Gemini — same TLS, same TOFU, but writes in
 **TDD gate:**
 
 Unit tests:
+
 - Upload succeeds against an in-process Titan server
 - Upload with size > limit fails before any bytes are sent
 - Cancellation mid-upload returns `Error::Cancelled`
@@ -318,6 +322,7 @@ Unit tests:
 - Invalid MIME returns `InvalidInput`
 
 Integration tests:
+
 - In-process Titan server receives expected bytes
 - Progress callback fires at least once for a 1MB upload
 - Server returns 5x status → propagates as `Error::ProtocolRejected`
@@ -326,8 +331,8 @@ Integration tests:
 
 **References to consult:**
 
-- RFC 1288 (Finger): https://www.rfc-editor.org/rfc/rfc1288
-- RFC 7033 (WebFinger): https://www.rfc-editor.org/rfc/rfc7033
+- RFC 1288 (Finger): <https://www.rfc-editor.org/rfc/rfc1288>
+- RFC 7033 (WebFinger): <https://www.rfc-editor.org/rfc/rfc7033>
 - The crate (none — implement first-party; no good crate exists in audit)
 
 **Implementation:**
@@ -345,6 +350,7 @@ Integration tests:
 **TDD gate:**
 
 Unit tests:
+
 - Finger: parse a fixture with Plan section
 - Finger: parse a fixture with PGP block (preserve the armor)
 - Finger: empty response (user not found) returns `Error::NotFound`
@@ -353,6 +359,7 @@ Unit tests:
 - WebFinger: missing `subject` field returns `Error::InvalidResponse`
 
 Integration tests:
+
 - In-process Finger server responds to `/W user` with fixture
 - In-process HTTP server serves `.well-known/webfinger` JSON
 - Both tested with valid + malformed + missing fixtures
@@ -361,10 +368,10 @@ Integration tests:
 
 **References to consult:**
 
-- `pgp` crate docs: https://docs.rs/pgp/latest/pgp/ — read "Getting Started" and "Verifying a message"
-- `sequoia-openpgp` docs (alternative): https://docs.sequoia-pgp.org/
-- Signed webpage pattern: https://pouyacode.net/signing-webpages.html
-- GnuPG manual on clearsign: https://www.gnupg.org/gph/en/manual/x135.html
+- `pgp` crate docs: <https://docs.rs/pgp/latest/pgp/> — read "Getting Started" and "Verifying a message"
+- `sequoia-openpgp` docs (alternative): <https://docs.sequoia-pgp.org/>
+- Signed webpage pattern: <https://pouyacode.net/signing-webpages.html>
+- GnuPG manual on clearsign: <https://www.gnupg.org/gph/en/manual/x135.html>
 - The original Bean's `internal/pgp/` and `internal/solid/crypto.go` (consult upstream)
 
 **Implementation:**
@@ -385,6 +392,7 @@ Integration tests:
 **TDD gate:**
 
 Unit tests:
+
 - Valid clearsign → `Valid`
 - Tampered clearsign → `Invalid`
 - Wrong key → `Unverified`
@@ -393,6 +401,7 @@ Unit tests:
 - Detached signature via `link rel="signature"` fetches and verifies
 
 Integration tests:
+
 - Generate test keys with the `pgp` crate
 - Sign a fixture HTML page with clearsign, fetch via HTTP, verify
 - Tamper with the bytes after signing, verify returns `Invalid`
@@ -438,11 +447,11 @@ Now the UI side: convert `Vec<Block>` into GTK widgets. This is in `hypernext-ui
 
 **References to consult:**
 
-- gtk4-rs widget reference: https://gtk-rs.org/gtk4-rs/stable/latest/docs/
-- GtkLabel with markup: https://docs.gtk.org/gtk4/class.Label.html (Pango markup)
-- GtkTextView for code blocks: https://docs.gtk.org/gtk4/class.TextView.html
-- GtkListBox for link lists: https://docs.gtk.org/gtk4/class.ListBox.html
-- Pango markup reference: https://docs.gtk.org/Pango/pango_markup.html
+- gtk4-rs widget reference: <https://gtk-rs.org/gtk4-rs/stable/latest/docs/>
+- GtkLabel with markup: <https://docs.gtk.org/gtk4/class.Label.html> (Pango markup)
+- GtkTextView for code blocks: <https://docs.gtk.org/gtk4/class.TextView.html>
+- GtkListBox for link lists: <https://docs.gtk.org/gtk4/class.ListBox.html>
+- Pango markup reference: <https://docs.gtk.org/Pango/pango_markup.html>
 
 **Implementation:**
 
@@ -468,11 +477,13 @@ Now the UI side: convert `Vec<Block>` into GTK widgets. This is in `hypernext-ui
 **TDD gate:**
 
 Unit tests (with `gtk::test`-style init):
+
 - `render_blocks(&[Block::Heading { level: 1, text: "Hi".into(), id: None }])` produces a `gtk::Label` with `"Hi"` and CSS class `hypernext-heading-1`
 - `render_blocks(&[Block::Paragraph(...)])` produces a label with Pango markup containing the styled runs
 - Empty `Vec<Block>` produces an empty `gtk::Box`
 
 Integration tests:
+
 - Render a representative fixture for each protocol (one Gemini page, one Gopher menu, etc.)
 - Assert the resulting widget tree has the expected structure (CSS classes, label texts)
 
@@ -530,38 +541,38 @@ All of these must be true before Phase 3 starts:
 
 ### Protocol specs (read in full before each adapter)
 
-- Gemini: https://geminiprotocol.net/
-- Gopher: https://www.rfc-editor.org/rfc/rfc1436
-- Spartan: https://portal.mozest.com/protocol/spartan
-- Nex: https://nightfall.city/nex/
-- Text: https://textprotocol.org/
-- Scroll: https://scrollprotocol.com/
-- Molerat: https://github.com/jcs/molerat
-- Scorpion: https://github.com/jcs/scorpion
+- Gemini: <https://geminiprotocol.net/>
+- Gopher: <https://www.rfc-editor.org/rfc/rfc1436>
+- Spartan: <https://portal.mozest.com/protocol/spartan>
+- Nex: <https://nightfall.city/nex/>
+- Text: <https://textprotocol.org/>
+- Scroll: <https://scrollprotocol.com/>
+- Molerat: <https://github.com/jcs/molerat>
+- Scorpion: <https://github.com/jcs/scorpion>
 - Kepler: see the `kepler-protocol` crate's README
-- Titan: https://community.gemini-protocol.com/protocol/titan
-- Finger: https://www.rfc-editor.org/rfc/rfc1288
-- WebFinger: https://www.rfc-editor.org/rfc/rfc7033
+- Titan: <https://community.gemini-protocol.com/protocol/titan>
+- Finger: <https://www.rfc-editor.org/rfc/rfc1288>
+- WebFinger: <https://www.rfc-editor.org/rfc/rfc7033>
 
 ### PGP
 
-- `pgp` crate: https://docs.rs/pgp/latest/pgp/
-- `sequoia-openpgp`: https://docs.sequoia-pgp.org/
-- Signed webpage pattern: https://pouyacode.net/signing-webpages.html
-- GnuPG clearsign: https://www.gnupg.org/gph/en/manual/x135.html
+- `pgp` crate: <https://docs.rs/pgp/latest/pgp/>
+- `sequoia-openpgp`: <https://docs.sequoia-pgp.org/>
+- Signed webpage pattern: <https://pouyacode.net/signing-webpages.html>
+- GnuPG clearsign: <https://www.gnupg.org/gph/en/manual/x135.html>
 
 ### TLS / Tokio
 
-- rustls: https://docs.rs/rustls/latest/rustls/
-- tokio-rustls: https://docs.rs/tokio-rustls/latest/tokio_rustls/
-- tokio CancellationToken: https://docs.rs/tokio-util/latest/tokio_util/sync/struct.CancellationToken.html
+- rustls: <https://docs.rs/rustls/latest/rustls/>
+- tokio-rustls: <https://docs.rs/tokio-rustls/latest/tokio_rustls/>
+- tokio CancellationToken: <https://docs.rs/tokio-util/latest/tokio_util/sync/struct.CancellationToken.html>
 
 ### GTK rendering
 
-- gtk4-rs widget reference: https://gtk-rs.org/gtk4-rs/stable/latest/docs/
-- Pango markup: https://docs.gtk.org/Pango/pango_markup.html
-- GtkListBox: https://docs.gtk.org/gtk4/class.ListBox.html
-- GtkTextView: https://docs.gtk.org/gtk4/class.TextView.html
+- gtk4-rs widget reference: <https://gtk-rs.org/gtk4-rs/stable/latest/docs/>
+- Pango markup: <https://docs.gtk.org/Pango/pango_markup.html>
+- GtkListBox: <https://docs.gtk.org/gtk4/class.ListBox.html>
+- GtkTextView: <https://docs.gtk.org/gtk4/class.TextView.html>
 
 ### Original Bean reference (consult, do not copy)
 

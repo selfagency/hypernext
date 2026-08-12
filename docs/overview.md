@@ -233,6 +233,7 @@ To prevent scope creep, these are explicitly out of scope for Hypernext in any r
 ## 9. How to read this plan
 
 **If you're an AI agent writing code:**
+
 1. Read this overview first.
 2. Read `docs/references/0001-ui-framework-choice.md`, `0003-authority-model.md`, and `0005-tdd-discipline.md` before writing any UI code.
 3. Read the specific phase doc for the feature you're implementing.
@@ -242,12 +243,14 @@ To prevent scope creep, these are explicitly out of scope for Hypernext in any r
 7. Append your work to `worklog.md` (repo root) (Task ID + Agent + Work Log + Stage Summary, per the project rules).
 
 **If you're a human reviewing:**
+
 1. Start here.
 2. Read the ADRs in `docs/references/`.
 3. Read each phase doc in order.
 4. Push back on anything that doesn't make sense. This is a draft for review, not a directive.
 
 **If you're a future maintainer:**
+
 1. Read this overview + the ADRs.
 2. Read the worklog from the relevant Task ID.
 3. Trust the tests, not the docs. Docs drift; tests don't.
@@ -257,9 +260,11 @@ To prevent scope creep, these are explicitly out of scope for Hypernext in any r
 ## 10. Document index
 
 ### Overview (this file)
+
 - `docs/overview.md`
 
 ### Phase docs (1.0 Hypertext)
+
 - `docs/phases/01-foundation-and-architecture.md`
 - `docs/phases/02-smolnet-protocols.md`
 - `docs/phases/03-http-reader-and-raw-mode.md`
@@ -267,6 +272,7 @@ To prevent scope creep, these are explicitly out of scope for Hypernext in any r
 - `docs/phases/05-release-1.0-gate.md`
 
 ### Future release phase docs (all written — same TDD structure as 1.0)
+
 - `docs/phases/1.1-feeds.md` — RSS/Atom/JSON Feed, WebSub, Salmention, ATProto/Nostr/ActivityPub read-only
 - `docs/phases/1.2-distributed.md` — IPFS/Iroh/BitTorrent, remoteStorage, Solid, ATProto/Nostr/Mastodon write, crosspost dialog
 - `docs/phases/2.0-conversation.md` — IRC, Matrix (with E2EE), XMPP, WebRTC DataChannel chat
@@ -276,6 +282,7 @@ To prevent scope creep, these are explicitly out of scope for Hypernext in any r
 - `docs/phases/6.0-sync.md` — WebRTC sync, ECDH pairing, Yjs CRDTs, conflict resolution
 
 ### References
+
 - `docs/references/0001-ui-framework-choice.md`
 - `docs/references/0002-browser-engine-survey.md`
 - `docs/references/0003-authority-model.md`
@@ -291,6 +298,7 @@ To prevent scope creep, these are explicitly out of scope for Hypernext in any r
 - `docs/references/library-lookup-protocol.md` — guide for AI agents on how to verify a crate before depending on it
 
 ### Source material (read-only references)
+
 - The original Go/Wails Bean codebase: not copied into Hypernext; consulted via the upstream repo when needed
 - Original docs (Bean v1 PRD, master plan, etc.): consulted when verifying feature semantics, never used as authority for the rewrite
 
