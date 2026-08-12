@@ -44,5 +44,13 @@
     "spike_textview": "crates/hypernext-ui spike_textview (GtkTextView + child anchors) from Phase 2 text-selection spike - promotes to production in p3-t6",
     "reqwest_013_note": "No per-request redirect in reqwest 0.13; no-follow is Client-level. WebFinger already uses Client::builder().redirect(Policy::none()) + surfaces 3xx final_url (Phase 2 pattern to reuse)."
   },
-  "plan_summary": "7 tasks / 4 waves. Wave 1: p3-t1 hypernext-http core (SSRF/size/redirects). Wave 2: p3-t2 readability extract + p3-t3 adblock. Wave 3: p3-t4 raw webview SPIKE (highest risk) + p3-t5 web mode toggle. Wave 4: p3-t6 reader render pipeline (h2/h3/h4) + p3-t7 HTTP adapter (h1). HIGH complexity due to macOS webview SPIKE + security boundaries."
+  "plan_summary": "7 tasks / 4 waves. Wave 1: p3-t1 hypernext-http core (SSRF/size/redirects). Wave 2: p3-t2 readability extract. Wave 3: p3-t3 adblock + p3-t4 raw webview SPIKE (highest risk) + p3-t5 web mode toggle. Wave 4: p3-t6 reader render pipeline (h2/h3/h4) + p3-t7 HTTP adapter (h1, Block::Webview, raw-mode adblock, PGP-before-extract). HIGH complexity due to macOS webview SPIKE + security boundaries. Post-review: Block::Webview variant (not magic-string); raw-mode adblock owned by p3-t7; socks5 + feed-rs deferred (YAGNI).",
+  "plan_review": {
+    "wave_fix": "p3-t3 moved to wave 3 (was same-wave dep on p3-t2)",
+    "block_webview": "Block::Raw{mime:application/x-webview} magic-string REJECTED -> add Block::Webview{url} variant in hypernext-core (p3-t7)",
+    "raw_adblock_owner": "raw-mode adblock resource intercept owned by p3-t7 (has p3-t3 engine + p3-t4 webview)",
+    "coverage_gate_t4": "p3-t4 (hypernext-webmode) gets >=80% per-crate coverage (Linux webkit6 CI-testable; macOS local-only)",
+    "deferred": ["socks5/Tor feature (Phase 5)", "real feed-rs dep (Phase 1.1 - use feed::deferred marker)"],
+    "macos_ci_caveat": "macOS webview (1.0 target) CI-untestable (macos job build-only, test ubuntu/xvfb) - validated locally; SPIKE ADR decision is the manual gate"
+  }
 }
