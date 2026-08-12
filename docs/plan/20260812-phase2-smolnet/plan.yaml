@@ -1,37 +1,43 @@
 plan_id: 20260812-phase2-smolnet
-objective: "Phase 2 Smolnet Protocol Adapters: Gemini, Gopher, Finger, Spartan, Nex, Text, Scroll, Molerat, Scorpion, Kepler, Titan, PGP verify, dispatcher, Block->GTK rendering"
+objective: "Phase 2 Smolnet Protocol Adapters (full smolweb parity, misfin-mail deferred, fsp deferred): Gemini, Gopher, Finger, Spartan, Nex, Text, Scroll, Molerat, Scorpion, Kepler, Titan, DICT, Guppy, PGP verify, dispatcher, Block->GTK rendering"
 complexity: HIGH
 source_doc: docs/phases/02-smolnet-protocols.md
 created: 2026-08-12
-revised: "2026-08-12 (post-review: async-trait for dyn dispatch, split 8-adapter task, add API-audit gate, fix wave ordering, add hardening task, PGP spike, crate->adapter mapping, coverage 80%)"
+revised: "2026-08-12 (post-review #1: async-trait, split adapters, API audit, wave fixes, PGP spike, coverage 80%. post-review #2: full smolweb parity - add dict/finger-protocol crates, resolve guppy vs Molerat. moved misfin-mail to Correspondence 4.0; moved fsp to Workshop 3.0)"
 
-# Crate -> adapter mapping (explicit, per critic finding #3)
+# Crate -> adapter mapping (full smolweb parity, 13 crates from merely-made/smolweb)
+# NOTE: guppy-protocol is Guppy v0.4.4 (UDP 6775, smolweb over UDP) - NOT Molerat.
+# jcs's Molerat (TLS, mtxt) has NO crate in the smolweb set - implement first-party.
+# misfin (mail) DEFERRED to Correspondence 4.0 phase - not in Phase 2.
 crate_adapter_map:
-  gemini-protocol: GeminiAdapter
-  gopher-protocol: GopherAdapter
-  spartan-protocol: SpartanAdapter
-  nex-protocol: NexAdapter
-  text-protocol: TextAdapter
-  scroll-protocol: ScrollAdapter
-  guppy-protocol: MoleratAdapter   # guppy-protocol is the Molerat crate
-  scorpion-protocol: ScorpionAdapter
-  kepler-protocol: KeplerAdapter
-  titanite: TitanAdapter
-  # Finger + WebFinger: first-party (no good crate in audit)
+  gemini-protocol: GeminiAdapter        # Gemini + TOFU + titan upload
+  gopher-protocol: GopherAdapter        # Gopher + Gopher+ + gophers (TLS)
+  spartan-protocol: SpartanAdapter      # plaintext TCP + uploads via =: prompt
+  nex-protocol: NexAdapter              # plaintext TCP, minimal
+  text-protocol: TextAdapter            # plaintext + TLS, 3 status codes
+  scroll-protocol: ScrollAdapter        # TLS, scrolltext, UDC
+  guppy-protocol: GuppyAdapter          # Guppy v0.4.4, UDP (chunking/ack/retransmit)
+  scorpion-protocol: ScorpionAdapter    # 4 subprotocols, binary blocks
+  kepler-protocol: KeplerAdapter        # Gemini shape + cache model
+  finger-protocol: FingerWebFingerAdapter  # Finger RFC 1288 + WebFinger RFC 7033
+  dict-protocol: DictAdapter            # DICT RFC 2229 (command loop, not one-shot)
+  # fsp-protocol: DEFERRED to Workshop 3.0 (sftp/telnet/mud phase)
+  titanite: TitanAdapter                # Titan upload
+  # Molerat: first-party (no crate; jcs TLS/mtxt protocol)
 
 tasks:
   - id: p2-t1
-    title: "Add 10 smolnet protocol crates as direct deps"
+    title: "Add 12 smolnet protocol crates as direct deps"
     wave: 1
     agent: gem-implementer
     status: pending
     deps: []
     conflicts_with: []
-    source: "phase-doc 3.1"
-    acceptance: "10 crates resolve+build as deps of hypernext-protocol; cargo tree lists them pinned; no surprise transitive deps; crate->adapter mapping confirmed"
+    source: "phase-doc 3.1 + smolweb parity"
+    acceptance: "12 crates (gemini, gopher, spartan, nex, text, scroll, guppy, scorpion, kepler, finger, dict, titanite) resolve+build as deps of hypernext-protocol; cargo tree lists them pinned; no surprise transitive deps; crate->adapter mapping confirmed; rust-version 1.88 vs MSRV 1.83 decision made. misfin deferred to Correspondence 4.0; fsp deferred to Workshop 3.0."
 
   - id: p2-t-audit
-    title: "API fitness audit of all 10 protocol crates"
+    title: "API fitness audit of all 12 protocol crates"
     wave: 1
     agent: gem-researcher
     status: pending
@@ -61,14 +67,14 @@ tasks:
     acceptance: "6 status classes; TOFU store/compare/TofuCertChanged; redirect limit; gemtext->Block fixture match; 10MB size limit; client cert in keychain; SSRF-on-cross-protocol-redirect test (Gemini->HTTP honoring block_private_network)"
 
   - id: p2-t4
-    title: "Finger + WebFinger adapters"
+    title: "Finger + WebFinger adapter (finger-protocol crate)"
     wave: 2
     agent: gem-implementer
     status: pending
     deps: [p2-t1, p2-t2]
     conflicts_with: []
-    source: "phase-doc 3.7"
-    acceptance: "Finger Plan/PGP/empty fixtures; WebFinger JSON rel links; 404->NotFound; missing subject->InvalidResponse"
+    source: "phase-doc 3.7 + smolweb"
+    acceptance: "Finger Plan/PGP/empty fixtures; WebFinger JSON rel links; 404->NotFound; missing subject->InvalidResponse; wraps finger-protocol crate (was first-party)"
 
   - id: p2-t5a
     title: "Gopher + Spartan + Nex adapters"
@@ -81,14 +87,14 @@ tasks:
     acceptance: "3 adapters; TcpProtocolHelper shared; each: unit happy+3 edge, integration mock server, >=5 fixtures; Gopher menu->Block::Link; Spartan/Nex gemtext->shared parser"
 
   - id: p2-t5b
-    title: "Text + Scroll + Molerat adapters"
+    title: "Text + Scroll adapters"
     wave: 3
     agent: gem-implementer
     status: pending
     deps: [p2-t1, p2-t2, p2-t3, p2-t-audit]
     conflicts_with: []
     source: "phase-doc 3.5"
-    acceptance: "3 adapters; Text->preformatted Paragraph; Scroll scrolltext->comrak; Molerat mtxt->gemtext parser; TOFU where applicable; each: unit happy+3 edge, integration mock server, >=5 fixtures"
+    acceptance: "2 adapters; Text->preformatted Paragraph; Scroll scrolltext->comrak; each: unit happy+3 edge, integration mock server, >=5 fixtures"
 
   - id: p2-t5c
     title: "Scorpion + Kepler adapters"
@@ -99,6 +105,26 @@ tasks:
     conflicts_with: []
     source: "phase-doc 3.5"
     acceptance: "2 adapters; Scorpion binary blocks->Block::Raw; Kepler->gemtext parser; TOFU where applicable; each: unit happy+3 edge, integration mock server, >=5 fixtures"
+
+  - id: p2-t5d
+    title: "Guppy + DICT adapters (UDP + command-loop protocols)"
+    wave: 3
+    agent: gem-implementer
+    status: pending
+    deps: [p2-t1, p2-t2, p2-t-audit]
+    conflicts_with: []
+    source: "smolweb parity (guppy, dict)"
+    acceptance: "2 adapters; Guppy UDP (chunk/ack/retransmit) via guppy-protocol; DICT command-loop (RFC 2229) via dict-protocol; each: unit happy+3 edge, integration mock server, >=5 fixtures"
+
+  - id: p2-t5e
+    title: "Molerat adapter (first-party)"
+    wave: 3
+    agent: gem-implementer
+    status: pending
+    deps: [p2-t1, p2-t2, p2-t3, p2-t-audit]
+    conflicts_with: []
+    source: "smolweb parity"
+    acceptance: "Molerat first-party (TLS/mtxt, jcs spec - no crate exists; reuse gemtext parser); unit happy+3 edge, integration mock server, >=5 fixtures"
 
   - id: p2-t6
     title: "Titan upload adapter (publish, explicit-confirmation gate)"
@@ -121,24 +147,24 @@ tasks:
     acceptance: "clearsign valid/tampered; detached; inline HTML comment; key rotation->KeyChanged; verify-before-extract boundary test. START with pgp-vs-sequoia-openpgp selection spike (phase doc R2); pick one, document rationale."
 
   - id: p2-t8
-    title: "Dispatcher wiring (registry: all adapters)"
+    title: "Dispatcher wiring (registry: all 15 adapters)"
     wave: 4
     agent: gem-implementer
     status: pending
-    deps: [p2-t3, p2-t4, p2-t5a, p2-t5b, p2-t5c, p2-t6, p2-t7]
+    deps: [p2-t3, p2-t4, p2-t5a, p2-t5b, p2-t5c, p2-t5d, p2-t5e, p2-t6, p2-t7]
     conflicts_with: []
-    source: "phase-doc 3.9"
-    acceptance: "every scheme routes to correct adapter; UnknownScheme; normalize_address strips feed:/rss:; per-adapter TOFU enumeration explicit"
+    source: "phase-doc 3.9 + smolweb"
+    acceptance: "every scheme routes to correct adapter (gemini, gopher, spartan, nex, text, scroll, guppy, scorpion, kepler, finger, dict, titan, molerat); UnknownScheme; normalize_address strips feed:/rss:; per-adapter TOFU enumeration explicit. misfin deferred to Correspondence 4.0; fsp deferred to Workshop 3.0."
 
   - id: p2-t9
     title: "Block -> GTK widget rendering (document_view)"
     wave: 4
     agent: gem-implementer
     status: pending
-    deps: [p2-t2, p2-t5a, p2-t5b, p2-t5c]
+    deps: [p2-t2, p2-t5a, p2-t5b, p2-t5c, p2-t5d, p2-t5e]
     conflicts_with: []
     source: "phase-doc 3.10"
-    acceptance: "render_blocks for each Block variant; CSS classes; unit tests with gtk::test; integration render fixture per protocol (fixtures from t5a/t5b/t5c)"
+    acceptance: "render_blocks for each Block variant; CSS classes; unit tests with gtk::test; integration render fixture per protocol (fixtures from t5a-e)"
 
   - id: p2-t10
     title: "Spike: text selection across blocks (ADR)"
@@ -153,7 +179,7 @@ tasks:
 waves:
   1: [p2-t1, p2-t-audit]
   2: [p2-t2, p2-t3, p2-t4, p2-t7]
-  3: [p2-t5a, p2-t5b, p2-t5c, p2-t6]
+  3: [p2-t5a, p2-t5b, p2-t5c, p2-t5d, p2-t5e, p2-t6]
   4: [p2-t8, p2-t9]
   5: [p2-t10]
 
@@ -165,12 +191,14 @@ integration_gates:
   wave_5: true    # final
 
 exit_criteria:
-  - "All 10 protocol crates resolve and build as direct deps of hypernext-protocol"
-  - "All protocol adapters have >=80% line coverage (cargo tarpaulin -p hypernext-protocol) per AGENTS.md/ADR 0005"
+  - "All 12 smolnet protocol crates resolve and build as direct deps of hypernext-protocol"
+  - "All 14 adapters (12 crates + Molerat first-party + shared) have >=80% line coverage (cargo tarpaulin -p hypernext-protocol) per AGENTS.md/ADR 0005"
   - "Each adapter's spec deviations documented in worklog.md"
-  - "Dispatcher::fetch works for every registered protocol against local mock servers"
+  - "Dispatcher::fetch works for every registered protocol against local mock servers (gemini, gopher, spartan, nex, text, scroll, guppy, scorpion, kepler, finger, dict, titan, molerat)"
   - "PGP verification works: clearsign valid, tampered, detached, inline HTML comment, key rotation"
   - "Titan upload respects explicit-confirmation gate (test asserts publish not callable from fetch)"
+  - "Misfin mail deferred to Correspondence 4.0 phase (not in Phase 2)"
+  - "FSP deferred to Workshop 3.0 phase (sftp/telnet/mud; not in Phase 2)"
   - "Block -> GTK widget rendering produces expected widget tree for fixtures of every protocol"
   - "Text selection spike has documented ADR (docs/references/text-selection-strategy.md)"
   - "cargo test --workspace passes with >=60% overall coverage"
