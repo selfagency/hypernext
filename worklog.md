@@ -662,3 +662,22 @@ Stage Summary:
 - Coverage (tarpaulin): scorpion.rs 97.3% (108/111), kepler.rs 92.3% (72/78), tofu.rs 96.3% (79/82) — all > 80% gate.
 - Reconciled shared files against parallel agents: made gemini markdown_to_blocks pub(crate) (gemtext already was); reused their tofu.rs tls_connect; added scorpions/keplers schemes without clobbering their RECOGNIZED_SCHEMES edits.
 - No commits (orchestrator handles).
+
+---
+Task ID: p2-t10
+Agent: gem-implementer
+Task: Spike cross-block text selection in GTK renderer + ADR (docs/references/text-selection-strategy.md)
+
+Work Log:
+- Read phase doc 02-smolnet-protocols.md 3.11 + open question Q2, ADR 0001 format, core Block/Span types, existing render/mod.rs + mapping.rs.
+- Evaluated 4 candidate strategies (per plan): (1) single GtkTextView+GtkTextBuffer with tags; (2) per-label with container-level selection; (3) custom selection-state widget; (4) accept per-block gap. Recommended + prototyped (1).
+- New crates/hypernext-app/src/render/spike_textview.rs: pure Block->tagged-text transform (doc_to_entries, TextTag, ChildAnchor) + thin GTK layer (render_doc, apply_entries) building one read-only GtkTextView over a GtkTextBuffer, embedding non-text blocks via GtkTextChildAnchor + TextView::add_child_at_anchor. Registered pub mod in render/mod.rs.
+- Kept transform pure per mapping.rs convention so unit tests run headless (ADR 0005); buffer/selection test #[ignore]d (needs GDK display, AGENTS.md 13.3) with comment + gtk::init() guard.
+- Added url as dev-dependency (already pinned in workspace; used only in tests) to hypernext-app/Cargo.toml.
+- Wrote ADR docs/references/text-selection-strategy.md: accept single GtkTextView decision, options/tradeoffs, consequences, Phase 3 shell wiring note.
+- Verification: cargo build -p hypernext-app OK; cargo fmt --check clean; cargo clippy -p hypernext-app --all-targets -- -D warnings clean; cargo test -p hypernext-app green (21 lib + 3 logging + 1 smoke pass; 2 display-gated ignored). Existing p2-t9 renderer tests untouched + green.
+
+Stage Summary:
+- Prototype proves one GtkTextBuffer collapses heading/paragraph/list/code/link into a single selectable stream; anchors keep images/separators/raw as widget fallback.
+- Workspace-wide clippy fails on PRE-EXISTING errors in hypernext-testutil/hypernext-ui/hypernext-protocol (other agents' in-flight work; task forbade touching those crates); my crate hypernext-app is clean.
+- No commits (orchestrator handles); ADR at docs/references/text-selection-strategy.md.

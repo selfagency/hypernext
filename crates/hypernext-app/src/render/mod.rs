@@ -16,6 +16,12 @@
 
 pub mod mapping;
 
+// SPIKE (task p2-t10): prototype of cross-block text selection via a single
+// GtkTextView/GtkTextBuffer. Additive; the widget-per-block renderer above
+// remains the production path until the ADR is adopted. See
+// docs/references/text-selection-strategy.md.
+pub mod spike_textview;
+
 use gtk::prelude::*;
 use hypernext_core::{Block, Span};
 use relm4::prelude::*;

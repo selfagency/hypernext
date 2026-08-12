@@ -32,3 +32,5 @@ minimum_system_version = "14.0"
 [dev-dependencies]
 # In-memory mock store for keychain startup tests (ADR 0007).
 keyring-core = "1"
+# URL parsing in render spike tests (task p2-t10); already a workspace dep.
+url = { workspace = true }
