@@ -316,3 +316,28 @@ Stage Summary:
 - RUST-VERSION: 1.88 is a REAL blocker for MSRV 1.83 (edition 2024 needs 1.85; gemini let-chains need 1.88). Recommend raising Hypernext MSRV to 1.88. Not a p2-t-audit failure (audit is research-only).
 - Open question: none blocking. Optional upstream PRs documented (TLS injection, CancellationToken, titanite thiserror) — all low priority, adapter wraps them.
 - DISCREPANCY FLAG: phase doc + worklog t2 label guppy-protocol as "Molerat (TLS, mtxt, TOFU)". WRONG — the crate is dimkr's smolweb-over-UDP protocol (UDP 6775, chunking/ack). jcs's Molerat (TLS/mtxt) has NO crate in this set. Resolve which protocol is in scope before building the guppy adapter. Documented in protocol-crate-audit.md.
+
+---
+Task ID: p2-t-audit-static-analysis (20260812-phase2-smolnet)
+Agent: gem-devops
+Task: Add static analysis layers (cargo-audit, cargo-auditable, Miri, Kani, Semgrep) wired into prek + CI, per docs/references/static-analysis.md
+
+Work Log:
+- Verified current state: prek.toml runs fmt/clippy/test/deny; ci.yml has lint/test/coverage/deny/build (5 jobs). Only crates/hypernext-store/src/db.rs has `unsafe`; hypernext-pgp does NOT exist yet.
+- Wrote scripts/prek-cargo-audit.sh + scripts/prek-semgrep.sh: resilient wrappers that warn+pass when the tool is missing locally (cargo-audit/semgrep not installed on this machine). CI always runs the tools (installed there).
+- prek.toml: added cargo-audit + semgrep local hooks (language=system, pass_filenames=false, entry=bash scripts/...).
+- Created semgrep/rules.yaml with 5 custom Rust rules: no-unwrap-in-production, no-expect-in-production, no-format-sql, no-plaintext-secret, no-webview-outside-raw-mode (tests/fixtures/.codacy excluded).
+- ci.yml: added 3 jobs (audit: cargo audit --deny warnings; semgrep: semgrep --config semgrep/rules.yaml --error; miri + kani as ONE scheduled job pair), switched macOS build to cargo auditable build --release, added `schedule` cron + `workflow_dispatch` triggers (miri/kani if-guarded to schedule/dispatch only).
+- Miri job: dtolnay/rust-toolchain@nightly + miri component, targets store/keychain/protocol. Kani job: cargo install --locked kani-verifier, targets protocol+store (pgp added when p2-t7 lands).
+- docs/references/static-analysis.md: full tool-stack doc (each layer, what it catches, when it runs).
+- docs/references/build-macos.md: added cargo-auditable section (embedded dep tree, cargo audit binary).
+- Verified: prek validate-config passes; prek run --all-files passes (all 14 hooks green incl. new audit/semgrep which warn+skip); both wrapper scripts exit 0 with missing-tool warning.
+
+Stage Summary:
+- 5 tools wired: cargo-audit (CI audit job + resilient local hook), cargo-auditable (macOS release build), Miri (scheduled), Kani (scheduled), Semgrep (CI job + resilient local hook, 5 invariant rules).
+- Scheduled jobs NEVER run on push/PR (if-guarded to schedule+workflow_dispatch).
+- Deviation: folded Miri+Kani into one scheduled job pair (both slow, same trigger) rather than separate jobs.
+- Decision: local audit/semgrep hooks are resilient (warn+pass) per spec; CI is the enforcement point.
+- hypernext-pgp absent: Kani job documents it will cover PGP when p2-t7 lands (no crate to target now).
+- All existing gates still pass (fmt/clippy/test/deny verified via prek run).
+- NO commits (orchestrator handles). .codacy/codacy.yaml + .rumdl.toml untouched.

@@ -179,3 +179,28 @@ echo $?   # 0
 - gvsbuild: <https://github.com/wingtk/gvsbuild>
 - Homebrew gtk4 formula: `brew info gtk4`
 - gtk-rs installation guide: <https://gtk-rs.org/gtk4-rs/stable/latest/book/>
+
+## cargo-auditable (embedded dependency tree for post-deploy audit)
+
+The release build uses **`cargo auditable build --release`** instead of a
+plain `cargo build --release` (Layer 2 static analysis — see
+`docs/references/static-analysis.md`). This embeds the exact dependency tree
+(including versions) into the binary's `.dep-v0` section, so a shipped
+`Hypernext.app` can be audited after deploy:
+
+```bash
+cargo install cargo-auditable
+cargo auditable build --release -p hypernext-app
+# later, audit a shipped binary without the source tree:
+cargo audit binary target/release/hypernext-app
+```
+
+Why: plain release builds carry no record of their dependency graph. If a
+RustSec advisory lands after a release, `cargo audit binary` on the shipped
+binary is the only way to know whether it is affected without re-running the
+full build. CI installs `cargo-auditable` via `taiki-e/install-action` before
+the release build (`.github/workflows/ci.yml` → `build` job).
+
+Caveat: `cargo-auditable` is a wrapper over cargo that injects the dep tree;
+it does not change codegen or binary behavior, only adds the embedded section.
+Bundle size impact is negligible (kilobytes of JSON).

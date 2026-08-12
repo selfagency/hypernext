@@ -29,4 +29,10 @@ hooks = [
   { id = "cargo-clippy", name = "cargo clippy -D warnings", language = "system", entry = "cargo clippy --workspace -- -D warnings", pass_filenames = false },
   { id = "cargo-test", name = "cargo test --workspace", language = "system", entry = "cargo test --workspace", pass_filenames = false },
   { id = "cargo-deny", name = "cargo deny check", language = "system", entry = "cargo deny check", pass_filenames = false },
+
+  # Static analysis layers (see docs/references/static-analysis.md).
+  # Both are resilient: if the tool is not installed locally they warn + pass,
+  # so local dev is never blocked. CI enforces them (tools installed there).
+  { id = "cargo-audit", name = "cargo audit (RustSec CVEs)", language = "system", entry = "bash scripts/prek-cargo-audit.sh", pass_filenames = false },
+  { id = "semgrep", name = "semgrep (Hypernext invariant rules)", language = "system", entry = "bash scripts/prek-semgrep.sh", pass_filenames = false },
 ]
