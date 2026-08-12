@@ -9,6 +9,7 @@ pub mod gemini;
 pub mod gopher;
 pub mod guppy;
 pub mod kepler;
+pub mod molerat;
 pub mod nex;
 pub mod scorpion;
 pub mod scroll;
@@ -25,6 +26,7 @@ pub use gemini::GeminiAdapter;
 pub use gopher::GopherAdapter;
 pub use guppy::GuppyAdapter;
 pub use kepler::KeplerAdapter;
+pub use molerat::MoleratAdapter;
 pub use nex::NexAdapter;
 pub use scorpion::ScorpionAdapter;
 pub use scroll::ScrollAdapter;
@@ -52,6 +54,7 @@ pub fn all() -> Vec<Box<dyn Protocol>> {
         Box::new(ScrollAdapter::new()),
         Box::new(ScorpionAdapter::new()),
         Box::new(KeplerAdapter::new()),
+        Box::new(MoleratAdapter::new()),
         Box::new(GuppyAdapter::new()),
         Box::new(DictAdapter::new()),
         Box::new(TitanAdapter::new()),

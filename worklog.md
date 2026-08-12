@@ -681,3 +681,22 @@ Stage Summary:
 - Prototype proves one GtkTextBuffer collapses heading/paragraph/list/code/link into a single selectable stream; anchors keep images/separators/raw as widget fallback.
 - Workspace-wide clippy fails on PRE-EXISTING errors in hypernext-testutil/hypernext-ui/hypernext-protocol (other agents' in-flight work; task forbade touching those crates); my crate hypernext-app is clean.
 - No commits (orchestrator handles); ADR at docs/references/text-selection-strategy.md.
+
+---
+Task ID: p2-t5e
+Agent: gem-implementer
+Task: First-party Molerat protocol adapter
+
+Work Log:
+- Read phase doc 02-smolnet-protocols.md 3.5 + Protocol trait/dispatcher.rs, gemini.rs (TOFU+TLS+gemtext parser), scorpion.rs/kepler.rs (TLS TOFU pattern), tofu.rs (shared tls_connect), tcp_helper.rs (span/first_heading).
+- Verified Molerat wire format from molerat.trinket.icu spec (jcs/molerat): request `get <url>\r\n\r\n`; response `status\r\nmessage:<v>\t\r\ntype:<v>\t\r\nlength:<v>\t\r\nhash:<v>\r\n\r\n<content>`; status 1x success / 2x redirect (target in message) / 3x client / 4x server / 5x cert-required. Scheme `molerat`, port 2693, TLS mandatory, TOFU.
+- New crates/hypernext-protocol/src/adapters/molerat.rs: MoleratAdapter (scheme "molerat", supports_fetch+needs_tls+needs_tofu); fetch = SSRF check_url -> tofu::tls_connect -> get exchange wrapped in tokio::select! cancel -> size-capped read -> parse_response; status mapping (1x success/unchanged, 2x redirect, 32->NotFound, 3x/4x->Protocol, 5x->Unauthorized); body text/molerat -> gemtext_to_blocks (mtxt), text/plain -> paragraph, else Raw.
+- parse_response splits header/body at blank line; tolerant of LF/CRLF + trailing tab.
+- Wired into adapters/mod.rs (pub mod molerat, re-export, all() with MoleratAdapter) + lib.rs re-export.
+- 5 fixtures in tests/fixtures/molerat/ (index/redirect/notfound/plain/slow .molerat).
+- New tests/molerat.rs: in-process TLS mock server (rcgen + tokio-rustls) covering mtxt, plain, redirect, not-found, server-error, SSRF default-block, and TOFU cert-change -> TofuCertChanged.
+
+Stage Summary:
+- 16 unit tests + 7 integration tests pass; full workspace 322 passed, exit 0.
+- cargo fmt --check clean; cargo clippy --workspace -- -D warnings clean; cargo deny check ok (advisories/bans/licenses/sources).
+- Scheme registered as "molerat" (matches spec + RECOGNIZED_SCHEMES). No commits (orchestrator handles). Prior attempt had produced zero code; this is the real implementation.

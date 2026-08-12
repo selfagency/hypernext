@@ -120,7 +120,7 @@ tasks:
     title: "Molerat adapter (first-party)"
     wave: 3
     agent: gem-implementer
-    status: completed
+    status: pending   # p2-t5e originally marked completed in the disrupted wave-3, but NO molerat.rs exists on disk or in git — false completion; rebuilt as new task
     deps: [p2-t1, p2-t2, p2-t3, p2-t-audit]
     conflicts_with: []
     source: "smolweb parity"
