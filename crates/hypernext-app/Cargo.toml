@@ -9,3 +9,5 @@ authors.workspace = true
 [dependencies]
 relm4 = { workspace = true }
 gtk4 = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

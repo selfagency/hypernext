@@ -7,3 +7,14 @@ license.workspace = true
 authors.workspace = true
 
 [dependencies]
+# Errors (ADR 0009)
+thiserror = { workspace = true }
+# rusqlite dep only for From<rusqlite::Error> -> HypernextError::Storage
+# propagation (ADR 0009). No cycle: store/keychain depend on core, not vice versa.
+rusqlite = { workspace = true }
+
+# Domain model (t3)
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+url = { workspace = true }

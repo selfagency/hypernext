@@ -6,6 +6,8 @@
 use gtk::prelude::*;
 use relm4::prelude::*;
 
+mod logging;
+
 /// Application model. Empty for the spike; state is added in t8.
 struct AppModel;
 
@@ -40,6 +42,14 @@ impl SimpleComponent for AppModel {
 }
 
 fn main() {
+    logging::init_tracing();
+
+    // Hidden self-test path used by `tests/logging_integration.rs`.
+    if std::env::args().any(|a| a == "--log-probe") {
+        logging::log_probe();
+        return;
+    }
+
     let app = RelmApp::new("com.selfagency.hypernext");
     app.run::<AppModel>(());
 }

@@ -7,3 +7,13 @@ license.workspace = true
 authors.workspace = true
 
 [dependencies]
+# Keychain (ADR 0007)
+keyring = { workspace = true }
+# Errors (ADR 0009)
+thiserror = { workspace = true }
+
+[dev-dependencies]
+# keyring-core mock store for tests (ADR 0007: tests use mock backend).
+# Same version keyring 4.1.6 resolves (^1.0.0), so set_default_store affects
+# the store keyring's v1 Entry uses.
+keyring-core = "1"
