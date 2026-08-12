@@ -136,3 +136,44 @@ Stage Summary:
 - Gates green: cargo fmt --check, cargo clippy --workspace -- -D warnings, cargo test --workspace (all crates pass), cargo deny check (advisories/bans/licenses/sources ok).
 - DEVIATION: none functional. Debug enables DEBUG but NOT TRACE (correct per level semantics); test asserts that.
 - Note: `--log-probe` is a dev/test-only path in main; t8 shell replaces the GTK entry while init_tracing() stays callable.
+
+---
+Task ID: t8
+Agent: gem-implementer
+Task: Build the real Relm4 + GTK4 app shell (ApplicationWindow + header bar + body label), smoke test, and gtk-testing doc
+
+Work Log:
+- Read t0 spike main.rs, relm4-debugging.md, build-macos.md, logging.rs, and relm4 0.9.1 crate source (simple.rs, macro_reference.rs, shutdown_after_quit.rs test, app.rs, controller.rs) to confirm the real API.
+- Split the crate into lib + bin: moved the shell to src/lib.rs (so tests/ can link it in-process) and made src/main.rs a thin entry point that calls init_tracing() + hypernext_app::run(). Kept the --log-probe self-test path.
+- Built AppModel (empty struct) + #[relm4::component(pub)] SimpleComponent: gtk::ApplicationWindow title "Hypernext" 1024x768, connect_close_request -> Propagation::Proceed, vertical gtk::Box with gtk::HeaderBar (title_widget label "Hypernext", needs #[wrap(Some)]) + body gtk::Label "Hypernext 1.0 (in development)".
+- Gotchas hit: (1) set_title_widget takes Option<&Widget> -> needs #[wrap(Some)] in view!; (2) #[relm4::component] leaks private AppModelWidgets -> use #[relm4::component(pub)]; (3) glib not a direct dep -> use gtk::glib; (4) GTK rejects unknown argv -> strip --smoke-probe via RelmApp::with_args; (5) active_window() is None at idle time -> use app.windows().first().
+- Smoke test (tests/smoke.rs): in-process test window_opens_with_title_and_quits_cleanly marked #[ignore] because GTK on macOS must init on the main thread but the test harness runs on a spawned thread (panics "Attempted to initialize GTK on OSX from non-main thread"). Added subprocess test binary_exits_cleanly that spawns the binary with --smoke-probe (opens window, asserts title, quits) and asserts exit 0 — this is the cross-platform CI gate.
+- Added hidden --smoke-probe path in lib.rs (run_smoke_probe) + main.rs. The probe sends a SmokeProbe message in init (gated on the flag) so update runs after the window is added, asserts title, quits. Mirrors relm4's own shutdown_after_quit test.
+- Wrote docs/references/gtk-testing.md: xvfb-run on Linux CI, system display on macOS, GitHub Actions example, headless #[ignore] fallback.
+- Gates green: cargo fmt --check, cargo clippy --workspace -- -D warnings, cargo test --workspace (all crates pass; smoke: 1 passed, 1 ignored).
+
+Stage Summary:
+- Full app shell built and verified: window opens, title asserted, process exits 0.
+- DEVIATION: added a lib.rs target (shell moved there) so integration tests can launch the app in-process; main.rs is now a thin entry point. This is required because tests/ can only link a lib target, not a bin.
+- DEVIATION: the in-process smoke test is #[ignore] on macOS (GTK main-thread constraint); the subprocess test is the real CI gate. Documented in gtk-testing.md.
+- Note: the smoke-probe message is gated on the --smoke-probe flag so the normal app does not quit immediately.
+---
+Task ID: t10
+Agent: gem-implementer
+Task: Wire SQLite store + keychain into app startup; add missing From impls
+
+Work Log:
+- Added hypernext-core path dep to crates/hypernext-store/Cargo.toml and crates/hypernext-keychain/Cargo.toml [dependencies] (t4 decision: From impls live in leaf crates to avoid core->store/keychain cycle).
+- Wrote Red tests first in store/error.rs and keychain/error.rs: `?` propagation from StoreError/KeychainError to HypernextError::Storage/Keychain, plus payload-preservation checks. Confirmed Red (E0277: From not implemented).
+- Implemented Green From impls: `impl From<StoreError> for HypernextError { Storage(e.to_string()) }` and `impl From<KeychainError> for HypernextError { Keychain(e.to_string()) }`.
+- Added `dirs = "6"` to [workspace.dependencies] (verified via context7: dirs 6.0.0, data_dir() -> macOS ~/Library/Application Support). Added hypernext-store/keychain/core + anyhow + dirs + rusqlite to hypernext-app deps; keyring + keyring-core as app dev-deps for mock-store startup tests.
+- Wrote crates/hypernext-app/src/startup.rs (TDD): resolve_data_dir() honors HYPERNEXT_DATA_DIR env override else dirs::data_dir().join("Hypernext"); startup() creates data dir, opens store via hypernext_store::db::open(<dir>/hypernext.db) (runs migrations), init_keychain() probes via Secret::get (NotFound treated as OK) returning Err through From impl. Startup { data_dir, conn } returned.
+- Wired startup() into run() -> now returns anyhow::Result<()>; main.rs expects() it. run_smoke_probe() bypasses startup (hermetic smoke test). Added `pub mod startup;` to lib.rs.
+- Tests (Red->Green): startup_runs_migrations_and_creates_no_files_outside_data_dir (asserts refinery_schema_history row count == 1 AND every file under temp root lives inside data dir - the hard confinement exit criterion), init_keychain_verifies_service_usable (mock store).
+
+Stage Summary:
+- From impls added in store + keychain leaf crates (ADR 0009) with ?-propagation tests.
+- App startup wires store (migrations on first launch) + keychain init; data dir is ~/Library/Application Support/Hypernext (HYPERNEXT_DATA_DIR overrides).
+- All gates green: cargo fmt --check, cargo clippy --workspace -- -D warnings, cargo test --workspace (store 10, keychain 9, app 5 lib + 3 logging + 1 smoke + 1 ignored), cargo deny check.
+- DEVIATION: used `dirs` crate (data_dir()) not ProjectDirs (would produce com.selfagency.Hypernext); join("Hypernext") yields exact spec path. Refinery Error is opaque (no public NoMigration ctor), so store payload test uses rusqlite::Error::InvalidQuery.
+- run() signature changed to return anyhow::Result<()>; main.rs handles startup errors via expect().

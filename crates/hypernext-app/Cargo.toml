@@ -11,3 +11,15 @@ relm4 = { workspace = true }
 gtk4 = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+# Startup wiring (t10)
+hypernext-core = { workspace = true }
+hypernext-store = { workspace = true }
+hypernext-keychain = { workspace = true }
+anyhow = { workspace = true }
+dirs = { workspace = true }
+rusqlite = { workspace = true }
+
+[dev-dependencies]
+# In-memory mock store for keychain startup tests (ADR 0007).
+keyring = { workspace = true }
+keyring-core = "1"

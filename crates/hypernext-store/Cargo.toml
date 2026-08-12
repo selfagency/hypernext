@@ -7,6 +7,9 @@ license.workspace = true
 authors.workspace = true
 
 [dependencies]
+# Shared error type (ADR 0009): From<StoreError> for HypernextError lives here
+# to avoid a core -> store dependency cycle (t4 decision).
+hypernext-core = { workspace = true }
 rusqlite = { workspace = true }
 refinery = { workspace = true }
 sqlite-vec = { workspace = true }

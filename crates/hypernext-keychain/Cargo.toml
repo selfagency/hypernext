@@ -7,6 +7,9 @@ license.workspace = true
 authors.workspace = true
 
 [dependencies]
+# Shared error type (ADR 0009): From<KeychainError> for HypernextError lives
+# here to avoid a core -> keychain dependency cycle (t4 decision).
+hypernext-core = { workspace = true }
 # Keychain (ADR 0007)
 keyring = { workspace = true }
 # Errors (ADR 0009)
