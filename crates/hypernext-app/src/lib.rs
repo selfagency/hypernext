@@ -61,6 +61,7 @@ impl SimpleComponent for AppModel {
         // The smoke-probe path sends a message so `update` runs after the
         // window is added to the app (during startup), where it can assert the
         // title and quit. Mirrors relm4's own `shutdown_after_quit` test.
+        // nosemgrep: args - test-only probe flag, not a security decision
         if std::env::args().any(|a| a == "--smoke-probe") {
             sender.input(SmokeProbe);
         }
@@ -105,6 +106,7 @@ fn run_with_args(args: Vec<String>) {
 /// is stripped from argv so GTK does not reject it as an unknown option; the
 /// probe message is sent from `init` (gated on the flag).
 pub fn run_smoke_probe() {
+    // nosemgrep: args - test-only probe flag, not a security decision
     let args: Vec<String> = std::env::args().filter(|a| a != "--smoke-probe").collect();
     run_with_args(args);
 }

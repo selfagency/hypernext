@@ -16,6 +16,7 @@ fn main() {
     }
 
     // Hidden self-test path used by `tests/smoke.rs` (subprocess mode).
+    // nosemgrep: args - test-only probe flag, not a security decision
     if std::env::args().any(|a| a == "--smoke-probe") {
         hypernext_app::run_smoke_probe();
         return;

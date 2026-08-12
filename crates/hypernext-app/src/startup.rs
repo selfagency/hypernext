@@ -122,6 +122,7 @@ mod tests {
     /// outside `<data_dir>`.
     #[test]
     fn startup_runs_migrations_and_creates_no_files_outside_data_dir() {
+        // nosemgrep: temp-dir - test-only data-dir confinement check, not a security decision
         let base = std::env::temp_dir().join(format!(
             "hypernext-startup-{}-{}",
             std::process::id(),
