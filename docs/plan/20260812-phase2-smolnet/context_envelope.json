@@ -21,11 +21,18 @@
     "protocol_trait": "Protocol: Send+Sync with scheme(), capabilities(), fetch(url, ctx) -> PageDoc, publish(url, payload, ctx) -> PublishResult (default Unsupported)",
     "fetch_context": "FetchContext { http_client, cancel: CancellationToken, incognito, policy: FetchPolicy, keychain, store }",
     "fetch_policy": "FetchPolicy { max_redirects, max_response_size, timeout, block_private_network (SSRF) }",
-    "dispatcher": "Dispatcher { protocols: HashMap<&str, Box<dyn Protocol>> } with register(), fetch(), normalize_address()",
+    "dispatcher": "Dispatcher { protocols: HashMap<scheme, Vec<Route>> } with register() (scheme+optional path_prefix), fetch()/fetch_once() resolving by longest-path-prefix with prefix-less scheme-default fallback, normalize_address(). WebFinger owns https ONLY for /.well-known/; NO prefix-less http/https default (Phase 3 adds it; ordinary http(s) fetch returns UnknownScheme until then).",
     "adapters": "Gemini, Gopher, Finger, Spartan, Nex, Text, Scroll, Molerat, Scorpion, Kepler (fetch), Titan (publish), WebFinger (building block)",
     "pgp_boundary": "PGP verification runs on raw response bytes BEFORE any extraction/parsing/rendering (CRITICAL invariant)",
     "titan_gate": "Protocol::publish NEVER called from navigation; only Titan upload dialog (Phase 4) calls it"
   },
+  "phase_2_complete": true,
+  "phase_3_handoff": [
+    "h1: per-protocol fixture widget-tree render tests (unmet exit criterion 9; ADR defers to Phase 3)",
+    "h2: promote spike_textview (p2-t10) to production render path + wire link TextTag::activate to Dispatcher navigation",
+    "h3: register prefix-less http/https default adapter in Dispatcher::all() (currently UnknownScheme for all non-WebFinger http(s) fetches)",
+    "h4: add GtkTextTag CSS/theme for the promoted textview render path"
+  ],
   "constraints": [
     "Single-process Rust. No IPC, no bindings (ADR 0003)",
     "Keychain-only secrets. No plaintext, no Base64 fallback (ADR 0007)",

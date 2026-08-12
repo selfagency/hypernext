@@ -206,3 +206,24 @@ exit_criteria:
   - "cargo deny check clean"
   - "No --no-verify in git history"
   - "worklog.md up to date"
+
+# === Carried work / handoff to Phase 3 (from Phase 2 exit-criteria gate, commit qvl) ===
+# These are DEFERRED Phase-2 acceptance items that Phase 3 MUST pick up. They are
+# tracked here (not just in the ADR) so Phase 3 planning starts from them.
+handoff_to_phase_3:
+  - id: h1
+    title: "Per-protocol fixture widget-tree render tests (unmet exit criterion 9)"
+    detail: "Block->GTK renderer (p2-t9) is complete and handles all Block variants, but NO integration tests assert expected widget trees for the protocol fixture documents. ADR text-selection-strategy.md:132-133 defers to Phase 3. Phase 3 must add per-fixture widget-tree assertions covering gemini/gopher/... mtxt docs."
+    target: "Phase 3 app rendering/wiring"
+  - id: h2
+    title: "Promote spike_textview to production render path + wire link TextTag::activate to navigator"
+    detail: "p2-t10 delivered a spike (spike_textview.rs): a GtkTextView/GtkTextBuffer with child anchors giving cross-block text selection. Phase 3 must promote it to the real Block->GTK render path and connect TextTag::activate (clickable links) to Dispatcher navigation."
+    target: "Phase 3 app shell + dispatcher wiring"
+  - id: h3
+    title: "Register default http/https adapter (prefix-less) in Dispatcher::all()"
+    detail: "Phase 2 deliberately deferred HTTP (raw-mode webview tabs, ADR 0002). Dispatcher currently returns UnknownScheme for any ordinary http(s) fetch because no prefix-less default is registered (WebFinger owns https only for /.well-known/). Phase 3 must add the HTTP adapter as the prefix-less http+https default. Until then, non-WebFinger https navigation fails with UnknownScheme (loud, not misrouted)."
+    target: "Phase 3 HTTP/raw-mode + dispatcher"
+  - id: h4
+    title: "Register GtkTextTag CSS for promoted textview render path"
+    detail: "When spike_textview is promoted (h2), the GtkTextTag-based styling (headings/lists/code/links) replaces the per-widget CSS-class approach. Phase 3 should add the corresponding GtkTextTag CSS/theme so rendered blocks are styled."
+    target: "Phase 3 app shell theming"
