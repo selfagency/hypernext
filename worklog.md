@@ -210,3 +210,23 @@ Stage Summary:
   staged-only, so a locally-passing commit cannot fail CI on fmt/clippy.
 - DEVIATION: used taiki-e/install-action@v2 for cargo-deny/tarpaulin (pinned, no curl|bash).
 - Note: .git/hooks/pre-commit-user is untracked (local); scripts/pre-commit.sh is the committed body.
+
+---
+Task ID: R1-macos-bundle (spike 20260812-phase1-foundation)
+Agent: gem-devops
+Task: Produce a self-contained Hypernext.app carrying the GTK runtime (R1 de-risk).
+
+Work Log:
+- Installed cargo-bundle v0.11.0 (cargo install) + dylibbundler 1.0.5 (brew).
+- Added [package.metadata.bundle] to crates/hypernext-app/Cargo.toml (name Hypernext, id com.selfagency.hypernext, min macOS 14.0).
+- Wrote scripts/bundle-macos.sh: build release -> cargo bundle -> dylibbundler copies closure into Contents/Frameworks (@executable_path) -> gdk-pixbuf loaders + loaders.cache (@RES@ placeholder) -> share data (icons/adwaita, gtk-4.0, compiled glib schemas) -> shell wrapper sets GTK_DATA_PREFIX/XDG_*/GIO_EXTRA_MODULES/GDK_PIXBUF_MODULE_FILE -> ad-hoc codesign.
+- Blocker found+fixed: gdk-pixbuf-query-loaders crashes (SIGKILL) on bundled loaders (their deps rewritten to @executable_path); fixed by generating cache from original brew loaders and rewriting paths.
+- Verified: otool -L shows only @executable_path/../Frameworks refs (no /opt/homebrew load commands); --smoke-probe exits 0 (window opened, title asserted) using bundled GTK.
+- All checks green: cargo fmt --check, clippy --workspace -D warnings, cargo test --workspace (exit 0).
+- Updated docs/references/build-macos.md: marked bundling PROVEN, Option C (Homebrew dylib bundling) = primary path, gvsbuild = fallback.
+
+Stage Summary:
+- Self-contained Hypernext.app: 46.1 MB (under ~100MB R1 gate).
+- Launches with NO system/Homebrew GTK (bundled dylibs used).
+- Primary path: cargo-bundle + dylibbundler; gvsbuild kept as documented fallback.
+- Caveats: ad-hoc codesign only (real signing/notarization for distribution); bundle reflects installed Homebrew.

@@ -19,6 +19,16 @@ anyhow = { workspace = true }
 dirs = { workspace = true }
 rusqlite = { workspace = true }
 
+[package.metadata.bundle]
+name = "Hypernext"
+identifier = "com.selfagency.hypernext"
+version = "0.1.0"
+category = "public.app-category.productivity"
+short_description = "All-protocol internet client"
+long_description = "Hypernext — view, interact, and create on the small web and smolnet."
+copyright = "Copyright (c) 2026 Hypernext maintainers"
+minimum_system_version = "14.0"
+
 [dev-dependencies]
 # In-memory mock store for keychain startup tests (ADR 0007).
 keyring = { workspace = true }
