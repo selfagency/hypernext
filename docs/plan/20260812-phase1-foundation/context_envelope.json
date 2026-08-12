@@ -1,0 +1,97 @@
+{
+  "plan_id": "20260812-phase1-foundation",
+  "objective": "Phase 1 Foundation & Architecture: cargo workspace, Relm4+GTK4 shell, SQLite store+migrations, keychain, core types, errors, logging, CI",
+  "complexity": "HIGH",
+  "tech_stack": {
+    "language": "Rust 1.83+ (stable, MSRV enforced via CI)",
+    "ui": "Relm4 0.9 + GTK4 0.9 (native widgets, no webview)",
+    "async": "tokio 1.53 (exclusive, ADR 0008)",
+    "storage": "rusqlite 0.40 (bundled+modernsqlite) + refinery 0.9 + sqlite-vec 0.1",
+    "keychain": "keyring 4 (OS keychain only, ADR 0007)",
+    "errors": "thiserror 2 (libraries) + anyhow 1 (app), ADR 0009",
+    "logging": "tracing 0.1 + tracing-subscriber 0.3 (env-filter, json)",
+    "serialization": "serde 1 + serde_json 1 + chrono 0.4 + uuid 1.24",
+    "testing": "cargo test (unit/integration) + Playwright E2E (later phases); pretty_assertions, rstest, mockall, wiremock"
+  },
+  "architecture_snapshot": {
+    "workspace_layout": [
+      "crates/hypernext-app (binary entry)",
+      "crates/hypernext-ui (Relm4 components)",
+      "crates/hypernext-core (shared types: PageDoc, Block, Metadata, errors)",
+      "crates/hypernext-store (SQLite, migrations, FTS5, sqlite-vec)",
+      "crates/hypernext-keychain (OS keyring wrapper)",
+      "crates/hypernext-http (HTTP client + SSRF policy, later)",
+      "crates/hypernext-protocol (Protocol trait + dispatcher, Phase 2)",
+      "crates/hypernext-pgp (PGP verification, Phase 2)",
+      "crates/hypernext-webmode (raw-mode webview wrapper, Phase 3)",
+      "crates/hypernext-indieauth (IndieAuth client, Phase 4)",
+      "crates/hypernext-testutil (shared test fixtures)"
+    ],
+    "authority_model": "Single-process Rust, no IPC, no bindings (ADR 0003)",
+    "target_os": "macOS 14+ primary; Linux/Windows later releases"
+  },
+  "constraints": [
+    "Single-process Rust. No IPC, no bindings, no frontend/backend split (ADR 0003)",
+    "Keychain-only secrets. No plaintext, no Base64 fallback, no SQLite-based secret store (ADR 0007)",
+    "tokio exclusively. No async-std, no smol (ADR 0008)",
+    "thiserror for libraries, anyhow for app. Never anyhow::Error from library public API (ADR 0009)",
+    "No --no-verify ever. Pre-commit hooks non-bypassable (ADR 0010)",
+    "No webview anywhere except raw-mode HTTP tabs (ADR 0001, 0002)",
+    "No unwrap() in library code (use ? with proper error type); unwrap() in tests acceptable",
+    "No magic values: use const for limits, timeouts",
+    "No SELECT *: explicit column lists in every SQL query",
+    "Every crate dependency must follow docs/references/library-lookup-protocol.md",
+    "TDD-first: Red (failing test) -> Green (minimal pass) -> Refactor",
+    "All checks must pass before commit: cargo fmt --check, cargo clippy --workspace -- -D warnings, cargo test --workspace, cargo deny check"
+  ],
+  "conventions": [
+    "Conventional Commits: feat(phase-1):, fix(phase-1):, test(phase-1):, docs(phase-1):, chore(phase-1):, refactor(phase-1):, perf(phase-1):",
+    "Branch naming: feat/phase-1-<description>, fix/phase-1-<description>",
+    "Worklog: append to worklog.md (repo root) after every Task ID",
+    "Scripts saved to scripts/ before execution (no heredocs)",
+    "Co-authored commits: Co-Authored-By: <agent-name> <noreply@...>",
+    "Every crate stub starts with #[cfg(test)] mod tests { #[test] fn it_works() { assert!(true); } }"
+  ],
+  "prior_decisions": [
+    "Relm4 + GTK4 over Dioxus/Iced/Tauri/Slint (ADR 0001)",
+    "Platform webviews via embedded widget; Servo deferred (ADR 0002)",
+    "Single-process Rust; no IPC (ADR 0003)",
+    "rusqlite + sqlite-vec + refinery migrations (ADR 0004)",
+    "Unit + integration + E2E layers, coverage gates (ADR 0005)",
+    "Direct crates.io deps for 10 smolnet protocol crates, pinned in lockfile (ADR 0006)",
+    "keyring crate; no plaintext fallback ever (ADR 0007)",
+    "tokio exclusively; no async-std mixing (ADR 0008)",
+    "thiserror for library errors, anyhow for app-level (ADR 0009)",
+    "Conventional commits, GitHub Actions matrix, no --no-verify (ADR 0010)"
+  ],
+  "research_digest": {
+    "key_risks": [
+      "R1: GTK4 runtime bundling on macOS fragile / 50MB+ binary -> spike week 1; if gvsbuild >100MB, switch to GTK3 or Iced",
+      "R2: rusqlite bundled + modernsqlite + sqlite-vec features conflict -> verify week 2; fallback sqlx or hand-roll sqlite-vec loading",
+      "R3: Relm4 macro compilation errors opaque -> maintain relm4-debugging.md notes",
+      "R4: keyring prompts macOS keychain unlock on first run, breaking CI -> security unlock-keychain in CI",
+      "R5: Workspace dep pinning conflicts (reqwest + tokio version skew) -> cargo tree -d audit week 4",
+      "R6: No AI agent has shipped production Relm4 app -> Phase 1 highest-risk; read every Relm4 example; update phase doc when API doesn't match"
+    ],
+    "must_read_refs": [
+      "Relm4 docs: https://relm4.org/docs/stable/",
+      "Relm4 book: https://relm4.org/book/stable/",
+      "gtk-rs book: https://gtk-rs.org/gtk4-rs/stable/latest/book/",
+      "GTK4 reference: https://docs.gtk.org/gtk4/",
+      "rusqlite docs: https://docs.rs/rusqlite/latest/rusqlite/",
+      "refinery docs: https://docs.rs/refinery/latest/refinery/",
+      "sqlite-vec: https://crates.io/crates/sqlite-vec",
+      "keyring docs: https://docs.rs/keyring/latest/keyring/",
+      "tokio docs: https://docs.rs/tokio/latest/tokio/",
+      "tracing docs: https://docs.rs/tracing/latest/tracing/",
+      "thiserror docs: https://docs.rs/thiserror/latest/thiserror/",
+      "anyhow docs: https://docs.rs/anyhow/latest/anyhow/",
+      "cargo workspace docs: https://doc.rust-lang.org/cargo/reference/workspaces.html"
+    ]
+  },
+  "reuse_notes": [
+    "Original Bean (Wails) codebase is reference material only - no code carries over",
+    "Consult upstream Bean for prior art: internal/protocol/types.go, internal/store/db.go, internal/errors/errors.go, internal/protocol/dispatch.go",
+    "docs/references/smolnet-ethics.md ethical constraints still apply"
+  ]
+}

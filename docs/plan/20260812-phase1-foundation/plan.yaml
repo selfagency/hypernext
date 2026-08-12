@@ -1,0 +1,125 @@
+plan_id: 20260812-phase1-foundation
+objective: "Phase 1 Foundation & Architecture: cargo workspace, Relm4+GTK4 shell, SQLite store+migrations, keychain, core types, errors, logging, CI"
+complexity: HIGH
+source_doc: docs/phases/01-foundation-and-architecture.md
+created: 2026-08-12
+
+tasks:
+  - id: t1
+    title: "Cargo workspace skeleton"
+    wave: 1
+    agent: gem-implementer
+    status: pending
+    deps: []
+    conflicts_with: []
+    source: "phase-doc 2.1"
+    acceptance: "cargo build --workspace && cargo test --workspace pass (stub tests)"
+
+  - id: t2
+    title: "Workspace dependencies manifest"
+    wave: 1
+    agent: gem-implementer
+    status: pending
+    deps: [t1]
+    conflicts_with: []
+    source: "phase-doc 2.9"
+    acceptance: "cargo update --dry-run clean; cargo deny check passes; crates inherit workspace versions"
+
+  - id: t3
+    title: "Core types (PageDoc, Block, Span, PgpInfo, DebugInfo)"
+    wave: 2
+    agent: gem-implementer
+    status: pending
+    deps: [t1]
+    conflicts_with: []
+    source: "phase-doc 2.5"
+    acceptance: "serde round-trip tests pass; Display impls; PgpStatus strings match Bean shield UI"
+
+  - id: t4
+    title: "Error types (HypernextError enum, stable codes)"
+    wave: 2
+    agent: gem-implementer
+    status: pending
+    deps: [t1, t3]
+    conflicts_with: []
+    source: "phase-doc 2.6"
+    acceptance: "error round-trip tests; stable string codes; ? propagation from rusqlite"
+
+  - id: t5
+    title: "Logging / tracing (subscriber, redaction)"
+    wave: 2
+    agent: gem-implementer
+    status: pending
+    deps: [t1]
+    conflicts_with: []
+    source: "phase-doc 2.7"
+    acceptance: "redaction test; RUST_LOG=debug enables debug spans; JSON format via HYPERNEXT_LOG_FORMAT"
+
+  - id: t6
+    title: "SQLite store + migrations (rusqlite, refinery, sqlite-vec)"
+    wave: 3
+    agent: gem-implementer
+    status: pending
+    deps: [t1, t2, t4]
+    conflicts_with: []
+    source: "phase-doc 2.3"
+    acceptance: "open_in_memory; migrations apply; FTS5 + sqlite-vec load; FK ON; WAL"
+
+  - id: t7
+    title: "OS keychain integration (keyring crate)"
+    wave: 3
+    agent: gem-implementer
+    status: pending
+    deps: [t1, t2, t4]
+    conflicts_with: []
+    source: "phase-doc 2.4"
+    acceptance: "set/get round-trip; get missing -> NotFound; delete; exists"
+
+  - id: t8
+    title: "Relm4 + GTK4 app shell (window, header bar, clean shutdown)"
+    wave: 4
+    agent: gem-implementer
+    status: pending
+    deps: [t1, t2, t3, t4, t5]
+    conflicts_with: []
+    source: "phase-doc 2.2"
+    acceptance: "smoke test: window opens with title, exits code 0"
+
+  - id: t9
+    title: "CI pipeline (GitHub Actions, pre-commit, check-no-verify)"
+    wave: 5
+    agent: gem-devops
+    status: pending
+    deps: [t1, t2, t3, t4, t5, t6, t7, t8]
+    conflicts_with: []
+    source: "phase-doc 2.8"
+    acceptance: "CI green on main; coverage threshold 30% ratchet; no --no-verify"
+
+waves:
+  1: [t1, t2]
+  2: [t3, t4, t5]
+  3: [t6, t7]
+  4: [t8]
+  5: [t9]
+
+integration_gates:
+  wave_1: true
+  wave_2: true
+  wave_3: true
+  wave_4: true
+  wave_5: true
+
+exit_criteria:
+  - "cargo build --workspace --release succeeds on macOS 14+"
+  - "cargo test --workspace passes with >30% coverage"
+  - "cargo clippy --workspace -- -D warnings clean"
+  - "cargo fmt --check clean"
+  - "cargo deny check clean"
+  - "GitHub Actions CI green on main"
+  - "App opens window with 'Hypernext 1.0 (in development)' label"
+  - "First launch runs SQLite migrations (schema_migrations row count)"
+  - "App creates zero files outside ~/Library/Application Support/Hypernext/"
+  - "Closing app exits cleanly (no orphan processes)"
+  - "No --no-verify in git history"
+  - "All ADRs committed at docs/references/"
+  - "worklog.md up to date with every Phase 1 task ID"
