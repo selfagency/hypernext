@@ -1,0 +1,133 @@
+plan_id: 20260812-phase2-smolnet
+objective: "Phase 2 Smolnet Protocol Adapters: Gemini, Gopher, Finger, Spartan, Nex, Text, Scroll, Molerat, Scorpion, Kepler, Titan, PGP verify, dispatcher, Block->GTK rendering"
+complexity: HIGH
+source_doc: docs/phases/02-smolnet-protocols.md
+created: 2026-08-12
+
+tasks:
+  - id: p2-t1
+    title: "Add 10 smolnet protocol crates as direct deps"
+    wave: 1
+    agent: gem-implementer
+    status: pending
+    deps: []
+    conflicts_with: []
+    source: "phase-doc 3.1"
+    acceptance: "10 crates resolve+build as deps of hypernext-protocol; cargo tree lists them pinned; no surprise transitive deps"
+
+  - id: p2-t2
+    title: "Protocol trait + Dispatcher + FetchContext + FetchPolicy"
+    wave: 1
+    agent: gem-implementer
+    status: pending
+    deps: [p2-t1]
+    conflicts_with: []
+    source: "phase-doc 3.3"
+    acceptance: "normalize_address tests; UnknownScheme; redirect limit; Protocol trait with fetch/publish; FetchContext with SSRF policy"
+
+  - id: p2-t3
+    title: "Gemini adapter (TOFU, status codes, gemtext->Block)"
+    wave: 2
+    agent: gem-implementer
+    status: pending
+    deps: [p2-t1, p2-t2]
+    conflicts_with: []
+    source: "phase-doc 3.4"
+    acceptance: "6 status classes; TOFU store/compare/TofuCertChanged; redirect limit; gemtext->Block fixture match; 10MB size limit; client cert in keychain"
+
+  - id: p2-t4
+    title: "Finger + WebFinger adapters"
+    wave: 2
+    agent: gem-implementer
+    status: pending
+    deps: [p2-t1, p2-t2]
+    conflicts_with: []
+    source: "phase-doc 3.7"
+    acceptance: "Finger Plan/PGP/empty fixtures; WebFinger JSON rel links; 404->NotFound; missing subject->InvalidResponse"
+
+  - id: p2-t5
+    title: "Gopher, Spartan, Nex, Text, Scroll, Molerat, Scorpion, Kepler adapters"
+    wave: 3
+    agent: gem-implementer
+    status: pending
+    deps: [p2-t1, p2-t2, p2-t3]
+    conflicts_with: []
+    source: "phase-doc 3.5"
+    acceptance: "8 adapters; TcpProtocolHelper shared; each: unit tests happy+3 edge, integration mock server, >=5 fixtures; TOFU where applicable"
+
+  - id: p2-t6
+    title: "Titan upload adapter (publish, explicit-confirmation gate)"
+    wave: 3
+    agent: gem-implementer
+    status: pending
+    deps: [p2-t1, p2-t2, p2-t3]
+    conflicts_with: []
+    source: "phase-doc 3.6"
+    acceptance: "publish works; size limit before send; cancellation; TOFU reuse; explicit-confirmation gate test (publish not callable from fetch)"
+
+  - id: p2-t7
+    title: "PGP verification (clearsign, detached, key lookup, TOFU)"
+    wave: 3
+    agent: gem-implementer
+    status: pending
+    deps: [p2-t1, p2-t2]
+    conflicts_with: []
+    source: "phase-doc 3.8"
+    acceptance: "clearsign valid/tampered; detached; inline HTML comment; key rotation->KeyChanged; verify-before-extract boundary test"
+
+  - id: p2-t8
+    title: "Dispatcher wiring (registry: all adapters)"
+    wave: 4
+    agent: gem-implementer
+    status: pending
+    deps: [p2-t3, p2-t4, p2-t5, p2-t6, p2-t7]
+    conflicts_with: []
+    source: "phase-doc 3.9"
+    acceptance: "every scheme routes to correct adapter; UnknownScheme; normalize_address strips feed:/rss:"
+
+  - id: p2-t9
+    title: "Block -> GTK widget rendering (document_view)"
+    wave: 4
+    agent: gem-implementer
+    status: pending
+    deps: [p2-t2]
+    conflicts_with: []
+    source: "phase-doc 3.10"
+    acceptance: "render_blocks for each Block variant; CSS classes; unit tests with gtk::test; integration render fixture per protocol"
+
+  - id: p2-t10
+    title: "Spike: text selection across blocks (ADR)"
+    wave: 4
+    agent: gem-researcher
+    status: pending
+    deps: [p2-t9]
+    conflicts_with: []
+    source: "phase-doc 3.11, open question Q2"
+    acceptance: "docs/references/text-selection-strategy.md ADR recording chosen approach"
+
+waves:
+  1: [p2-t1, p2-t2]
+  2: [p2-t3, p2-t4]
+  3: [p2-t5, p2-t6, p2-t7]
+  4: [p2-t8, p2-t9, p2-t10]
+
+integration_gates:
+  wave_1: true
+  wave_2: true
+  wave_3: true
+  wave_4: true
+
+exit_criteria:
+  - "All 10 protocol crates resolve and build as direct deps of hypernext-protocol"
+  - "All 10 protocol adapters have >=70% line coverage (cargo tarpaulin -p hypernext-protocol)"
+  - "Each adapter's spec deviations documented in worklog.md"
+  - "Dispatcher::fetch works for every registered protocol against local mock servers"
+  - "PGP verification works: clearsign valid, tampered, detached, inline HTML comment, key rotation"
+  - "Titan upload respects explicit-confirmation gate (test asserts publish not callable from fetch)"
+  - "Block -> GTK widget rendering produces expected widget tree for fixtures of every protocol"
+  - "Text selection spike has documented ADR (docs/references/text-selection-strategy.md)"
+  - "cargo test --workspace passes with >=60% overall coverage"
+  - "cargo clippy --workspace -- -D warnings clean"
+  - "cargo deny check clean"
+  - "No --no-verify in git history"
+  - "worklog.md up to date"
