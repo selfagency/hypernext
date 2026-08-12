@@ -26,8 +26,22 @@ pub const SCHEME_HINTS: &[&str] = &["feed:", "rss:"];
 /// An unrecognized prefix (e.g. `example.com:1965/`) is a host reference, not
 /// a scheme, so it is NOT in this list.
 pub const RECOGNIZED_SCHEMES: &[&str] = &[
-    "gemini", "https", "http", "gopher", "spartan", "nex", "text", "scroll", "molerat", "scorpion",
-    "kepler", "finger", "dict", "file",
+    "gemini",
+    "https",
+    "http",
+    "gopher",
+    "spartan",
+    "nex",
+    "text",
+    "scroll",
+    "molerat",
+    "scorpion",
+    "scorpions",
+    "kepler",
+    "keplers",
+    "finger",
+    "dict",
+    "file",
 ];
 
 /// What a protocol can do, used for UI hints and route validation.
@@ -191,6 +205,17 @@ pub trait Protocol: Send + Sync {
     /// `Dispatcher` routing key.
     fn scheme(&self) -> &'static str;
 
+    /// Optional URL path prefix this adapter owns *within* its scheme.
+    ///
+    /// Lets multiple adapters share one scheme by sub-routing on path
+    /// (e.g. WebFinger owns `https` + `/.well-known/webfinger` while an HTTP
+    /// adapter owns the rest of `https`). Returns `None` (the default) when
+    /// the adapter owns the whole scheme. The route with no prefix is the
+    /// scheme's fallback/default adapter.
+    fn path_prefix(&self) -> Option<&'static str> {
+        None
+    }
+
     fn capabilities(&self) -> Capabilities;
 
     /// Fetch `url` and return a normalized `PageDoc`.
@@ -213,9 +238,18 @@ pub trait Protocol: Send + Sync {
     }
 }
 
+/// One registered adapter under a scheme: the adapter plus (optionally) the
+/// path prefix it owns within that scheme. `None` prefix = the scheme default.
+struct Route {
+    path_prefix: Option<&'static str>,
+    protocol: Box<dyn Protocol>,
+}
+
 /// Routes URLs to the registered adapter for their scheme.
 pub struct Dispatcher {
-    protocols: HashMap<&'static str, Box<dyn Protocol>>,
+    /// Scheme -> routes. A scheme may host several adapters when they declare
+    /// distinct path prefixes; the prefix-less route is its default.
+    protocols: HashMap<&'static str, Vec<Route>>,
 }
 
 impl Default for Dispatcher {
@@ -231,10 +265,39 @@ impl Dispatcher {
         }
     }
 
-    /// Register an adapter under its [`Protocol::scheme`]. Re-registering an
-    /// existing scheme replaces the previous adapter.
+    /// Register an adapter under its [`Protocol::scheme`] (and, when declared,
+    /// its [`Protocol::path_prefix`]). Multiple adapters may share a scheme as
+    /// long as their path prefixes (or the prefix-less default) are distinct;
+    /// re-registering an identical scheme+prefix appends another route.
     pub fn register(&mut self, protocol: Box<dyn Protocol>) {
-        self.protocols.insert(protocol.scheme(), protocol);
+        let path_prefix = protocol.path_prefix();
+        let scheme = protocol.scheme();
+        self.protocols.entry(scheme).or_default().push(Route {
+            path_prefix,
+            protocol,
+        });
+    }
+
+    /// Resolve the adapter that owns `path` under `scheme`. Prefers the route
+    /// with the longest matching path prefix; falls back to the prefix-less
+    /// default route when no prefix matches.
+    fn resolve(&self, scheme: &str, path: &str) -> Option<&dyn Protocol> {
+        let routes = self.protocols.get(scheme)?;
+        let mut best: Option<(&dyn Protocol, usize)> = None;
+        let mut default_route: Option<&dyn Protocol> = None;
+        for route in routes {
+            match route.path_prefix {
+                Some(prefix) if path.starts_with(prefix) => {
+                    let len = prefix.len();
+                    if best.is_none_or(|(_, best_len)| len > best_len) {
+                        best = Some((route.protocol.as_ref(), len));
+                    }
+                }
+                Some(_) => {}
+                None => default_route = Some(route.protocol.as_ref()),
+            }
+        }
+        best.map(|(protocol, _)| protocol).or(default_route)
     }
 
     /// Dispatch a fetch to the adapter for `url`'s scheme, following redirect
@@ -268,8 +331,7 @@ impl Dispatcher {
         ctx: &FetchContext<'_>,
     ) -> Result<PageDoc, HypernextError> {
         let protocol = self
-            .protocols
-            .get(url.scheme())
+            .resolve(url.scheme(), url.path())
             .ok_or_else(|| HypernextError::UnknownScheme(url.scheme().to_string()))?;
         protocol.fetch(url, ctx).await
     }
@@ -568,6 +630,136 @@ mod tests {
         let vetted = policy.check_url("localhost", 79).await.unwrap();
         assert_eq!(vetted.host, "localhost");
         assert_eq!(vetted.port, 79);
+    }
+
+    /// Adapter tagged with a name; echoes the requested URL back as
+    /// `final_url` (so the Dispatcher does not follow a redirect) and stamps
+    /// `title` with its tag so a test can tell which route handled a fetch.
+    struct TagProtocol {
+        scheme: &'static str,
+        prefix: Option<&'static str>,
+        tag: &'static str,
+    }
+
+    #[async_trait]
+    impl Protocol for TagProtocol {
+        fn scheme(&self) -> &'static str {
+            self.scheme
+        }
+        fn path_prefix(&self) -> Option<&'static str> {
+            self.prefix
+        }
+        fn capabilities(&self) -> Capabilities {
+            Capabilities::default()
+        }
+        async fn fetch(&self, url: &Url, _ctx: &FetchContext) -> Result<PageDoc, HypernextError> {
+            Ok(PageDoc {
+                url: url.clone(),
+                final_url: url.clone(),
+                title: Some(self.tag.to_string()),
+                metadata: Default::default(),
+                blocks: vec![],
+                signature: None,
+                debug: hypernext_core::DebugInfo {
+                    request: hypernext_core::HttpRequestDebug {
+                        method: "GET".to_string(),
+                        url: url.clone(),
+                        headers: std::collections::HashMap::new(),
+                    },
+                    response: Default::default(),
+                    timing: Default::default(),
+                    redirects: vec![],
+                    parser_decisions: vec![],
+                    tls: None,
+                },
+                from_cache: false,
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn scheme_path_subrouting_routes_well_known_to_webfinger() {
+        let mut d = Dispatcher::new();
+        d.register(Box::new(TagProtocol {
+            scheme: "https",
+            prefix: Some("/.well-known/"),
+            tag: "webfinger",
+        }));
+        d.register(Box::new(TagProtocol {
+            scheme: "https",
+            prefix: None,
+            tag: "http",
+        }));
+        let policy = FetchPolicy::default();
+        let c = ctx(&policy);
+        let doc = d
+            .fetch(&url("https://host/.well-known/webfinger?resource=x"), &c)
+            .await
+            .unwrap();
+        assert_eq!(doc.title.as_deref(), Some("webfinger"));
+    }
+
+    #[tokio::test]
+    async fn scheme_path_mismatch_falls_back_to_scheme_default() {
+        let mut d = Dispatcher::new();
+        d.register(Box::new(TagProtocol {
+            scheme: "https",
+            prefix: Some("/.well-known/"),
+            tag: "webfinger",
+        }));
+        d.register(Box::new(TagProtocol {
+            scheme: "https",
+            prefix: None,
+            tag: "http",
+        }));
+        let policy = FetchPolicy::default();
+        let c = ctx(&policy);
+        let doc = d.fetch(&url("https://host/other/page"), &c).await.unwrap();
+        assert_eq!(doc.title.as_deref(), Some("http"));
+    }
+
+    #[tokio::test]
+    async fn scheme_with_only_default_route_handles_all_paths() {
+        let mut d = Dispatcher::new();
+        d.register(Box::new(TagProtocol {
+            scheme: "gemini",
+            prefix: None,
+            tag: "gemini",
+        }));
+        let policy = FetchPolicy::default();
+        let c = ctx(&policy);
+        let doc = d.fetch(&url("gemini://host/any/path"), &c).await.unwrap();
+        assert_eq!(doc.title.as_deref(), Some("gemini"));
+    }
+
+    #[tokio::test]
+    async fn longest_prefix_wins() {
+        let mut d = Dispatcher::new();
+        // Two prefixes under one scheme: the longer, more specific one wins.
+        d.register(Box::new(TagProtocol {
+            scheme: "https",
+            prefix: Some("/.well-known/"),
+            tag: "short",
+        }));
+        d.register(Box::new(TagProtocol {
+            scheme: "https",
+            prefix: Some("/.well-known/webfinger"),
+            tag: "long",
+        }));
+        let policy = FetchPolicy::default();
+        let c = ctx(&policy);
+        let doc = d
+            .fetch(&url("https://host/.well-known/webfinger?resource=x"), &c)
+            .await
+            .unwrap();
+        assert_eq!(doc.title.as_deref(), Some("long"));
+        // A path under `/.well-known/` but not the webfinger endpoint hits the
+        // shorter prefix.
+        let doc = d
+            .fetch(&url("https://host/.well-known/other"), &c)
+            .await
+            .unwrap();
+        assert_eq!(doc.title.as_deref(), Some("short"));
     }
 
     #[tokio::test]

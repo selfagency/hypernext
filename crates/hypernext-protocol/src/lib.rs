@@ -8,7 +8,11 @@
 pub mod adapters;
 pub mod dispatcher;
 
-pub use adapters::{FingerAdapter, GeminiAdapter, WebFingerAdapter};
+pub use adapters::{
+    DictAdapter, FingerAdapter, GeminiAdapter, GopherAdapter, GuppyAdapter, KeplerAdapter,
+    NexAdapter, ScorpionAdapter, ScrollAdapter, SpartanAdapter, TextAdapter, TitanAdapter,
+    WebFingerAdapter,
+};
 pub use dispatcher::{
     Capabilities, Dispatcher, FetchContext, FetchPolicy, Protocol, PublishPayload, PublishResult,
     DEFAULT_SCHEME, RECOGNIZED_SCHEMES, SCHEME_HINTS,

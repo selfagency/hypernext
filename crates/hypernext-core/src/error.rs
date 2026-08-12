@@ -76,6 +76,15 @@ pub enum HypernextError {
     /// The server returned a response that could not be parsed.
     #[error("INVALID_RESPONSE: {0}")]
     InvalidResponse(String),
+
+    /// A user-supplied value (MIME type, size, ...) was rejected before any
+    /// bytes were sent.
+    #[error("INVALID_INPUT: {0}")]
+    InvalidInput(String),
+
+    /// The server rejected the upload with a 5x (permanent) status.
+    #[error("PROTOCOL_REJECTED: {0}")]
+    ProtocolRejected(String),
 }
 
 impl HypernextError {
@@ -101,6 +110,8 @@ impl HypernextError {
             HypernextError::TofuCertChanged(_) => "TOFU_CERT_CHANGED",
             HypernextError::NotFound(_) => "NOT_FOUND",
             HypernextError::InvalidResponse(_) => "INVALID_RESPONSE",
+            HypernextError::InvalidInput(_) => "INVALID_INPUT",
+            HypernextError::ProtocolRejected(_) => "PROTOCOL_REJECTED",
         }
     }
 }
@@ -132,6 +143,8 @@ impl FromStr for HypernextError {
             "TOFU_CERT_CHANGED" => Ok(HypernextError::TofuCertChanged(String::new())),
             "NOT_FOUND" => Ok(HypernextError::NotFound(String::new())),
             "INVALID_RESPONSE" => Ok(HypernextError::InvalidResponse(String::new())),
+            "INVALID_INPUT" => Ok(HypernextError::InvalidInput(String::new())),
+            "PROTOCOL_REJECTED" => Ok(HypernextError::ProtocolRejected(String::new())),
             _ => Err(ParseError::UnknownCode(code.to_string())),
         }
     }
@@ -182,6 +195,11 @@ mod tests {
                 HypernextError::InvalidResponse("x".into()),
                 "INVALID_RESPONSE",
             ),
+            (HypernextError::InvalidInput("x".into()), "INVALID_INPUT"),
+            (
+                HypernextError::ProtocolRejected("x".into()),
+                "PROTOCOL_REJECTED",
+            ),
         ];
         for (err, expected) in cases {
             assert_eq!(err.code(), *expected, "code() mismatch");
@@ -212,6 +230,8 @@ mod tests {
             HypernextError::TofuCertChanged("boom".into()),
             HypernextError::NotFound("boom".into()),
             HypernextError::InvalidResponse("boom".into()),
+            HypernextError::InvalidInput("boom".into()),
+            HypernextError::ProtocolRejected("boom".into()),
         ];
         for err in cases {
             let s = err.to_string();

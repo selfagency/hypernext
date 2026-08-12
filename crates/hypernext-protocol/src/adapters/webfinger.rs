@@ -67,6 +67,12 @@ impl Protocol for WebFingerAdapter {
         "https"
     }
 
+    fn path_prefix(&self) -> Option<&'static str> {
+        // WebFinger only owns the well-known endpoint; the Dispatcher
+        // sub-routes `https` so an HTTP adapter owns the rest of the scheme.
+        Some("/.well-known/webfinger")
+    }
+
     fn capabilities(&self) -> Capabilities {
         // Not UI-facing: this adapter exists for other adapters (Solid,
         // Mastodon, ATProto) and is deliberately never surfaced as a tab.
@@ -80,7 +86,6 @@ impl Protocol for WebFingerAdapter {
         // Hoist Send+Sync fields out of `ctx` before awaiting: `ctx` borrows a
         // non-`Sync` `rusqlite::Connection`, so holding it across `.await` would
         // make the async-trait future `!Send`.
-        let http_client = ctx.http_client;
         let policy = ctx.policy;
 
         // The dispatcher routes every https:// URL here; if the path is not
@@ -102,7 +107,18 @@ impl Protocol for WebFingerAdapter {
             .unwrap_or(if url.scheme() == "http" { 80 } else { 443 });
         policy.check_url(host, port).await?;
 
-        let response = http_client
+        // Do not let reqwest auto-follow redirects: each hop must be
+        // re-vetted by the Dispatcher (SSRF, invariant #8). We surface the
+        // 3xx Location as `final_url` and let the Dispatcher loop re-route +
+        // re-check_url each step. Redirect policy is a Client-level setting,
+        // so a dedicated no-redirect client is built per call (WebFinger is a
+        // lightweight discovery sub-step, not a hot path).
+        let client = reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .map_err(|e| HypernextError::Network(e.to_string()))?;
+
+        let response = client
             .get(url.clone())
             .header(
                 reqwest::header::ACCEPT,
@@ -113,6 +129,41 @@ impl Protocol for WebFingerAdapter {
             .map_err(|e| HypernextError::Network(e.to_string()))?;
 
         let status = response.status();
+        if status.is_redirection() {
+            // Hand back the redirect target for the Dispatcher to re-vet.
+            let location = response
+                .headers()
+                .get(reqwest::header::LOCATION)
+                .and_then(|v| v.to_str().ok())
+                .ok_or_else(|| {
+                    HypernextError::Network("webfinger: redirect without Location".to_string())
+                })?;
+            let next = url
+                .join(location)
+                .map_err(|e| HypernextError::InvalidUrl(format!("webfinger redirect: {e}")))?;
+            return Ok(PageDoc {
+                url: url.clone(),
+                final_url: next,
+                title: None,
+                metadata: Default::default(),
+                blocks: vec![],
+                signature: None,
+                debug: DebugInfo {
+                    request: HttpRequestDebug {
+                        method: "GET".to_string(),
+                        url: url.clone(),
+                        headers: HashMap::new(),
+                    },
+                    response: Default::default(),
+                    timing: Default::default(),
+                    redirects: vec![],
+                    parser_decisions: vec![],
+                    tls: None,
+                },
+                from_cache: false,
+            });
+        }
+
         if status == reqwest::StatusCode::NOT_FOUND || status == reqwest::StatusCode::GONE {
             return Err(HypernextError::NotFound(format!(
                 "webfinger: HTTP {}",

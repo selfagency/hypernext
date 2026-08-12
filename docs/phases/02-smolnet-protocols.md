@@ -275,7 +275,7 @@ Each of these is structurally similar: a TCP connection (some with TLS), a reque
 3. Convert the protocol's native response format to `Vec<Block>`:
    - Gopher menu → `Vec<Block::Link>`
    - Spartan/Nex gemtext → gemtext parser (shared with Gemini)
-   - Text protocol → `Block::Paragraph` with `SpanStyle::preformatted`
+   - Text protocol → text lines as `Block::Paragraph` with `SpanStyle::preformatted`; `=>` link lines as `Block::Link` (the `text-protocol` crate parses these into `Line::Link` — keep that structure rather than inlining links into a single paragraph)
    - Scroll scrolltext → comrak-rendered scrolltext
    - Molerat mtxt → reuse Gemini's gemtext parser
    - Scorpion binary blocks → `Block::Raw` (binary) or text blocks per type

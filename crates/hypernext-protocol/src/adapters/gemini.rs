@@ -23,7 +23,6 @@
 //! table), matching the single-process architecture (ADR 0003).
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use gemini_protocol::client::{parse_response, ClientError, Response, Status};
@@ -32,17 +31,14 @@ use hypernext_core::{
     Block, DebugInfo, HttpRequestDebug, HttpResponseDebug, HypernextError, Metadata, PageDoc, Span,
     SpanRun, SpanStyle,
 };
-use rusqlite::OptionalExtension;
-use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
-use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
-use rustls::{DigitallySignedStruct, SignatureScheme};
-use sha2::{Digest, Sha256};
+use rustls::pki_types::ServerName;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
-use tokio_rustls::TlsConnector;
 use url::Url;
 
 use crate::dispatcher::{Capabilities, FetchContext, Protocol};
+
+use super::tofu;
 
 /// Gemini's well-known port.
 const DEFAULT_PORT: u16 = 1965;
@@ -76,8 +72,8 @@ impl GeminiAdapter {
         let vetted = policy.check_url(&host, port).await?;
 
         // Synchronous TOFU lookup (no await while holding `ctx`).
-        let pinned = self.lookup_pin(&vetted.host, ctx)?;
-        let (connector, seen) = pinning_connector(pinned);
+        let pinned = tofu::lookup_pin(&vetted.host, ctx)?;
+        let (connector, seen) = tofu::pinning_connector(pinned);
 
         let tcp = TcpStream::connect((vetted.host.as_str(), vetted.port))
             .await
@@ -101,8 +97,8 @@ impl GeminiAdapter {
                                 return Err(HypernextError::TofuCertChanged(format!(
                                     "certificate for {} changed: pinned {}, saw {}",
                                     vetted.host,
-                                    hex(&pinned),
-                                    hex(&seen.fingerprint)
+                                    tofu::hex(&pinned),
+                                    tofu::hex(&seen.fingerprint)
                                 )));
                             }
                         }
@@ -116,7 +112,7 @@ impl GeminiAdapter {
         // (synchronous, after the awaits complete).
         if pinned.is_none() {
             if let Some(seen) = seen.lock().unwrap().take() {
-                self.store_pin(&vetted.host, seen.fingerprint, &seen.der, ctx)?;
+                tofu::store_pin(&vetted.host, seen.fingerprint, &seen.der, ctx)?;
             }
         }
 
@@ -127,48 +123,6 @@ impl GeminiAdapter {
             r = exchange => r?,
         };
         Ok(response)
-    }
-
-    /// Look up the pinned fingerprint for `host`, or `None` on first contact.
-    fn lookup_pin(
-        &self,
-        host: &str,
-        ctx: &FetchContext,
-    ) -> Result<Option<[u8; 32]>, HypernextError> {
-        let conn = ctx
-            .store
-            .lock()
-            .map_err(|_| HypernextError::Storage("tofu store poisoned".into()))?;
-        let fp: Option<String> = conn
-            .query_row(
-                "SELECT fingerprint FROM tofu_certs WHERE host = ?1",
-                [host],
-                |row| row.get(0),
-            )
-            .optional()?;
-        match fp {
-            Some(hex) => Ok(Some(hex_to_bytes(&hex)?)),
-            None => Ok(None),
-        }
-    }
-
-    /// Record a first-contact pin in the `tofu_certs` table.
-    fn store_pin(
-        &self,
-        host: &str,
-        fingerprint: [u8; 32],
-        der: &[u8],
-        ctx: &FetchContext,
-    ) -> Result<(), HypernextError> {
-        let conn = ctx
-            .store
-            .lock()
-            .map_err(|_| HypernextError::Storage("tofu store poisoned".into()))?;
-        conn.execute(
-            "INSERT OR REPLACE INTO tofu_certs (host, fingerprint, pem) VALUES (?1, ?2, ?3)",
-            rusqlite::params![host, hex(&fingerprint), der],
-        )?;
-        Ok(())
     }
 
     /// Map a Gemini response to a `PageDoc` or error by status class.
@@ -296,101 +250,6 @@ fn map_client_error(e: ClientError) -> HypernextError {
     }
 }
 
-// ── TLS pinning ────────────────────────────────────────────────────────────
-
-/// What a pinning handshake saw: the leaf fingerprint and its DER bytes.
-#[derive(Clone, Debug)]
-struct SeenCert {
-    fingerprint: [u8; 32],
-    der: Vec<u8>,
-}
-
-type SeenCell = Arc<Mutex<Option<SeenCert>>>;
-
-/// A TLS connector that pins the leaf certificate against `pinned` (or accepts
-/// a first contact), recording what it saw for the caller to pin or to build a
-/// `TofuCertChanged` error.
-fn pinning_connector(pinned: Option<[u8; 32]>) -> (TlsConnector, SeenCell) {
-    let seen: SeenCell = Arc::new(Mutex::new(None));
-    let provider = Arc::new(rustls::crypto::ring::default_provider());
-    let config = rustls::ClientConfig::builder_with_provider(provider)
-        .with_safe_default_protocol_versions()
-        .expect("ring provides the default protocol versions")
-        .dangerous()
-        .with_custom_certificate_verifier(Arc::new(PinningVerifier {
-            pinned,
-            seen: Arc::clone(&seen),
-        }))
-        .with_no_client_auth();
-    (TlsConnector::from(Arc::new(config)), seen)
-}
-
-const ACCEPTED_SCHEMES: [SignatureScheme; 10] = [
-    SignatureScheme::RSA_PKCS1_SHA256,
-    SignatureScheme::RSA_PKCS1_SHA384,
-    SignatureScheme::RSA_PKCS1_SHA512,
-    SignatureScheme::ECDSA_NISTP256_SHA256,
-    SignatureScheme::ECDSA_NISTP384_SHA384,
-    SignatureScheme::ECDSA_NISTP521_SHA512,
-    SignatureScheme::RSA_PSS_SHA256,
-    SignatureScheme::RSA_PSS_SHA384,
-    SignatureScheme::RSA_PSS_SHA512,
-    SignatureScheme::ED25519,
-];
-
-/// Pins the leaf against `pinned`: records what it saw, accepts a first
-/// contact or a matching pin, rejects a changed certificate. CA-chain
-/// validation is intentionally skipped — Gemini has no CA system.
-#[derive(Debug)]
-struct PinningVerifier {
-    pinned: Option<[u8; 32]>,
-    seen: SeenCell,
-}
-
-impl ServerCertVerifier for PinningVerifier {
-    fn verify_server_cert(
-        &self,
-        end_entity: &CertificateDer<'_>,
-        _intermediates: &[CertificateDer<'_>],
-        _server_name: &ServerName<'_>,
-        _ocsp_response: &[u8],
-        _now: UnixTime,
-    ) -> Result<ServerCertVerified, rustls::Error> {
-        let der = end_entity.as_ref().to_vec();
-        let fingerprint = fingerprint(&der);
-        *self.seen.lock().unwrap() = Some(SeenCert { fingerprint, der });
-        match self.pinned {
-            None => Ok(ServerCertVerified::assertion()),
-            Some(pinned) if pinned == fingerprint => Ok(ServerCertVerified::assertion()),
-            Some(_) => Err(rustls::Error::General(
-                "gemini TOFU: certificate fingerprint changed".into(),
-            )),
-        }
-    }
-
-    fn verify_tls12_signature(
-        &self,
-        _message: &[u8],
-        _cert: &CertificateDer<'_>,
-        _dss: &DigitallySignedStruct,
-    ) -> Result<HandshakeSignatureValid, rustls::Error> {
-        Ok(HandshakeSignatureValid::assertion())
-    }
-
-    fn verify_tls13_signature(
-        &self,
-        _message: &[u8],
-        _cert: &CertificateDer<'_>,
-        _dss: &DigitallySignedStruct,
-    ) -> Result<HandshakeSignatureValid, rustls::Error> {
-        Ok(HandshakeSignatureValid::assertion())
-    }
-
-    fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
-        ACCEPTED_SCHEMES.to_vec()
-    }
-}
-
 // ── Exchange with a size cap ───────────────────────────────────────────────
 
 /// Run a Gemini request/response over a connected stream, capping the body at
@@ -433,7 +292,10 @@ where
 
 /// Convert gemtext lines into normalized `Block`s, grouping consecutive text /
 /// list / quote lines into single blocks.
-fn gemtext_to_blocks(body: &str, base: &Url) -> Vec<Block> {
+///
+/// `pub(crate)` so the Spartan and Nex adapters (which also speak gemtext)
+/// reuse the same parser (Phase 2, `docs/phases/02-smolnet-protocols.md` §3.5).
+pub(crate) fn gemtext_to_blocks(body: &str, base: &Url) -> Vec<Block> {
     let lines = gemini_protocol::parse_gemtext(body);
     let mut blocks = Vec::new();
     let mut para: Vec<String> = Vec::new();
@@ -527,7 +389,10 @@ fn resolve_link(url: &str, base: &Url) -> Url {
 }
 
 /// Convert a markdown body into normalized `Block`s via comrak.
-fn markdown_to_blocks(body: &str, base: &Url) -> Vec<Block> {
+///
+/// `pub(crate)` so the Kepler adapter (whose body may be `text/markdown`)
+/// reuses the same parser (Phase 2 §3.5).
+pub(crate) fn markdown_to_blocks(body: &str, base: &Url) -> Vec<Block> {
     let arena = comrak::Arena::new();
     let root = comrak::parse_document(&arena, body, &comrak::Options::default());
     let mut blocks = Vec::new();
@@ -634,36 +499,12 @@ fn first_heading(blocks: &[Block]) -> Option<String> {
     })
 }
 
-/// Lowercase-hex of a fingerprint.
-fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{b:02x}")).collect()
-}
-
-/// Parse a 64-char lowercase-hex fingerprint back into 32 bytes.
-fn hex_to_bytes(s: &str) -> Result<[u8; 32], HypernextError> {
-    if s.len() != 64 {
-        return Err(HypernextError::Storage("invalid fingerprint length".into()));
-    }
-    let mut out = [0u8; 32];
-    for i in 0..32 {
-        out[i] = u8::from_str_radix(&s[i * 2..i * 2 + 2], 16)
-            .map_err(|e| HypernextError::Storage(e.to_string()))?;
-    }
-    Ok(out)
-}
-
-/// SHA-256 of a certificate's DER bytes.
-fn fingerprint(cert_der: &[u8]) -> [u8; 32] {
-    let mut hasher = Sha256::new();
-    hasher.update(cert_der);
-    hasher.finalize().into()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::dispatcher::FetchPolicy;
     use pretty_assertions::assert_eq;
+    use std::sync::Mutex;
     use std::time::Duration;
 
     fn url(s: &str) -> Url {
@@ -802,25 +643,23 @@ mod tests {
 
     #[test]
     fn tofu_first_contact_pins_then_matching_succeeds() {
-        let adapter = GeminiAdapter::new();
         let policy = FetchPolicy::default();
         let c = ctx(&policy);
         let host = "example.com";
 
-        assert!(adapter.lookup_pin(host, &c).unwrap().is_none());
+        assert!(tofu::lookup_pin(host, &c).unwrap().is_none());
         let fp = [7u8; 32];
-        adapter.store_pin(host, fp, b"der", &c).unwrap();
-        assert_eq!(adapter.lookup_pin(host, &c).unwrap(), Some(fp));
+        tofu::store_pin(host, fp, b"der", &c).unwrap();
+        assert_eq!(tofu::lookup_pin(host, &c).unwrap(), Some(fp));
     }
 
     #[test]
     fn tofu_changed_cert_is_detected() {
-        let adapter = GeminiAdapter::new();
         let policy = FetchPolicy::default();
         let c = ctx(&policy);
         let host = "example.com";
-        adapter.store_pin(host, [1u8; 32], b"old", &c).unwrap();
-        let pinned = adapter.lookup_pin(host, &c).unwrap().unwrap();
+        tofu::store_pin(host, [1u8; 32], b"old", &c).unwrap();
+        let pinned = tofu::lookup_pin(host, &c).unwrap().unwrap();
         assert_ne!(pinned, [2u8; 32]);
     }
 
@@ -844,10 +683,10 @@ mod tests {
         fp[1] = 0xad;
         fp[2] = 0xbe;
         fp[3] = 0xef;
-        let h = hex(&fp);
+        let h = tofu::hex(&fp);
         assert_eq!(h.len(), 64);
-        assert_eq!(hex_to_bytes(&h).unwrap(), fp);
-        assert!(hex_to_bytes("short").is_err());
+        assert_eq!(tofu::hex_to_bytes(&h).unwrap(), fp);
+        assert!(tofu::hex_to_bytes("short").is_err());
     }
 
     #[test]

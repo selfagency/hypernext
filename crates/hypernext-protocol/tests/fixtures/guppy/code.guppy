@@ -1,0 +1,7 @@
+# Code Sample
+
+```rust
+fn main() {
+    println!("hello guppy");
+}
+```

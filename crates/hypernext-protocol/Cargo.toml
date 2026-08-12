@@ -11,12 +11,12 @@ description = "Hypernext protocol dispatcher and adapters (ADR 0006 smolnet prot
 # Smolnet protocol crates (ADR 0006) — direct crates.io deps, pinned in workspace lockfile
 gemini-protocol = { workspace = true }
 scroll-protocol = { workspace = true }
-text-protocol = { workspace = true }
+text-protocol = { workspace = true, features = ["tls"] }
 spartan-protocol = { workspace = true }
 nex-protocol = { workspace = true }
 gopher-protocol = { workspace = true }
-scorpion-protocol = { workspace = true }
-kepler-protocol = { workspace = true }
+scorpion-protocol = { workspace = true, features = ["client"] }
+kepler-protocol = { workspace = true, features = ["client"] }
 guppy-protocol = { workspace = true }
 finger-protocol = { workspace = true }
 dict-protocol = { workspace = true }
