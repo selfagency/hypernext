@@ -34,9 +34,11 @@ use hypernext_core::{
 use rustls::pki_types::ServerName;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
+use tokio_rustls::TlsConnector;
+use tokio_util::sync::CancellationToken;
 use url::Url;
 
-use crate::dispatcher::{Capabilities, FetchContext, Protocol};
+use crate::dispatcher::{Capabilities, FetchContext, Protocol, VettedTarget};
 
 use super::tofu;
 
@@ -75,38 +77,8 @@ impl GeminiAdapter {
         let pinned = tofu::lookup_pin(&vetted.host, ctx)?;
         let (connector, seen) = tofu::pinning_connector(pinned);
 
-        let tcp = TcpStream::connect((vetted.host.as_str(), vetted.port))
-            .await
-            .map_err(|e| {
-                HypernextError::Network(format!("tcp {}:{}: {e}", vetted.host, vetted.port))
-            })?;
-        let server_name = ServerName::try_from(vetted.host.clone())
-            .map_err(|e| HypernextError::Network(format!("server name {}: {e}", vetted.host)))?;
-
-        let connect = connector.connect(server_name, tcp);
         let cancel = ctx.cancel.clone();
-        let mut stream = tokio::select! {
-            _ = cancel.cancelled() => return Err(HypernextError::Cancelled),
-            r = connect => {
-                match r {
-                    Ok(tls) => tls,
-                    Err(e) => {
-                        let seen = seen.lock().unwrap().clone();
-                        if let (Some(pinned), Some(seen)) = (pinned, seen) {
-                            if pinned != seen.fingerprint {
-                                return Err(HypernextError::TofuCertChanged(format!(
-                                    "certificate for {} changed: pinned {}, saw {}",
-                                    vetted.host,
-                                    tofu::hex(&pinned),
-                                    tofu::hex(&seen.fingerprint)
-                                )));
-                            }
-                        }
-                        return Err(HypernextError::Network(format!("tls handshake: {e}")));
-                    }
-                }
-            }
-        };
+        let mut stream = tofu_connect(&vetted, &connector, &seen, pinned, cancel).await?;
 
         // Clean first contact: pin the fingerprint and store the leaf DER
         // (synchronous, after the awaits complete).
@@ -236,6 +208,53 @@ impl Protocol for GeminiAdapter {
     async fn fetch(&self, url: &Url, ctx: &FetchContext) -> Result<PageDoc, HypernextError> {
         let response = self.request(url, ctx).await?;
         self.handle_response(url, &response)
+    }
+}
+
+// ── TOFU TLS connect ─────────────────────────────────────────────────────────
+
+/// Dial the peer and run the TOFU-pinned TLS handshake, honoring the cancel
+/// token. This is split out of `GeminiAdapter::request` so that method's
+/// cyclomatic complexity stays under the gate; behaviour is unchanged (the
+/// certificate-change check precedes the generic TLS error, matching `request`).
+///
+/// `seen` records what the handshake observed, for the caller to pin on first
+/// contact or to cross-check against the pinned fingerprint here.
+async fn tofu_connect(
+    vetted: &VettedTarget,
+    connector: &TlsConnector,
+    seen: &tofu::SeenCell,
+    pinned: Option<[u8; 32]>,
+    cancel: CancellationToken,
+) -> Result<tokio_rustls::client::TlsStream<TcpStream>, HypernextError> {
+    let tcp = TcpStream::connect((vetted.host.as_str(), vetted.port))
+        .await
+        .map_err(|e| {
+            HypernextError::Network(format!("tcp {}:{}: {e}", vetted.host, vetted.port))
+        })?;
+    let server_name = ServerName::try_from(vetted.host.clone())
+        .map_err(|e| HypernextError::Network(format!("server name {}: {e}", vetted.host)))?;
+
+    let connect = connector.connect(server_name, tcp);
+    tokio::select! {
+        _ = cancel.cancelled() => Err(HypernextError::Cancelled),
+        r = connect => match r {
+            Ok(tls) => Ok(tls),
+            Err(e) => {
+                let observed = seen.lock().unwrap().clone();
+                if let (Some(pinned), Some(observed)) = (pinned, observed) {
+                    if pinned != observed.fingerprint {
+                        return Err(HypernextError::TofuCertChanged(format!(
+                            "certificate for {} changed: pinned {}, saw {}",
+                            vetted.host,
+                            tofu::hex(&pinned),
+                            tofu::hex(&observed.fingerprint)
+                        )));
+                    }
+                }
+                Err(HypernextError::Network(format!("tls handshake: {e}")))
+            }
+        },
     }
 }
 

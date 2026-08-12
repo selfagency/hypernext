@@ -93,7 +93,7 @@ is mitigated:
 
 ## Consequences
 
-**Positive**
+### Positive
 
 - Cross-block selection, copy, and find work for free (single buffer).
 - Accessibility: one `GtkTextView` exposes document text to AT-SPI /
@@ -102,7 +102,7 @@ is mitigated:
   tagged-text` transform is display-free and unit-tested (ADR 0005).
 - Simpler shell wiring: the scrolled body is one widget, not a box to manage.
 
-**Negative / accepted costs**
+### Negative / accepted costs
 
 - Loses per-widget CSS class granularity; styling moves to per-tag style
   providers / CSS on tag names.

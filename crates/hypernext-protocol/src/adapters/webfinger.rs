@@ -128,53 +128,14 @@ impl Protocol for WebFingerAdapter {
             .await
             .map_err(|e| HypernextError::Network(e.to_string()))?;
 
-        let status = response.status();
-        if status.is_redirection() {
-            // Hand back the redirect target for the Dispatcher to re-vet.
-            let location = response
-                .headers()
-                .get(reqwest::header::LOCATION)
-                .and_then(|v| v.to_str().ok())
-                .ok_or_else(|| {
-                    HypernextError::Network("webfinger: redirect without Location".to_string())
-                })?;
-            let next = url
-                .join(location)
-                .map_err(|e| HypernextError::InvalidUrl(format!("webfinger redirect: {e}")))?;
-            return Ok(PageDoc {
-                url: url.clone(),
-                final_url: next,
-                title: None,
-                metadata: Default::default(),
-                blocks: vec![],
-                signature: None,
-                debug: DebugInfo {
-                    request: HttpRequestDebug {
-                        method: "GET".to_string(),
-                        url: url.clone(),
-                        headers: HashMap::new(),
-                    },
-                    response: Default::default(),
-                    timing: Default::default(),
-                    redirects: vec![],
-                    parser_decisions: vec![],
-                    tls: None,
-                },
-                from_cache: false,
-            });
+        // Redirect handling hands the 3xx Location back as `final_url` for the
+        // Dispatcher to re-route + re-vet (SSRF, invariant #8).
+        if let Some(doc) = redirect_doc(url, &response)? {
+            return Ok(doc);
         }
 
-        if status == reqwest::StatusCode::NOT_FOUND || status == reqwest::StatusCode::GONE {
-            return Err(HypernextError::NotFound(format!(
-                "webfinger: HTTP {}",
-                status.as_u16()
-            )));
-        }
-        if !status.is_success() {
-            return Err(HypernextError::Network(format!(
-                "webfinger: HTTP {}",
-                status.as_u16()
-            )));
+        if let Some(err) = status_error(response.status()) {
+            return Err(err);
         }
 
         let bytes = response
@@ -221,6 +182,67 @@ impl Protocol for WebFingerAdapter {
             from_cache: false,
         })
     }
+}
+
+/// Build the redirect `PageDoc` for a 3xx response, or `None` if the status is
+/// not a redirect. The `Location` header is resolved against `url` and surfaced
+/// as `final_url` so the Dispatcher can re-route + re-vet the next hop.
+fn redirect_doc(
+    url: &Url,
+    response: &reqwest::Response,
+) -> Result<Option<PageDoc>, HypernextError> {
+    if !response.status().is_redirection() {
+        return Ok(None);
+    }
+    let location = response
+        .headers()
+        .get(reqwest::header::LOCATION)
+        .and_then(|v| v.to_str().ok())
+        .ok_or_else(|| {
+            HypernextError::Network("webfinger: redirect without Location".to_string())
+        })?;
+    let next = url
+        .join(location)
+        .map_err(|e| HypernextError::InvalidUrl(format!("webfinger redirect: {e}")))?;
+    Ok(Some(PageDoc {
+        url: url.clone(),
+        final_url: next,
+        title: None,
+        metadata: Default::default(),
+        blocks: vec![],
+        signature: None,
+        debug: DebugInfo {
+            request: HttpRequestDebug {
+                method: "GET".to_string(),
+                url: url.clone(),
+                headers: HashMap::new(),
+            },
+            response: Default::default(),
+            timing: Default::default(),
+            redirects: vec![],
+            parser_decisions: vec![],
+            tls: None,
+        },
+        from_cache: false,
+    }))
+}
+
+/// Map a non-2xx HTTP status to its `HypernextError`, or `None` on success.
+/// `404`/`410` map to `NotFound`; every other non-success maps to `Network`.
+fn status_error(status: reqwest::StatusCode) -> Option<HypernextError> {
+    if status == reqwest::StatusCode::NOT_FOUND || status == reqwest::StatusCode::GONE {
+        return Some(HypernextError::NotFound(format!(
+            "webfinger: HTTP {}",
+            status.as_u16()
+        )));
+    }
+    if !status.is_success() {
+        return Some(HypernextError::Network(format!(
+            "webfinger: HTTP {}",
+            status.as_u16()
+        )));
+    }
+    None
 }
 
 /// Parse JRD bytes. Invalid JSON, a JSON document that is not a JRD, or a JRD

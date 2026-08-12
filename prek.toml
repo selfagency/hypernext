@@ -10,8 +10,12 @@ exclude = { glob = [".codacy/**", ".opencode/**", "AGENTS.original.md"] }
 [[repos]]
 repo = "builtin"
 hooks = [
-  { id = "trailing-whitespace" },
-  { id = "end-of-file-fixer" },
+  # tests/fixtures/** is intentionally tab-terminated / no-final-newline
+  # (protocol wire formats: Molerat message:...\t<crlf>, gopher \t + "."
+  # terminator with no trailing newline). Exclude only the two byte-level
+  # hygiene hooks; the Rust gates and check-* hooks still cover them.
+  { id = "trailing-whitespace", exclude = "(^|/)tests/fixtures/" },
+  { id = "end-of-file-fixer", exclude = "(^|/)tests/fixtures/" },
   { id = "check-yaml" },
   { id = "check-toml" },
   { id = "check-json" },

@@ -22,6 +22,7 @@ pub mod mapping;
 // docs/references/text-selection-strategy.md.
 pub mod spike_textview;
 
+use gtk::gdk_pixbuf::prelude::*;
 use gtk::prelude::*;
 use hypernext_core::{Block, Span};
 use relm4::prelude::*;
@@ -185,30 +186,26 @@ fn table_widget(headers: &[Span], rows: &[Vec<Span>], css: &str) -> gtk::Box {
     box_
 }
 
-/// Render raw image bytes into a `GtkPicture`, writing them to a temp file
-/// first. Returns an unsupported-content label (upcast) if the bytes cannot be
-/// materialized.
+/// Render raw image bytes into a `GtkPicture`, decoding them entirely in
+/// memory via `PixbufLoader` (no temp file on disk). Decoding happens on the
+/// bytes alone, so the payload never touches the filesystem. Returns an
+/// unsupported-content label (upcast) if the bytes cannot be decoded.
 fn raw_image_widget(bytes: &[u8], css: &str) -> gtk::Widget {
-    // ponytail: temp file per image; memory-backed decode (GdkPixbuf ->
-    // GdkTexture -> set_paintable) is a follow-up that avoids disk churn.
-    // The OS temp dir reaps orphaned files on reboot.
-    let path = std::env::temp_dir().join(format!(
-        "hypernext-{}-{}.img",
-        std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_nanos())
-            .unwrap_or_default()
-    ));
-    match std::fs::write(&path, bytes) {
-        Ok(()) => {
-            let pic = gtk::Picture::new();
-            pic.set_filename(Some(path));
-            pic.add_css_class(css);
-            pic.upcast()
-        }
-        Err(_) => unsupported_widget().upcast(),
+    let loader = gtk::gdk_pixbuf::PixbufLoader::new();
+    // `write` streams the encoded bytes in; `close` finalizes and fails on a
+    // truncated / corrupt image. Nothing is written to disk.
+    let ok = loader.write(bytes).is_ok() && loader.close().is_ok();
+    if !ok {
+        return unsupported_widget().upcast();
     }
+    let Some(pixbuf) = loader.pixbuf() else {
+        return unsupported_widget().upcast();
+    };
+    let texture = gtk::gdk::Texture::for_pixbuf(&pixbuf);
+    let pic = gtk::Picture::new();
+    pic.set_paintable(Some(&texture));
+    pic.add_css_class(css);
+    pic.upcast()
 }
 
 fn unsupported_widget() -> gtk::Label {

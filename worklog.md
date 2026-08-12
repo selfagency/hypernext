@@ -515,7 +515,7 @@ Work Log:
 Deviations:
 
 - Phase doc said "none — implement first-party; no good crate exists" but crate-audit (p2-t-audit) found finger-protocol 0.1.1 fit; wrapped it per audit.
-- FetchContext.store changed to &Mutex<Connection> (noted in dispatcher.rs) — shared with parallel p2-t3 Gemini adapter; both agents independently converged on the Mutex fix.
+- `FetchContext.store` changed to `&Mutex<Connection>` (noted in `dispatcher.rs`) — shared with parallel p2-t3 Gemini adapter; both agents independently converged on the Mutex fix.
 
 Stage Summary:
 
@@ -534,7 +534,7 @@ Work Log:
 - PGP-vs-Sequoia SPIKE (phase doc R2, library-lookup-protocol step 1): checked both on crates.io + repo. sequoia-openpgp 2.4.1 = **LGPL-2.0-or-later** -> FORBIDDEN (protocol forbids GPL/AGPL/LGPL). pgp (rpgp) 0.20.0 = **MIT OR Apache-2.0**, rust-version 1.88 (matches accepted smolnet pattern, toolchain 1.97 resolves), active 2026-06-23, 5.5M dl, repo rpgp/rpgp. Integration AC explicitly says "generate test keys with the pgp crate". DECISION: **pgp (rpgp) 0.20.0**.
 - Verified rpgp 0.20 API against crate source (not training data): CleartextSignedMessage::{sign, verify, signatures()}, DetachedSignature::{sign_binary_data, verify, to_armored_writer, issuer_fingerprint()}, SignedPublicKey::{to_public_key, primary_key.fingerprint()}, SecretKeyParamsBuilder keygen. `signatures` field is private -> use signatures() accessor. issuer_fingerprint() returns Vec<&Fingerprint> (bind to avoid E0515). SignedSecretKey derefs to SecretKey (SigningKey) via &*ssk.
 - Added workspace deps: pgp = "0.20"; crate members += crates/hypernext-pgp. rand dev-dep pinned to 0.8 (pgp uses rand 0.8.7; rand 0.10 has incompatible rand_core 0.10 -> E0277).
-- Built crates/hypernext-pgp: src/lib.rs (doc-comment documents CRITICAL verify-before-extract invariant, ethics B-09), src/verify.rs (verify_clearsign, verify_detached, extract_clearsign_blocks, extract_signature_link, Verification enum), src/tofu.rs (TofuStore trait + apply_tofu), src/lookup.rs (resolve_key chain: embedded -> finger:// -> keys.openpgp.org, KeyLookup trait), src/error.rs (PgpError thiserror + From<PgpError> for HypernextError).
+- Built `crates/hypernext-pgp`: `src/lib.rs` (doc-comment documents CRITICAL verify-before-extract invariant, ethics B-09), `src/verify.rs` (verify_clearsign, verify_detached, extract_clearsign_blocks, extract_signature_link, Verification enum), `src/tofu.rs` (TofuStore trait + apply_tofu), `src/lookup.rs` (resolve_key chain: embedded -> finger:// -> keys.openpgp.org, KeyLookup trait), `src/error.rs` (PgpError thiserror + From<PgpError> for HypernextError).
 - TDD: unit tests in verify.rs/tofu.rs/lookup.rs/error.rs (13) + integration tests tests/pgp_verify.rs (10) + tests/verify_before_extract.rs (2 boundary).
 - Acceptance covered: valid clearsign->Valid; tampered clearsign->Invalid; wrong key->Unverified; key rotation (apply_tofu first stores fp, second different key->KeyChanged, same key->Valid); inline HTML comment (Pouya Code) extracts+verifies; detached via link rel="signature" extracts href + fetches + verifies; no signature->NoSignature error.
 - BOUNDARY test (CRITICAL): verify_before_extract.rs uses a tracing Layer to capture `event` fields, asserts pgp.verify emitted before content.extract. Tampered-raw-bytes test asserts Invalid.
@@ -556,7 +556,7 @@ Task: Gemini adapter crates/hypernext-protocol/src/adapters/gemini.rs (reference
 
 Work Log:
 
-- Read gemini-protocol 0.1.2 crate source (client.rs, tofu.rs, gemtext.rs, tls.rs) to confirm real API: Status enum (6 classes), Response{status,code,meta,body}, parse_response, gemtext::parse -> Vec<GemLine>. Crate's own tofu_connect uses a process-wide TofuStore; adapter instead drives the pinning handshake directly so pins live in the per-call FetchContext store (tofu_certs table), matching single-process ADR 0003.
+- Read `gemini-protocol` 0.1.2 crate source (`client.rs`, `tofu.rs`, `gemtext.rs`, `tls.rs`) to confirm real API: `Status` enum (6 classes), `Response{status,code,meta,body}`, `parse_response`, `gemtext::parse` -> `Vec<GemLine>`. Crate's own tofu_connect uses a process-wide TofuStore; adapter instead drives the pinning handshake directly so pins live in the per-call FetchContext store (tofu_certs table), matching single-process ADR 0003.
 - Added HypernextError::TofuCertChanged(String) variant (code TOFU_CERT_CHANGED) to hypernext-core error.rs + code()/FromStr + tests.
 - Added workspace deps: rustls 0.23, tokio-rustls 0.26, sha2 0.10, rcgen 0.13 (dev), comrak 0.54. Protocol crate: rustls/tokio-rustls/sha2/comrak deps + dev-deps pretty_assertions/rcgen/tokio.
 - Built gemini.rs: GeminiAdapter implements Protocol. request() hoists Send+Sync fields out of ctx (store is !Sync) before awaits; runs FetchPolicy::check_url SSRF gate; wraps connect + exchange in tokio::select! against cancel. connect() does TOFU: lookup_pin from tofu_certs, pinning_connector (custom ServerCertVerifier recording leaf fingerprint+DER), pins first contact via store_pin (INSERT OR REPLACE). handle_response maps all 6 status classes: 1x->prompt paragraph, 2x->parse_body, 3x->final_url (Dispatcher follows), 4x/5x->Protocol error, 6x->Unauthorized. parse_body: text/gemini->gemtext_to_blocks, text/plain->paragraph, text/markdown->comrak walk_md, else Block::Raw. exchange_capped enforces max_response_size during read (crate's exchange reads to EOF unbounded).
@@ -591,7 +591,7 @@ Stage Summary:
 
 - Titan adapter complete: upload-only (fetch unsupported = explicit-confirmation gate), size limit before upload, 32KB progress, cancel, TOFU reuse, SSRF, MIME sniff+override.
 - 11 titan tests green (6 unit + 5 integration). cargo test --workspace all green (136 protocol lib + all integration). cargo fmt --check clean. cargo deny check: advisories/bans/licenses/sources all ok.
-- Full-workspace clippy -- -D warnings has 2 errors ONLY in dispatcher.rs (parallel p2-t2 agent's in-progress resolve()/map_or/&Box<dyn> code) — my titan.rs, tofu.rs, gemini.rs, tests/titan.rs, error.rs are clippy-clean.
+- Full-workspace clippy -- -D warnings has 2 errors ONLY in `dispatcher.rs` (parallel p2-t2 agent's in-progress resolve()/map_or/&Box<dyn> code) — my `titan.rs`, `tofu.rs`, `gemini.rs`, `tests/titan.rs`, `error.rs` are clippy-clean.
 - No commits (orchestrator handles). Deviations: (1) added InvalidInput + ProtocolRejected error variants (acceptance criteria required them; not in original enum); (2) first-party magic-byte MIME sniffer instead of a crate (crate-audit has no MIME crate; no new dep per AGENTS.md §12); (3) shared tofu.rs extracted from gemini.rs so both adapters reuse one TOFU implementation (phase doc said "reuse Gemini's tofu_certs table").
 
 ---
@@ -678,7 +678,7 @@ Task: Wire adapters into Dispatcher + scheme+path sub-routing + webfinger SSRF r
 
 Work Log:
 
-- dispatcher.rs: added Protocol::path_prefix() (default None); Dispatcher storage HashMap<scheme, Vec<Route>>; register() pushes scheme+prefix route; resolve() picks longest matching path prefix, falls back to prefix-less scheme default; fetch_once routes via resolve().
+- `dispatcher.rs`: added `Protocol::path_prefix()` (default None); Dispatcher storage `HashMap<scheme, Vec<Route>>`; register() pushes scheme+prefix route; resolve() picks longest matching path prefix, falls back to prefix-less scheme default; fetch_once routes via resolve().
 - adapters/mod.rs: added all() registry returning 13 built adapters (gemini, finger, webfinger, gopher, spartan, nex, text, scroll, scorpion, kepler, guppy, dict, titan). molerat.rs absent so skipped.
 - adapters/webfinger.rs: path_prefix() = Some("/.well-known/webfinger"); redirect Policy::none via dedicated Client::builder client (reqwest 0.13 has no per-request redirect); 3xx Location surfaced as final_url so Dispatcher re-routes + re-vets each hop (SSRF #8).
 - 4 new dispatcher unit tests: scheme+path sub-routing, path-mismatch falls back to default, longest-prefix wins, default-only scheme.
@@ -700,7 +700,7 @@ Task: Scorpion + Kepler adapters (crates/hypernext-protocol/src/adapters/scorpio
 Work Log:
 
 - Read scorpion-protocol 0.1.0 (4 subprotocols, binary block document format, one port 1517 TLS+plaintext) and kepler-protocol 0.1.0 (Gemini shape + cache model, declared body lengths) crate sources; confirmed APIs against protocol-crate-audit.md.
-- ScorpionAdapter: drives receive (R) subprotocol. SSRF check_url pre-dial, cancel via tokio::select!, size via crate Limits.max_body. scorpions:// TLS via shared tofu::tls_connect (TOFU pinning). Maps binary-block document -> Vec<Block> (heading/paragraph/link/quote/preformatted/raw; skips alternate-service+metadata), malformed/empty doc -> Block::Raw, redirect->final_url, input->prompt, 5x NOT_FOUND->NotFound, 4x/5x->Protocol, 6x->Unauthorized, 7x/8x/0x->Protocol. capabilities: needs_tls+needs_tofu.
+- `ScorpionAdapter`: drives receive (R) subprotocol. SSRF check_url pre-dial, cancel via tokio::select!, size via crate Limits.max_body. scorpions:// TLS via shared tofu::tls_connect (TOFU pinning). Maps binary-block document -> `Vec<Block>` (heading/paragraph/link/quote/preformatted/raw; skips alternate-service+metadata), malformed/empty doc -> Block::Raw, redirect->final_url, input->prompt, 5x NOT_FOUND->NotFound, 4x/5x->Protocol, 6x->Unauthorized, 7x/8x/0x->Protocol. capabilities: needs_tls+needs_tofu.
 - KeplerAdapter: SSRF check_url, cancel via select!, size via enforce_size helper. keplers:// TLS via shared tofu::tls_connect. Reuses Gemini's gemtext_to_blocks + markdown_to_blocks (made pub(crate)). Maps text/gemini->gemtext, text/plain->paragraph, text/markdown->comrak, else Raw; redirect->final_url, input->prompt, 5x 51->NotFound, 4x/5x->Protocol, 6x->Unauthorized, 7x unchanged->empty doc. capabilities: needs_tls+needs_tofu.
 - Created shared adapters/tofu.rs (TOFU pinning connector + tls_connect + lookup/store_pin + fingerprint helpers) reused by scorpion/kepler (ladder rung 2).
 - Enabled scorpion-protocol "client" + kepler-protocol "client" features in Cargo.toml.
