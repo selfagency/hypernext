@@ -7,6 +7,7 @@ members = [
     "crates/hypernext-store",
     "crates/hypernext-keychain",
     "crates/hypernext-testutil",
+    "crates/hypernext-protocol",
 ]
 
 [workspace.package]
@@ -52,6 +53,20 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 
 # Filesystem locations (macOS data dir: ~/Library/Application Support)
 dirs = "6"
+
+# Smolnet protocol crates (ADR 0006) — direct crates.io deps, pinned, never vendored
+# 6 declare rust-version 1.88 (> Hypernext MSRV 1.83); toolchain 1.97 resolves, flag for CI
+# Note: guppy-protocol is the Molerat crate (guppy:// = Molerat protocol)
+gemini-protocol = "0.1.2"
+scroll-protocol = "0.1.0"
+text-protocol = "0.1.0"
+spartan-protocol = "0.1.1"
+nex-protocol = "0.1.1"
+gopher-protocol = "0.1.2"
+scorpion-protocol = "0.1.0"
+kepler-protocol = "0.1.0"
+guppy-protocol = "0.1.1"
+titanite = "0.3.2"
 
 # Internal workspace crates (path deps for From-impl propagation)
 hypernext-core = { path = "crates/hypernext-core" }
