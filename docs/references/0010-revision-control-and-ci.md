@@ -76,7 +76,7 @@ The hook is **non-bypassable except by editing the script**. Documented in `CONT
 
 - **Pre-1.0:** Phase 1-5 development uses version `0.1.0` for all crates
 - **1.0 release:** Tag `v1.0.0`; all crates bumped to `1.0.0`
-- **Post-1.0:** Semver — patch releases (1.0.1, 1.0.2) for bug fixes only; minor releases (1.1, 1.5, 2.0, etc.) per the dimension roadmap in `docs/overview.md`
+- **Post-1.0:** Semver — patch releases (1.0.1, 1.0.2) for bug fixes only; minor releases (1.1, 1.2, 2.0, etc.) per the dimension roadmap in `docs/overview.md`
 
 ### Worklog protocol
 

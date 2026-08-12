@@ -22,7 +22,7 @@ Requirements:
 - Embedded (no server)
 - Cross-platform (macOS, Linux, Windows)
 - FTS5 for full-text search (history, bookmarks)
-- Vector search for future semantic search (Phase 1.5+)
+- Vector search for future semantic search (Phase 1.2+)
 - Migrations with version tracking
 - WAL mode for concurrent reads during writes
 - Foreign keys ON
