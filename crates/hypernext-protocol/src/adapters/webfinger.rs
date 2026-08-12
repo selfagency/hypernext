@@ -23,7 +23,7 @@ use hypernext_core::{
 use std::collections::HashMap;
 use url::Url;
 
-use crate::dispatcher::{Capabilities, FetchContext, Protocol};
+use crate::dispatcher::{Capabilities, FetchContext, FetchPolicy, Protocol};
 
 const WELL_KNOWN_PATH: &str = "/.well-known/webfinger";
 
@@ -128,6 +128,19 @@ impl Protocol for WebFingerAdapter {
             .await
             .map_err(|e| HypernextError::Network(e.to_string()))?;
 
+        self.handle_response(url, response, policy).await
+    }
+}
+
+impl WebFingerAdapter {
+    /// Process the raw HTTP response into a `PageDoc`: redirect handling,
+    /// status mapping, size-capped body read, JRD parse, and link-block build.
+    async fn handle_response(
+        &self,
+        url: &Url,
+        response: reqwest::Response,
+        policy: &FetchPolicy,
+    ) -> Result<PageDoc, HypernextError> {
         // Redirect handling hands the 3xx Location back as `final_url` for the
         // Dispatcher to re-route + re-vet (SSRF, invariant #8).
         if let Some(doc) = redirect_doc(url, &response)? {
