@@ -251,7 +251,7 @@ Before adding any `use` statement for an external crate, an AI agent MUST:
   - `cargo deny check` clean
   - `cargo tarpaulin --workspace --fail-under 80` (or whatever the final threshold is)
   - All 20 E2E journeys pass
-  - `scripts/check-no-verify.sh` passes
+  - `prek run --all-files` passes (ADR 0010)
   - `scripts/check-uri-handlers.sh` passes
   - `scripts/check-doc-links.sh` passes
 - [ ] Bump version in `Cargo.toml` to `1.0.0`
@@ -343,7 +343,7 @@ All of these must be true to tag 1.0.0:
 ### Original Bean reference
 
 - `scripts/check-uri-handlers.sh`
-- `scripts/check-no-verify.sh`
+- `prek.toml` (pre-commit hook config)
 - `build/darwin/Info.plist`
 - `docs/references/e2e-coverage.md`
 - `docs/references/bean-v1-prd.md` (acceptance criteria matrix)
