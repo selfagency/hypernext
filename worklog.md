@@ -379,3 +379,31 @@ Stage Summary:
 - cargo test --workspace: all pass.
 - cargo fmt --check, cargo clippy --workspace -- -D warnings, cargo deny check: all pass.
 - NO commits (orchestrator handles).
+---
+Task ID: phase-1-pr1-debug
+Agent: gem-debugger
+Task: Root-cause and robustly fix 2 failing startup tests in crates/hypernext-app/src/startup.rs that pass locally but fail in CI (headless Linux) with `NoDefaultStore` keychain errors.
+
+Work Log:
+- Reproduced CI failure from gh run logs: startup::tests::{init_keychain_verifies_service_usable, startup_runs_migrations_and_creates_no_files_outside_data_dir} both panic with `keychain error: No default store has been set`.
+- Root cause (proven via keyring-core/keyring v1 source + headless ubuntu container repro, NOT test parallelism as initially hypothesized):
+  - keyring v1 (`keyring::Entry::new`) is gated on a one-time platform-store init: `static SET_CREDENTIAL_STORE_RESULT: LazyLock<Result<()>> = LazyLock::new(set_credential_store)` (keyring-4.1.6/src/v1.rs:107).
+  - `install_mock_keychain()` called `keyring::Entry::store_status()` first. On headless Linux, `set_credential_store` tries `zbus-secret-service-keyring-store::Store::new()` -> D-Bus session bus connect fails -> cached `Err(PlatformFailure(...))` in the LazyLock.
+  - Every later `keyring::Entry::new()` short-circuits: `if SET_CREDENTIAL_STORE_RESULT.is_err() { return Err(Error::NoDefaultStore) }` (v1.rs:48) BEFORE ever consulting the mock store set via `keyring_core::set_default_store`. Hence "No default store" even though the mock IS set.
+  - On macOS the Keychain store init succeeds, so the gate stays Ok and the mock override works -> tests pass locally, fail in CI (headless Linux). This is platform-divergent, not a thread race.
+- Empirically confirmed in a `rust:latest` container with no D-Bus:
+  - OLD pattern (store_status then set mock) -> `Entry::new` returns `Err(NoDefaultStore)`.
+  - keyring_core::Entry direct path after set mock -> Ok, get_password -> NoEntry (service usable).
+  - NEW pattern (set mock first, probe via keyring_core::Entry) -> probe returns not_found (usable). FIX PROVEN on headless.
+
+Fix (3 files):
+- crates/hypernext-keychain/src/lib.rs: route set/get/delete/exists through ungated `keyring_core::Entry` (keyring re-exports keyring_core::Error, so KeychainError From impl is unchanged). Added `pub fn ensure_default_store()` which uses an already-set store (e.g. test mock) or initializes the real platform store via `keyring::Entry::store_status()` once. This makes keychain ops work with EITHER the mock (tests) or real store (production) and never blocks on the poisoned v1 gate.
+- crates/hypernext-app/src/startup.rs: `init_keychain()` now calls `hypernext_keychain::ensure_default_store()` before probing; test `install_mock_keychain()` sets the mock directly via `keyring_core::set_default_store` (no `store_status()` poison).
+- crates/hypernext-keychain/Cargo.toml: moved `keyring-core = "1"` from dev-dependencies to dependencies (now a runtime dep of the crate).
+- crates/hypernext-app/Cargo.toml: removed now-unused `keyring` dev-dependency (tests use keyring_core only).
+
+Stage Summary:
+- All gates green: cargo test -p hypernext-app --lib 3x (5 passed each), cargo test -p hypernext-keychain --lib (9 passed), cargo test --workspace (all pass), cargo fmt --check (0), cargo clippy --workspace -- -D warnings (0).
+- Fix is robust against test-parallelism races (mock installed via Once; no global mutable store race) AND headless Linux (mock never routed through poisoned v1 gate).
+- Verified headless behavior in container: probe returns not_found (usable) with the new pattern.
+- NO commits (orchestrator handles).
