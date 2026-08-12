@@ -18,6 +18,8 @@ gopher-protocol = { workspace = true }
 scorpion-protocol = { workspace = true }
 kepler-protocol = { workspace = true }
 guppy-protocol = { workspace = true }
+finger-protocol = { workspace = true }
+dict-protocol = { workspace = true }
 titanite = { workspace = true }
 
 # Errors + domain model (ADR 0009, Phase 1)

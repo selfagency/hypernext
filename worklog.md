@@ -407,3 +407,42 @@ Stage Summary:
 - Fix is robust against test-parallelism races (mock installed via Once; no global mutable store race) AND headless Linux (mock never routed through poisoned v1 gate).
 - Verified headless behavior in container: probe returns not_found (usable) with the new pattern.
 - NO commits (orchestrator handles).
+
+
+---
+Task ID: p2-t1
+Agent: gem-implementer
+Task: Add 2 missing smolnet protocol crates (finger-protocol, dict-protocol) to complete 12-crate smolweb parity set
+
+Work Log:
+- Read root Cargo.toml, crates/hypernext-protocol/Cargo.toml, docs/plan/20260812-phase2-smolnet/plan.yaml. Confirmed 10/12 wired; plan crate_adapter_map requires finger-protocol (FingerWebFingerAdapter) + dict-protocol (DictAdapter).
+- Verified both crates exist on crates.io (API with UA header): finger-protocol 0.1.1, dict-protocol 0.1.0; both from merely-made/smolweb.
+- Added finger-protocol = "0.1.1" + dict-protocol = "0.1.0" to root Cargo.toml [workspace.dependencies].
+- Added finger-protocol = { workspace = true } + dict-protocol = { workspace = true } to crates/hypernext-protocol/Cargo.toml [dependencies].
+- cargo build -p hypernext-protocol succeeds (locked 2 packages, downloaded+compiled both).
+- cargo tree -p hypernext-protocol confirms all 12 smolnet crates at pinned versions.
+- Transitive deps clean: finger-protocol -> percent-encoding, serde; dict-protocol -> tokio. No GPL/AGPL/LGPL.
+
+Stage Summary:
+- 12-crate smolnet set complete (gemini, gopher, spartan, nex, text, scroll, guppy, scorpion, kepler, finger, dict, titanite) as direct pinned deps of hypernext-protocol.
+- All gates green: cargo fmt --check (0), cargo clippy --workspace -- -D warnings (0), cargo test --workspace (pass), cargo deny check (advisories/bans/licenses/sources ok).
+- NO commits (orchestrator handles).
+
+---
+Task ID: p2-t-audit
+Agent: gem-researcher
+Task: Complete API fitness audit of all 12 smolnet protocol crates (add finger-protocol, dict-protocol)
+
+Work Log:
+- Read docs/references/protocol-crate-audit.md (existing 10-crate audit), docs/plan/20260812-phase2-smolnet/plan.yaml, root + hypernext-protocol Cargo.toml. Confirmed pinned versions finger-protocol 0.1.1, dict-protocol 0.1.0.
+- Read both crate sources from cargo registry (authoritative method per audit header): finger-protocol client.rs + webfinger.rs + lib.rs; dict-protocol client.rs + wire.rs + lib.rs.
+- finger-protocol 0.1.1: Finger (RFC 1288) raw TCP client (no reqwest, SSRF=adapter pre-check) + WebFinger (RFC 7033) which DELIBERATELY has no HTTP stack — only request_url() builder + parse() JRD parser; the HTTPS GET belongs to the caller/adapter. webfinger feature flag confirmed (serde/serde_json/percent-encoding). Proper ClientError enum. Reads to EOF (no cancel). tokio. edition 2024, declared rust-version 1.88 (real floor 1.85).
+- dict-protocol 0.1.0: DICT (RFC 2229) command-loop Session (NOT one-shot fetch) — connect -> define/matches -> QUIT. Session::over(any AsyncRead+AsyncWrite) is transport-independent, letting adapter inject TLS + SSRF-checked stream. Proper ClientError { Connect, Io, Protocol, Refused{code,text} }. No cancel. tokio. edition 2024, declared 1.88.
+- Updated docs/references/protocol-crate-audit.md: added both crates to summary table (both "Ready to wrap"), added two full per-crate sections, bumped cross-cutting section 10->12, added finger/dict to cancellation list, bumped rust-version section 6->8 flagged crates, updated upstream PR table.
+
+Stage Summary:
+- All 12 crates now audited in protocol-crate-audit.md.
+- finger-protocol verdict: Ready to wrap. Finger raw-TCP client (SSRF=adapter pre-check, cancel-select, body->Block). WebFinger: adapter owns HTTPS GET via reqwest (SSRF at FetchPolicy), webfinger feature must stay on, JRD links->Block::Link.
+- dict-protocol verdict: Ready to wrap. Command-loop adapter (stateful Session, not one-shot); Session::over lets adapter inject TLS (TOFU) + SSRF check; no-match(552)->empty PageDoc; wrap each command in cancel-select. Only stateful/multi-command adapter in set.
+- Finger WebFinger feature-flag note and dict command-loop note both captured in the audit doc.
+- NO commits (orchestrator handles).

@@ -66,6 +66,8 @@ gopher-protocol = "0.1.2"
 scorpion-protocol = "0.1.0"
 kepler-protocol = "0.1.0"
 guppy-protocol = "0.1.1"
+finger-protocol = "0.1.1"
+dict-protocol = "0.1.0"
 titanite = "0.3.2"
 
 # Internal workspace crates (path deps for From-impl propagation)

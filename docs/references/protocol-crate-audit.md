@@ -1,8 +1,8 @@
 # Protocol Crate API Audit (p2-t-audit)
 
-> Task: p2-t-audit — audit the API fitness of all 10 smolnet protocol crates BEFORE the adapters are built on them. De-risks R1 (0.1.0 crates have fundamental API gaps).
+> Task: p2-t-audit — audit the API fitness of all 12 smolnet protocol crates BEFORE the adapters are built on them. De-risks R1 (0.1.0 crates have fundamental API gaps).
 > Method: read each crate's source at the pinned version from the cargo registry (`~/.cargo/registry/src/index.crates.io-*/`), not just docs.rs — these are fresh 0.1.0 crates and the source is authoritative.
-> Date: 2026-08-12. Status: complete.
+> Date: 2026-08-12. Status: complete. (10 crates initial + finger/dict added 2026-08-12.)
 
 ## Summary verdict
 
@@ -18,6 +18,8 @@
 | kepler-protocol 0.1.0 | **Ready to wrap** — proper errors, tokio, accept-any TLS (needs TOFU wrap) |
 | titanite 0.3.2 | **Needs full wrapping** — pure wire codec, no network, no async, anyhow errors |
 | text-protocol 0.1.0 | **Ready to wrap** — proper errors, tokio, accept-any TLS (needs TOFU wrap) |
+| finger-protocol 0.1.1 | **Ready to wrap** — Finger raw-TCP client + WebFinger URL-builder/JRD-parser (no HTTP stack; adapter owns the HTTPS GET), proper errors, tokio |
+| dict-protocol 0.1.0 | **Ready to wrap** — command-loop Session (not one-shot); `Session::over(any_async_stream)` lets adapter inject TLS+SSRF; proper errors, tokio |
 
 **No crate requires an upstream PR to be usable.** Every gap (cancellation, SSRF, TOFU for some) is wrappable in the adapter. Optional upstream PRs are listed per-crate below.
 
@@ -68,6 +70,36 @@ Legend: ✅ = present / clean, ⚠️ = present but needs adapter work, ❌ = ab
 | rust-version | 1.88 | **Declared only** — no 1.88 feature; real floor edition 2024 (1.85). |
 
 **Adapter work:** wrap in cancel-select; SSRF pre-check; optional TOFU (adapter-side pinning verifier); text → `Block`.
+
+### finger-protocol 0.1.1 (Finger + WebFinger)
+
+Two protocols behind two features (both on by default): Finger (RFC 1288, `client` feature, raw TCP port 79) and WebFinger (RFC 7033, `webfinger` feature, HTTPS).
+
+| Criterion | Status | Detail |
+|---|---|---|
+| Injectable client | ⚠️ | **Finger** has no reqwest — raw `TcpStream::connect((host, port))` (client.rs:84). SSRF = adapter pre-check. **WebFinger** deliberately has NO HTTP stack (lib.rs:26-29): it exposes only `request_url()` (well-known URI builder) + `parse()` (JRD JSON parser); the HTTPS GET is the caller's job. Adapter owns the WebFinger GET via its HTTP client (reqwest) → routes through `FetchPolicy::check_url`. |
+| Custom TLS config | N/A | Finger is plaintext (no TLS). WebFinger's TLS is the adapter's HTTP client's concern (TOFU/pinning applied there if needed). |
+| Error types | ✅ | Finger `enum ClientError { BadUrl, Connect, Io }` — proper enum, `Display` + `Error`. WebFinger `parse` returns `serde_json::Error`. No `Box<dyn Error>`. |
+| Cancellation | ❌ | `fetch` reads to EOF (client.rs:91-95). Adapter must wrap in `tokio::select!` with `CancellationToken`. |
+| Response → PageDoc | ✅ | Finger `Response { body: Vec<u8> }` — free-form text (RFC 1288 has no structure) → `Block::Paragraph` (preformatted). WebFinger `Jrd { subject, aliases, properties, links }` + `Link { rel, href, ... }` → map `links` to `Block::Link`, subject/aliases → `Metadata`. 404/missing subject → adapter `Error`. |
+| Async runtime | ✅ | tokio exclusively (client feature). |
+| rust-version | 1.88 | **Declared only** — edition 2024; no 1.88-specific feature; real floor 1.85. |
+
+**Adapter work:** Finger — pre-connect SSRF check on resolved IP, wrap in cancel-select, map `Response.body` → `Block`. WebFinger — adapter owns the HTTPS GET via reqwest (SSRF at `FetchPolicy`), sets `Accept: application/jrd+json`, calls `request_url()` + `parse()`, maps JRD links → `Block::Link`. WebFinger feature flag: `finger-protocol` `webfinger` feature must be enabled (default on) to expose `Jrd`/`request_url`/`parse`. Optional TOFU for Finger plaintext not applicable; for WebFinger HTTPS, adapter's HTTP client TLS policy applies.
+
+### dict-protocol 0.1.0 (DICT, command loop)
+
+| Criterion | Status | Detail |
+|---|---|---|
+| Injectable client | ⚠️ | No reqwest. `Session<TcpStream>::connect(host, port)` does its own `TcpStream::connect` (client.rs:69) → SSRF = adapter pre-check. **Key escape hatch:** `Session::over(stream)` is transport-independent, accepting ANY `AsyncRead + AsyncWrite + Unpin` (client.rs:76-84) — adapter can inject an SSRF-checked and/or TLS-wrapped stream before `over()`. |
+| Custom TLS config | ✅ | Via `Session::over` — DICT rides an encrypted carrier (client.rs:82-84). Adapter wraps its own TLS stream (pinning/TOFU verifier) and passes it to `over()`. No `dicts://` in the crate; adapter adds TLS entirely. |
+| Error types | ✅ | `enum ClientError { Connect, Io, Protocol, Refused { code, text } }` — proper enum, `Display` + `Error`, carries server refusal code. |
+| Cancellation | ❌ | No token. Adapter must wrap each `Session` command in `tokio::select!` (or time out reads). `MAX_LINE` cap (1024) bounds command length; no read timeout in crate. |
+| Response → PageDoc | ⚠️ | **Command-loop, not one-shot fetch.** `define(db, word)` → `Vec<Definition { word, database, database_description, text: Vec<String> }>`; `matches()` → `Vec<Match>`; `databases()`/`strategies()` → listings. Adapter maps `Definition.text` → `Block::Paragraph`, `Match` → `Block::Link`. No match is an empty vector (552 is an answer, client.rs:23-24,148-150). |
+| Async runtime | ✅ | tokio exclusively. |
+| rust-version | 1.88 | **Declared only** — edition 2024; no 1.88-specific feature; real floor 1.85. |
+
+**Adapter work (command-loop shape):** DictAdapter holds an open `Session` across a tab/query lifetime rather than a one-shot fetch — connect (SSRF-checked host) → `define`/`matches` → map results to `PageDoc`, `QUIT` on drop. Because the crate exposes `Session::over`, the adapter can (a) pre-check SSRF, (b) wrap the stream in TLS (TOFU if required) before `over()`. Wrap each command in cancel-select. No-match (552) → empty `PageDoc`, not an error. This is the only adapter in the set whose fetch is a stateful multi-command session, not a single request/response.
 
 ### spartan-protocol 0.1.1
 
@@ -180,10 +212,10 @@ The phase doc (`02-smolnet-protocols.md` §3.2) and worklog t2 label `guppy-prot
 
 ---
 
-## Cross-cutting adapter requirements (apply to ALL 10)
+## Cross-cutting adapter requirements (apply to ALL 12)
 
 1. **SSRF pre-check (all).** None route through `reqwest::Client`; all do their own DNS via `TcpStream::connect((host, port))` / `UdpSocket`. The adapter MUST resolve the host and check the target IP against `FetchPolicy::block_private_network` BEFORE calling the crate's fetch. This is the SSRF defense point for smolnet protocols (invariant #8).
-2. **Cancellation (all).** None accept a `CancellationToken`. Adapter wraps each fetch in `tokio::select!` with the token; dropping the future cancels the underlying I/O. spartan/nex/guppy already have internal timeouts; gemini/scroll/text/gopher/scorpion/kepler read to EOF with no timeout — the cancel-select is mandatory for these.
+2. **Cancellation (all).** None accept a `CancellationToken`. Adapter wraps each fetch in `tokio::select!` with the token; dropping the future cancels the underlying I/O. spartan/nex/guppy already have internal timeouts; gemini/scroll/text/gopher/scorpion/kepler/finger read to EOF with no timeout, and dict's `Session` commands do too — the cancel-select is mandatory for these.
 3. **TOFU (gemini, scroll, text, gopher, kepler).** gemini + scroll have built-in TOFU (via `TofuStore`). text/gopher/kepler use accept-any TLS with no injection — adapter supplies a pinning verifier if TOFU is required. scorpion already exposes `connect_with(verifier)`.
 4. **Error mapping (all).** Every crate's `ClientError` is a proper enum; adapter maps to `hypernext_core::Error`. titanite's `anyhow` is the only exception.
 
@@ -193,14 +225,14 @@ The phase doc (`02-smolnet-protocols.md` §3.2) and worklog t2 label `guppy-prot
 
 **Finding: the 1.88 declaration is NOT purely cosmetic — it is a real MSRV conflict with Hypernext's 1.83.**
 
-- All 6 flagged crates (gemini, scroll, text, gopher, scorpion, kepler) use **edition 2024**, which requires **Rust ≥ 1.85**. This alone breaks Hypernext MSRV 1.83.
+- All 8 flagged crates (gemini, scroll, text, gopher, scorpion, kepler, finger, dict) use **edition 2024**, which requires **Rust ≥ 1.85**. This alone breaks Hypernext MSRV 1.83.
 - **gemini-protocol additionally uses let-chains** (`if let ... && let Some(...)`, client.rs:263,278), stabilized in **Rust 1.88**. So gemini genuinely requires 1.88.
-- The other 5 (scroll, text, gopher, scorpion, kepler) use **no 1.88-specific feature** — their real floor is 1.85 (edition 2024). They inherit the 1.88 declaration from the smolweb workspace's conservative `rust-version.workspace = true`.
+- The other 7 (scroll, text, gopher, scorpion, kepler, finger, dict) use **no 1.88-specific feature** — their real floor is 1.85 (edition 2024). They inherit the 1.88 declaration from the smolweb workspace's conservative `rust-version.workspace = true`.
 - The 4 unflagged crates (spartan, nex, guppy, titanite) declare no `rust-version` and build on 1.83.
 
 **Is it a blocker?** Yes, for MSRV 1.83. Edition 2024 alone forces ≥1.85, and gemini forces ≥1.88.
 
-**Recommendation:** raise Hypernext MSRV to **1.88** (single coherent target that covers gemini's let-chains and all 6 crates' edition 2024). This is a documented decision, not silent drift. Update:
+**Recommendation:** raise Hypernext MSRV to **1.88** (single coherent target that covers gemini's let-chains and all 8 crates' edition 2024). This is a documented decision, not silent drift. Update:
 - `Cargo.toml` `[workspace.package] rust-version = "1.88"`
 - CI toolchain pin to 1.88+ (local 1.97.1 already builds fine)
 - `AGENTS.md` §1 "Rust 1.83+" → 1.88+
@@ -213,8 +245,8 @@ Do NOT patch the 5 crates to edition 2021 to preserve 1.83 — that is upstream 
 
 | Crate | PR idea | Priority |
 |---|---|---|
-| gemini/scroll/text/gopher/kepler | Add `connect_with(verifier)`-style TLS injection (scorpion already has it) | Low — adapter can supply verifier |
-| all 9 smolweb crates | Accept a `CancellationToken` in `fetch` | Low — adapter cancel-select works |
+| gemini/scroll/text/gopher/kepler | Add `connect_with(verifier)`-style TLS injection (scorpion already has it); dict already has the equivalent via `Session::over` | Low — adapter can supply verifier |
+| all 9 smolweb crates | Accept a `CancellationToken` in `fetch` (finger + dict too) | Low — adapter cancel-select works |
 | titanite | Replace `anyhow` with a `thiserror` enum in public API (ADR 0009) | Medium — adapter maps it anyway |
 | smolweb workspace | Lower `rust-version` to 1.85 for the 5 non-gemini crates | Low — Hypernext targets 1.88 anyway |
 
