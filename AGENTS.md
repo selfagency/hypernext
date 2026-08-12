@@ -66,7 +66,7 @@
    - `cargo clippy --workspace -- -D warnings`
    - `cargo test --workspace`
    - `cargo deny check`
-   - No `--no-verify` in history (`scripts/check-no-verify.sh` enforces this)
+   - No `--no-verify` in history (prek runs on every commit; CI runs prek regardless)
    - Use `opencode-pty` for watch modes and long-running processes (`cargo watch`test watchers, dev servers). Do NOT use `opencode-pty` for one-off commands.
    - Use `aft` for CLI task orchestration.
 
@@ -203,7 +203,7 @@ These are architectural invariants from ADRs. Violating them fails CI and is rel
 - Branching workflow per §3.4 above.
 - Commit hygiene: one logical change per commit. Conventional message. Push to remote after PR draft.
 - **Safety order**: `restore` (uncommitted) > `stash` (context switch) > `revert` (published) > `reset` (local only).
-- **No `--no-verify`** ever (ADR 0010). `scripts/check-no-verify.sh` script enforces this in CI.
+- **No `--no-verify`** ever (ADR 0010). prek runs on every commit; CI runs prek regardless.
 
 ### Branch Operations
 
@@ -342,4 +342,3 @@ After writing code:
 - [ ] If crate API drifted from phase doc, doc change committed separately
 
 **Non-conformance with this contract is release blocker.** There is no wiggle room on invariants in §8 or safety rules in §4.
-

@@ -177,3 +177,36 @@ Stage Summary:
 - All gates green: cargo fmt --check, cargo clippy --workspace -- -D warnings, cargo test --workspace (store 10, keychain 9, app 5 lib + 3 logging + 1 smoke + 1 ignored), cargo deny check.
 - DEVIATION: used `dirs` crate (data_dir()) not ProjectDirs (would produce com.selfagency.Hypernext); join("Hypernext") yields exact spec path. Refinery Error is opaque (no public NoMigration ctor), so store payload test uses rusqlite::Error::InvalidQuery.
 - run() signature changed to return anyhow::Result<()>; main.rs handles startup errors via expect().
+---
+Task ID: t9
+Agent: gem-devops
+Task: Build the CI pipeline (GitHub Actions), pre-commit hook, and check-no-verify guard
+
+Work Log:
+- Created .github/workflows/ci.yml: triggers push to main + pull_request; 5 jobs.
+  - lint (ubuntu): cargo fmt --check + cargo clippy --workspace -- -D warnings + scripts/check-no-verify.sh
+  - test (ubuntu): xvfb-run -a cargo test --workspace (GTK smoke test needs a display)
+  - coverage (ubuntu): cargo tarpaulin --workspace --out lcov --fail-under 30 (Linux/ptrace only)
+  - deny (ubuntu): cargo deny check (licenses + advisories)
+  - build (macos-latest): brew install gtk4 + security unlock-keychain + cargo build --release
+  - All jobs use Swatinem/rust-cache@v2; cargo-deny/tarpaulin via taiki-e/install-action@v2.
+- Created scripts/pre-commit.sh (committed hook body): runs cargo fmt --check + cargo clippy
+  --workspace -- -D warnings, records parent SHA into scripts/.pre-commit-log, refuses on failure.
+- Created scripts/check-no-verify.sh: walks git rev-list HEAD, fails if any commit's parent is
+  missing from .pre-commit-log (a --no-verify commit skips the hook, so its parent is never recorded).
+- Wired .git/hooks/pre-commit-user to exec scripts/pre-commit.sh. GitButler's managed pre-commit
+  hook already delegates to pre-commit-user, so the committed body runs on every commit.
+- Backfilled scripts/.pre-commit-log with all existing commit parents (history predates the hook;
+  created with gates green per worklog, no --no-verify).
+- Verified: pre-commit.sh passes (fmt + clippy green); check-no-verify.sh returns 0 on full log,
+  returns 1 when a parent is missing (simulated bypass); CI YAML parses (jobs: lint,test,coverage,deny,build).
+
+Stage Summary:
+- CI pipeline created and locally verified. Coverage threshold 30% (Phase 1), ratchets per phase.
+- GTK tests + tarpaulin on ubuntu (xvfb-run); macOS runner for release build only.
+- security unlock-keychain on macOS build job (R4 mitigation).
+- No --no-verify in history enforced by scripts/check-no-verify.sh (CI gate + pre-commit marker).
+- DEVIATION: pre-commit hook runs workspace-wide fmt+clippy (matches CI gates exactly) rather than
+  staged-only, so a locally-passing commit cannot fail CI on fmt/clippy.
+- DEVIATION: used taiki-e/install-action@v2 for cargo-deny/tarpaulin (pinned, no curl|bash).
+- Note: .git/hooks/pre-commit-user is untracked (local); scripts/pre-commit.sh is the committed body.

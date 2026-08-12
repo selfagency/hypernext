@@ -33,16 +33,16 @@ use thiserror::Error;
 pub enum StoreError {
     #[error("SQLite error: {0}")]
     Sqlite(#[from] rusqlite::Error),
-    
+
     #[error("Migration failed: {0}")]
     Migration(#[from] refinery::Error),
-    
+
     #[error("sqlite-vec extension failed to load: {0}")]
     SqliteVec(String),
-    
+
     #[error("Not found: {0}")]
     NotFound(String),
-    
+
     #[error("Invalid input: {0}")]
     InvalidInput(String),
 }
@@ -55,40 +55,40 @@ The top-level `hypernext-core/src/error.rs` defines a unified `HypernextError`:
 pub enum HypernextError {
     #[error("Storage error: {0}")]
     Storage(#[from] hypernext_store::StoreError),
-    
+
     #[error("Keychain error: {0}")]
     Keychain(#[from] hypernext_keychain::KeychainError),
-    
+
     #[error("Network error: {0}")]
     Network(#[from] hypernext_http::HttpError),
-    
+
     #[error("Protocol error: {0}")]
     Protocol(String),
-    
+
     #[error("PGP verification failed: {0}")]
     Pgp(#[from] hypernext_pgp::PgpError),
-    
+
     #[error("URL parse error: {0}")]
     InvalidUrl(#[from] url::ParseError),
-    
+
     #[error("Size limit exceeded: {0} bytes")]
     SizeLimitExceeded(usize),
-    
+
     #[error("SSRF blocked: {0}")]
     SsrfBlocked(String),
-    
+
     #[error("Unauthorized: {0}")]
     Unauthorized(String),
-    
+
     #[error("Operation cancelled")]
     Cancelled,
-    
+
     #[error("Feature not supported")]
     Unsupported,
-    
+
     #[error("TOFU certificate changed for {host}")]
     TofuCertChanged { host: String },
-    
+
     #[error("PGP key changed for {host}")]
     PgpKeyChanged { host: String },
 }

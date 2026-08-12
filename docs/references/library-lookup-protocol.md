@@ -115,7 +115,7 @@ This is non-negotiable. Silent API drift is what made the Wails version's docs u
 5. **Implement:** In `hypernext-protocol/src/adapters/feed.rs` (Phase 1.1):
    ```rust
    use feed_rs::parser;
-   
+
    pub async fn fetch_feed(url: &Url, client: &reqwest::Client) -> Result<PageDoc, Error> {
        let response = client.get(url.as_str()).send().await?.bytes().await?;
        let feed = parser::parse(&response[..]).map_err(|e| Error::FeedParse(e.to_string()))?;

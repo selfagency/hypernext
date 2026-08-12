@@ -1,0 +1,91 @@
+# Hypernext CI — release gate for every phase (ADR 0010).
+#
+# Runner split:
+#   - ubuntu-latest: lint, test (GTK under xvfb-run), coverage (tarpaulin is
+#     Linux/ptrace-based), deny. GTK tests need a display -> xvfb-run.
+#   - macos-latest: build (release) only. macOS is the primary 1.0 target.
+#
+# Coverage threshold starts at 30% (Phase 1 has little code) and ratchets up
+# each phase (see docs/references/0005-tdd-discipline.md).
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  lint:
+    name: Lint (fmt + clippy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - name: Install GTK dev libs (clippy compiles gtk4-sys)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev
+      - name: prek hooks (hygiene + fmt + clippy; test/deny have dedicated jobs)
+        uses: j178/prek-action@v3.0.0
+        with:
+          args: --all-files --skip cargo-test --skip cargo-deny
+
+  test:
+    name: Test (workspace, xvfb)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - name: Install GTK + xvfb
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev xvfb
+      - name: cargo test --workspace
+        run: xvfb-run -a cargo test --workspace
+
+  coverage:
+    name: Coverage (tarpaulin)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - name: Install GTK dev libs (tarpaulin compiles workspace)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev
+      - name: Install cargo-tarpaulin
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-tarpaulin
+      - name: cargo tarpaulin --workspace --out lcov --fail-under 30
+        run: cargo tarpaulin --workspace --out lcov --fail-under 30
+
+  deny:
+    name: Deny (licenses + advisories)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny
+      - name: cargo deny check
+        run: cargo deny check
+
+  build:
+    name: Build (release, macOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - name: Install GTK4 (Homebrew)
+        run: brew install gtk4
+      - name: Unlock keychain (R4 mitigation; keychain tests must not prompt)
+        run: security unlock-keychain
+      - name: cargo build --release
+        run: cargo build --release

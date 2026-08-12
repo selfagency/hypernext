@@ -1,0 +1,28 @@
+# prek configuration for Hypernext (https://prek.j178.dev)
+# Replaces the hand-rolled scripts/pre-commit.sh + check-no-verify.sh.
+# Runs on every commit (via prek install) and in CI (via j178/prek-action).
+
+# Generic file hygiene checks (builtin, no external deps).
+[[repos]]
+repo = "builtin"
+hooks = [
+  { id = "trailing-whitespace" },
+  { id = "end-of-file-fixer" },
+  { id = "check-yaml" },
+  { id = "check-toml" },
+  { id = "check-json" },
+  { id = "check-merge-conflict" },
+  { id = "check-added-large-files", args = ["--maxkb", "500"] },
+]
+
+# Rust gates — the Hypernext release-blocker checks (ADR 0010).
+# These run workspace-wide (pass_filenames = false) so a locally-passing
+# commit cannot fail CI on fmt/clippy.
+[[repos]]
+repo = "local"
+hooks = [
+  { id = "cargo-fmt", name = "cargo fmt --check", language = "system", entry = "cargo fmt --check", pass_filenames = false },
+  { id = "cargo-clippy", name = "cargo clippy -D warnings", language = "system", entry = "cargo clippy --workspace -- -D warnings", pass_filenames = false },
+  { id = "cargo-test", name = "cargo test --workspace", language = "system", entry = "cargo test --workspace", pass_filenames = false },
+  { id = "cargo-deny", name = "cargo deny check", language = "system", entry = "cargo deny check", pass_filenames = false },
+]

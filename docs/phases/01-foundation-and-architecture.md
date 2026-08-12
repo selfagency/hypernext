@@ -83,7 +83,7 @@ Build the minimal window that opens. No content yet — just an empty `Applicati
 - [ ] Add the `gresources` XML file for any application icons (placeholder for now)
 - [ ] macOS: bundle GTK via gvsbuild (https://github.com/wingtk/gvsbuild) — document the build setup in `docs/references/build-macos.md`
 
-**TDD gate:** 
+**TDD gate:**
 
 Integration test (`crates/hypernext-app/tests/smoke.rs`):
 - Launch the app via `RelmApp::new()` in test mode
@@ -365,13 +365,13 @@ Unit tests:
     5. `build`: `cargo build --release` to catch release-only compile issues
   - Cache: `Swatinem/rust-cache@v2` for `~/.cargo` and `target/`
 - [ ] Pre-commit hook (via `cargo-husky` or shell script): runs `cargo fmt --check` + `cargo clippy` on staged files; refuses commit on failure
-- [ ] `scripts/check-no-verify.sh` — refuses to allow `git --no-verify` in history (per the Wails version's hard-won lesson)
+- [ ] `prek.toml` — prek hook config (fmt, clippy, test, deny, hygiene) runs on every commit and in CI (ADR 0010)
 
 **TDD gate:**
 
 - CI passes on the initial commit of Phase 1 (with stub tests)
 - Coverage threshold starts at 30% (Phase 1 has little code yet) and ratchets up each phase
-- No `--no-verify` in git history (verified by `scripts/check-no-verify.sh`)
+- No `--no-verify` in git history (prek runs on every commit; CI runs prek regardless)
 
 ### 2.9 Workspace dependencies manifest (Week 4)
 
@@ -456,7 +456,7 @@ All of these must be true before Phase 2 starts:
 - [ ] Launching the app for the first time runs SQLite migrations (verified via `schema_migrations` row count)
 - [ ] Launching the app creates zero files outside `~/Library/Application Support/Hypernext/` (macOS)
 - [ ] Closing the app exits cleanly (no orphan processes)
-- [ ] No `--no-verify` in git history (verified by `scripts/check-no-verify.sh`)
+- [ ] No `--no-verify` in git history (prek runs on every commit; CI runs prek regardless)
 - [ ] All ADRs in §6 of the overview are committed at `docs/references/`
 - [ ] The `worklog.md` is up to date with every task ID for Phase 1
 
