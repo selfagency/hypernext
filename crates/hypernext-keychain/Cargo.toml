@@ -12,11 +12,13 @@ authors.workspace = true
 hypernext-core = { workspace = true }
 # Keychain (ADR 0007)
 keyring = { workspace = true }
+# keyring-core: the store layer. Operations go through keyring_core::Entry so
+# tests can install the in-memory mock store and production can install the
+# real platform store, without being blocked by keyring v1's one-time
+# platform-init gate (which fails on headless Linux and would otherwise poison
+# every later keyring::Entry::new with NoDefaultStore).
+keyring-core = "1"
 # Errors (ADR 0009)
 thiserror = { workspace = true }
 
 [dev-dependencies]
-# keyring-core mock store for tests (ADR 0007: tests use mock backend).
-# Same version keyring 4.1.6 resolves (^1.0.0), so set_default_store affects
-# the store keyring's v1 Entry uses.
-keyring-core = "1"

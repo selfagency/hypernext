@@ -79,6 +79,9 @@ fn resolve_data_dir() -> Option<PathBuf> {
 /// Returns `Err(HypernextError::Keychain(...))` via the `From<KeychainError>`
 /// impl (exercised with `?`).
 fn init_keychain() -> Result<(), hypernext_core::HypernextError> {
+    // Install the real platform store unless a store is already set (e.g. the
+    // in-memory mock in tests). Then probe it.
+    hypernext_keychain::ensure_default_store()?;
     let secret = hypernext_keychain::Secret::new("__startup_probe__", KEYCHAIN_PROBE_ACCOUNT)?;
     match hypernext_keychain::get(&secret) {
         Ok(_) | Err(KeychainError::NotFound) => Ok(()),
@@ -93,11 +96,18 @@ mod tests {
 
     /// Install keyring's in-memory mock store once (ADR 0007: tests never hit
     /// the real keychain).
+    ///
+    /// Order is critical for CI on headless Linux. `keyring::Entry::store_status()`
+    /// would trigger keyring v1's one-time platform-store init, which fails when no
+    /// D-Bus Secret Service is available. That failure is cached and permanently
+    /// gates every later `keyring::Entry::new()` with `NoDefaultStore` — even after
+    /// the mock store is set. So the mock store is installed directly via
+    /// `keyring_core::set_default_store` (which the keychain crate's operations read
+    /// through `keyring_core::Entry`), never through the gated `keyring::Entry`.
     fn install_mock_keychain() {
         use std::sync::Once;
         static INIT: Once = Once::new();
         INIT.call_once(|| {
-            let _ = keyring::Entry::store_status();
             keyring_core::set_default_store(keyring_core::mock::Store::new().unwrap());
         });
     }

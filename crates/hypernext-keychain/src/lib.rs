@@ -41,7 +41,7 @@ impl Secret {
 
 /// Store `value` for `secret`, replacing any existing value.
 pub fn set(secret: &Secret, value: &str) -> Result<(), KeychainError> {
-    let entry = keyring::Entry::new(secret.service, &secret.account)?;
+    let entry = keyring_core::Entry::new(secret.service, &secret.account)?;
     entry.set_password(value)?;
     Ok(())
 }
@@ -50,10 +50,10 @@ pub fn set(secret: &Secret, value: &str) -> Result<(), KeychainError> {
 ///
 /// Returns `Err(KeychainError::NotFound)` if no secret is stored.
 pub fn get(secret: &Secret) -> Result<String, KeychainError> {
-    let entry = keyring::Entry::new(secret.service, &secret.account)?;
+    let entry = keyring_core::Entry::new(secret.service, &secret.account)?;
     match entry.get_password() {
         Ok(value) => Ok(value),
-        Err(keyring::Error::NoEntry) => Err(KeychainError::NotFound),
+        Err(keyring_core::Error::NoEntry) => Err(KeychainError::NotFound),
         Err(e) => Err(KeychainError::Keyring(e)),
     }
 }
@@ -62,10 +62,10 @@ pub fn get(secret: &Secret) -> Result<String, KeychainError> {
 ///
 /// Deleting a missing secret is a no-op (returns `Ok`).
 pub fn delete(secret: &Secret) -> Result<(), KeychainError> {
-    let entry = keyring::Entry::new(secret.service, &secret.account)?;
+    let entry = keyring_core::Entry::new(secret.service, &secret.account)?;
     match entry.delete_credential() {
         Ok(()) => Ok(()),
-        Err(keyring::Error::NoEntry) => Ok(()),
+        Err(keyring_core::Error::NoEntry) => Ok(()),
         Err(e) => Err(KeychainError::Keyring(e)),
     }
 }
@@ -73,6 +73,29 @@ pub fn delete(secret: &Secret) -> Result<(), KeychainError> {
 /// Whether a secret is currently stored for `secret`.
 pub fn exists(secret: &Secret) -> bool {
     get(secret).is_ok()
+}
+
+/// Ensure a default credential store is installed (once), then return it.
+///
+/// If a store is already set (e.g. the in-memory mock installed by tests via
+/// `keyring_core::set_default_store`), it is used as-is. Otherwise the real
+/// platform store is initialized through keyring v1's one-time init (macOS
+/// Keychain, Windows Credential Manager, Linux Secret Service), which sets the
+/// default store as a side effect.
+///
+/// Keyring v1's `Entry::new` is permanently gated on that one-time platform
+/// init result: on headless Linux the Secret Service init fails and is cached,
+/// so every later `keyring::Entry::new` returns `NoDefaultStore` even after a
+/// mock store is set. This crate therefore operates through the ungated
+/// `keyring_core::Entry`, which always reads the current default store.
+pub fn ensure_default_store() -> Result<(), KeychainError> {
+    if keyring_core::get_default_store().is_some() {
+        return Ok(());
+    }
+    // keyring v1's store_status() installs the real platform store into
+    // keyring_core's DEFAULT_STORE as a side effect.
+    let _ = keyring::Entry::store_status();
+    Ok(())
 }
 
 #[cfg(test)]
@@ -83,13 +106,17 @@ mod tests {
     /// Install the in-memory mock store once for all tests (ADR 0007: tests
     /// use the mock backend, never the real keychain).
     ///
-    /// Order matters: trigger keyring's one-time v1 store init first (which
-    /// installs the real platform store), then override with the mock store.
+    /// The mock is set directly via `keyring_core::set_default_store`. We do
+    /// NOT call `keyring::Entry::store_status()` first: that would trigger
+    /// keyring v1's one-time platform init, which fails on headless Linux and
+    /// caches a `NoDefaultStore` result that permanently blocks all later
+    /// `keyring::Entry::new` calls. The operations in this crate read the
+    /// store through the ungated `keyring_core::Entry`, so setting the mock
+    /// here is sufficient and platform-independent.
     static INIT: Once = Once::new();
 
     fn init_mock() {
         INIT.call_once(|| {
-            let _ = keyring::Entry::store_status();
             keyring_core::set_default_store(keyring_core::mock::Store::new().unwrap());
         });
     }
