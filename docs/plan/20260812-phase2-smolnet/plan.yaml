@@ -30,7 +30,7 @@ tasks:
     title: "Add 12 smolnet protocol crates as direct deps"
     wave: 1
     agent: gem-implementer
-    status: pending
+    status: completed
     deps: []
     conflicts_with: []
     source: "phase-doc 3.1 + smolweb parity"
@@ -40,7 +40,7 @@ tasks:
     title: "API fitness audit of all 12 protocol crates"
     wave: 1
     agent: gem-researcher
-    status: pending
+    status: completed
     deps: [p2-t1]
     conflicts_with: []
     source: "phase-doc 3.2, risk R1"
@@ -50,7 +50,7 @@ tasks:
     title: "Protocol trait + Dispatcher + FetchContext + FetchPolicy"
     wave: 2
     agent: gem-implementer
-    status: pending
+    status: completed
     deps: [p2-t1]
     conflicts_with: []
     source: "phase-doc 3.3"
@@ -60,7 +60,7 @@ tasks:
     title: "Gemini adapter (TOFU, status codes, gemtext->Block)"
     wave: 2
     agent: gem-implementer
-    status: pending
+    status: completed
     deps: [p2-t1, p2-t2, p2-t-audit]
     conflicts_with: []
     source: "phase-doc 3.4"
@@ -70,7 +70,7 @@ tasks:
     title: "Finger + WebFinger adapter (finger-protocol crate)"
     wave: 2
     agent: gem-implementer
-    status: pending
+    status: completed
     deps: [p2-t1, p2-t2]
     conflicts_with: []
     source: "phase-doc 3.7 + smolweb"
@@ -80,7 +80,7 @@ tasks:
     title: "Gopher + Spartan + Nex adapters"
     wave: 3
     agent: gem-implementer
-    status: pending
+    status: completed
     deps: [p2-t1, p2-t2, p2-t3, p2-t-audit]
     conflicts_with: []
     source: "phase-doc 3.5"
@@ -90,7 +90,7 @@ tasks:
     title: "Text + Scroll adapters"
     wave: 3
     agent: gem-implementer
-    status: pending
+    status: completed
     deps: [p2-t1, p2-t2, p2-t3, p2-t-audit]
     conflicts_with: []
     source: "phase-doc 3.5"
@@ -100,7 +100,7 @@ tasks:
     title: "Scorpion + Kepler adapters"
     wave: 3
     agent: gem-implementer
-    status: pending
+    status: completed
     deps: [p2-t1, p2-t2, p2-t3, p2-t-audit]
     conflicts_with: []
     source: "phase-doc 3.5"
@@ -110,7 +110,7 @@ tasks:
     title: "Guppy + DICT adapters (UDP + command-loop protocols)"
     wave: 3
     agent: gem-implementer
-    status: pending
+    status: completed
     deps: [p2-t1, p2-t2, p2-t-audit]
     conflicts_with: []
     source: "smolweb parity (guppy, dict)"
@@ -120,7 +120,7 @@ tasks:
     title: "Molerat adapter (first-party)"
     wave: 3
     agent: gem-implementer
-    status: pending
+    status: completed
     deps: [p2-t1, p2-t2, p2-t3, p2-t-audit]
     conflicts_with: []
     source: "smolweb parity"
@@ -130,7 +130,7 @@ tasks:
     title: "Titan upload adapter (publish, explicit-confirmation gate)"
     wave: 3
     agent: gem-implementer
-    status: pending
+    status: completed
     deps: [p2-t1, p2-t2, p2-t3, p2-t-audit]
     conflicts_with: []
     source: "phase-doc 3.6"
@@ -140,7 +140,7 @@ tasks:
     title: "PGP verification (clearsign, detached, key lookup, TOFU)"
     wave: 2
     agent: gem-implementer
-    status: pending
+    status: completed
     deps: [p2-t1, p2-t2]
     conflicts_with: []
     source: "phase-doc 3.8"
@@ -150,7 +150,7 @@ tasks:
     title: "Dispatcher wiring (registry: all 15 adapters)"
     wave: 4
     agent: gem-implementer
-    status: pending
+    status: completed
     deps: [p2-t3, p2-t4, p2-t5a, p2-t5b, p2-t5c, p2-t5d, p2-t5e, p2-t6, p2-t7]
     conflicts_with: []
     source: "phase-doc 3.9 + smolweb"
@@ -160,7 +160,7 @@ tasks:
     title: "Block -> GTK widget rendering (document_view)"
     wave: 4
     agent: gem-implementer
-    status: pending
+    status: completed
     deps: [p2-t2, p2-t5a, p2-t5b, p2-t5c, p2-t5d, p2-t5e]
     conflicts_with: []
     source: "phase-doc 3.10"
