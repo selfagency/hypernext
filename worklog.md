@@ -446,3 +446,92 @@ Stage Summary:
 - dict-protocol verdict: Ready to wrap. Command-loop adapter (stateful Session, not one-shot); Session::over lets adapter inject TLS (TOFU) + SSRF check; no-match(552)->empty PageDoc; wrap each command in cancel-select. Only stateful/multi-command adapter in set.
 - Finger WebFinger feature-flag note and dict command-loop note both captured in the audit doc.
 - NO commits (orchestrator handles).
+
+---
+Task ID: p2-t2
+Agent: gem-implementer
+Task: Define Protocol trait, Dispatcher, FetchContext, FetchPolicy in crates/hypernext-protocol (contract every adapter implements)
+
+Work Log:
+- Read hypernext-core types.rs/error.rs, store db.rs/lib.rs, keychain lib.rs, phase doc 02-smolnet-protocols.md 3.3, crate-audit (reqwest ok).
+- Added error variants to hypernext-core::HypernextError: Unsupported, UnknownScheme(String), TooManyRedirects (+ code()/FromStr + tests).
+- Added workspace deps: async-trait 0.1, tokio-util 0.7 (rt), reqwest 0.13 (default-features=false). Protocol crate deps: async-trait, tokio-util, reqwest, hypernext-keychain, hypernext-store, rusqlite.
+- Wrote crates/hypernext-protocol/src/dispatcher.rs: Protocol trait (async_trait), Capabilities, PublishPayload/PublishResult, FetchContext, FetchPolicy (Default: 5 redirects, 10MB, 30s, block_private_network=true), Dispatcher (new/register/fetch/normalize_address).
+- normalize_address rules: strip feed:/rss: hints; recognized-scheme URLs unchanged; else host-reference -> gemini:// + trailing slash. RECOGNIZED_SCHEMES list; example.com:1965/ is a URL (never host:port split).
+- Dispatcher::fetch follows redirects via final_url != url, up to policy.max_redirects, else TooManyRedirects; unknown scheme -> UnknownScheme.
+- 11 tests: normalize (bare host, absolute, feed, rss, host:port, empty), unknown scheme, single redirect, too many redirects, redirect-to-unregistered, default publish unsupported.
+- Gates: cargo fmt --check, clippy -D warnings, test --workspace (11 new pass), deny check all green.
+
+Deviations (documented in dispatcher.rs):
+- FetchContext uses store: &rusqlite::Connection (hypernext_store::Store struct doesn't exist; Phase 1 = db::open -> Connection). keychain omitted from struct (no handle type; free functions only) until a handle lands. PublishPayload/PublishResult defined locally (absent in core).
+- No commits (orchestrator handles).
+
+Stage Summary:
+- Contract defined and green. async-trait used (E0782 workaround, reviewer finding).
+
+---
+Task ID: p2-t4
+Agent: gem-implementer
+Task: Finger + WebFinger adapter in crates/hypernext-protocol/src/adapters/ (wrap finger-protocol 0.1.1, RFC 1288 + 7033)
+
+Work Log:
+- Read dispatcher.rs (Protocol/FetchContext/FetchPolicy), hypernext-core error.rs/types.rs, crate-audit finger section, phase doc 02-smolnet-protocols.md 3.7, finger-protocol 0.1.1 source (client.rs + webfinger.rs).
+- hypernext-core: added HypernextError variants NotFound(String) + InvalidResponse(String) (+ code()/FromStr + both variant-enumeration tests). Required by TDD gate.
+- dispatcher.rs: added FetchPolicy::check_url(host,port) SSRF gate returning VettedTarget{host,port} (invariant #8), + is_private_ip / is_reserved_v4 / is_private_v6 (v6 by octets for MSRV 1.83, avoiding 1.84+ Ipv6Addr methods) + 4 tests. Changed FetchContext.store to &Mutex<rusqlite::Connection> so FetchContext is Sync (async-trait needs &FetchContext: Send across awaits).
+- adapters/finger.rs: FingerAdapter implements Protocol. finger://host/user[?verbose=true] -> check_url SSRF gate -> finger_protocol::query (raw TCP /W user CRLF) in tokio::select! with cancel token -> parse_finger into preformatted Block::Paragraph sections (Plan header+body, PGP armor kept whole incl internal blank lines, whitespace preserved). Empty reply -> NotFound. user_from_url/verbose_from_url. 6 unit tests.
+- adapters/webfinger.rs: WebFingerAdapter implements Protocol (scheme "https"). Owns the HTTPS GET via ctx.http_client with Accept: application/jrd+json, routed through policy.check_url (SSRF). 404/410 -> NotFound, !success -> Network, missing subject -> InvalidResponse (in reusable parse_webfinger). JRD links -> Block::Link (href or template; skip linkless). request_url(base,resource,rels) helper. 7 unit tests.
+- Cargo.toml: workspace reqwest gained feature "rustls" (HTTPS TLS backend for WebFinger; dropped http2 -> h2 0.4.14 not in local registry). Added serde_json dep to hypernext-protocol.
+- Integration tests tests/finger.rs (4) + tests/webfinger.rs (5) with in-process raw-TCP finger server + in-process HTTP/1.1 server; fixtures tests/fixtures/finger/{plan,pgp}.finger + tests/fixtures/webfinger/{multi-rel,missing-subject}.jrd. Valid + malformed + missing + SSRF-block cases.
+- All p2-t4 tests green: 28 lib + 4 finger + 5 webfinger.
+
+Deviations:
+- Phase doc said "none — implement first-party; no good crate exists" but crate-audit (p2-t-audit) found finger-protocol 0.1.1 fit; wrapped it per audit.
+- FetchContext.store changed to &Mutex<Connection> (noted in dispatcher.rs) — shared with parallel p2-t3 Gemini adapter; both agents independently converged on the Mutex fix.
+
+Stage Summary:
+- Finger + WebFinger adapters built, all 37 tests green (verified in isolation). SSRF gate, cancellation, size limit, RFC-structural parsing all present.
+- CONFLICT note: parallel agent (p2-t3 Gemini) writes crates/hypernext-protocol/src/adapters/gemini.rs concurrently; it was mid-write with unparseable code (comrak API, edition-2024 let-chains) during this task. p2-t4 verified by gating the gemini module; shared files (mod.rs, lib.rs, dispatcher.rs) reconciled to include both adapters. Full-workspace compile blocked until p2-t3 lands its gemini.rs.
+- No commits (orchestrator handles).
+
+---
+
+Task ID: p2-t7
+Agent: gem-implementer
+Task: PGP verification crate crates/hypernext-pgp (clearsign, detached, key lookup, TOFU) — phase doc 3.8
+
+Work Log:
+- PGP-vs-Sequoia SPIKE (phase doc R2, library-lookup-protocol step 1): checked both on crates.io + repo. sequoia-openpgp 2.4.1 = **LGPL-2.0-or-later** -> FORBIDDEN (protocol forbids GPL/AGPL/LGPL). pgp (rpgp) 0.20.0 = **MIT OR Apache-2.0**, rust-version 1.88 (matches accepted smolnet pattern, toolchain 1.97 resolves), active 2026-06-23, 5.5M dl, repo rpgp/rpgp. Integration AC explicitly says "generate test keys with the pgp crate". DECISION: **pgp (rpgp) 0.20.0**.
+- Verified rpgp 0.20 API against crate source (not training data): CleartextSignedMessage::{sign, verify, signatures()}, DetachedSignature::{sign_binary_data, verify, to_armored_writer, issuer_fingerprint()}, SignedPublicKey::{to_public_key, primary_key.fingerprint()}, SecretKeyParamsBuilder keygen. `signatures` field is private -> use signatures() accessor. issuer_fingerprint() returns Vec<&Fingerprint> (bind to avoid E0515). SignedSecretKey derefs to SecretKey (SigningKey) via &*ssk.
+- Added workspace deps: pgp = "0.20"; crate members += crates/hypernext-pgp. rand dev-dep pinned to 0.8 (pgp uses rand 0.8.7; rand 0.10 has incompatible rand_core 0.10 -> E0277).
+- Built crates/hypernext-pgp: src/lib.rs (doc-comment documents CRITICAL verify-before-extract invariant, ethics B-09), src/verify.rs (verify_clearsign, verify_detached, extract_clearsign_blocks, extract_signature_link, Verification enum), src/tofu.rs (TofuStore trait + apply_tofu), src/lookup.rs (resolve_key chain: embedded -> finger:// -> keys.openpgp.org, KeyLookup trait), src/error.rs (PgpError thiserror + From<PgpError> for HypernextError).
+- TDD: unit tests in verify.rs/tofu.rs/lookup.rs/error.rs (13) + integration tests tests/pgp_verify.rs (10) + tests/verify_before_extract.rs (2 boundary).
+- Acceptance covered: valid clearsign->Valid; tampered clearsign->Invalid; wrong key->Unverified; key rotation (apply_tofu first stores fp, second different key->KeyChanged, same key->Valid); inline HTML comment (Pouya Code) extracts+verifies; detached via link rel="signature" extracts href + fetches + verifies; no signature->NoSignature error.
+- BOUNDARY test (CRITICAL): verify_before_extract.rs uses a tracing Layer to capture `event` fields, asserts pgp.verify emitted before content.extract. Tampered-raw-bytes test asserts Invalid.
+- Store: added V0002__pgp_host_keys.sql (host -> fingerprint TOFU table, tofu_pgp_host_keys) since Phase-1 tofu_pgp_keys is fingerprint-keyed only. Updated store db.rs unit tests + tests/migrations.rs + hypernext-app startup.rs test count 1->2.
+- deny.toml: added bzip2-1.0.6 license (pgp->bzip2->libbz2-rs-sys) + [advisories].ignore RUSTSEC-2023-0071 (Marvin Attack on rsa; rsa pulled by pgp. Hypernext VERIFIES only, never signs/decrypts with RSA private key, so vulnerable path unreachable; rsa is unavoidable transitive dep of the only viable crate — sequoia forbidden).
+
+Stage Summary:
+- Chose pgp (rpgp) 0.20.0 over sequoia-openpgp (LGPL forbidden); MIT/Apache-2.0.
+- 25 tests green (13 unit + 10 integration + 2 boundary); cargo fmt --check clean; clippy -p hypernext-pgp -p hypernext-store --all-targets -- -D warnings clean; cargo test --workspace all green; cargo build --workspace green.
+- Full-workspace clippy -- -D warnings and cargo deny still FAIL, but ONLY in hypernext-protocol files (parallel p2-t1/p2-t4 agent's comrak/reqwest deps + gemini.rs fmt) — not my crates. My crates (pgp, store, app) pass clippy + fmt. bincode/yaml-rust/comrak/finl_unicode/fmt2io/webpki-root-certs deny failures are pre-existing from comrak.
+- No commits (orchestrator handles). Deviations: added V0002 store migration for host-key TOFU (phase doc implied reuse of Phase-1 table which lacks host column).
+
+---
+Task ID: p2-t3
+Agent: gem-implementer
+Task: Gemini adapter crates/hypernext-protocol/src/adapters/gemini.rs (reference adapter) — phase doc 3.4
+
+Work Log:
+- Read gemini-protocol 0.1.2 crate source (client.rs, tofu.rs, gemtext.rs, tls.rs) to confirm real API: Status enum (6 classes), Response{status,code,meta,body}, parse_response, gemtext::parse -> Vec<GemLine>. Crate's own tofu_connect uses a process-wide TofuStore; adapter instead drives the pinning handshake directly so pins live in the per-call FetchContext store (tofu_certs table), matching single-process ADR 0003.
+- Added HypernextError::TofuCertChanged(String) variant (code TOFU_CERT_CHANGED) to hypernext-core error.rs + code()/FromStr + tests.
+- Added workspace deps: rustls 0.23, tokio-rustls 0.26, sha2 0.10, rcgen 0.13 (dev), comrak 0.54. Protocol crate: rustls/tokio-rustls/sha2/comrak deps + dev-deps pretty_assertions/rcgen/tokio.
+- Built gemini.rs: GeminiAdapter implements Protocol. request() hoists Send+Sync fields out of ctx (store is !Sync) before awaits; runs FetchPolicy::check_url SSRF gate; wraps connect + exchange in tokio::select! against cancel. connect() does TOFU: lookup_pin from tofu_certs, pinning_connector (custom ServerCertVerifier recording leaf fingerprint+DER), pins first contact via store_pin (INSERT OR REPLACE). handle_response maps all 6 status classes: 1x->prompt paragraph, 2x->parse_body, 3x->final_url (Dispatcher follows), 4x/5x->Protocol error, 6x->Unauthorized. parse_body: text/gemini->gemtext_to_blocks, text/plain->paragraph, text/markdown->comrak walk_md, else Block::Raw. exchange_capped enforces max_response_size during read (crate's exchange reads to EOF unbounded).
+- Unit tests (10): all 6 status classes, gemtext fixture (pretty_assertions), relative link resolution, markdown->blocks, unknown mime->Raw, TOFU first-contact pin + matching, changed cert detection, size-limit policy wiring, fingerprint hex round-trip, timeout config.
+- Integration tests tests/gemini.rs (3): local TLS server via tokio-rustls + rcgen self-signed cert; Dispatcher::fetch returns expected PageDoc; re-fetch reuses TOFU pin; replacing server cert returns TofuCertChanged.
+- deny.toml: added BSD-2-Clause, Unicode-DFS-2016, MITNFA, CDLA-Permissive-2.0 licenses (comrak + transitive) + ignored RUSTSEC-2025-0141 (bincode) and RUSTSEC-2024-0320 (yaml-rust), both unmaintained advisories transitive via comrak->syntect, no security boundary.
+
+Stage Summary:
+- Gemini adapter complete: TOFU pinning in tofu_certs, all 6 status classes, gemtext/plain/markdown/raw body parsing, SSRF gate, cancellation, size cap.
+- 13 gemini tests green (10 unit + 3 integration). cargo test --workspace: 117 passed, 0 failed. cargo fmt --check clean. cargo deny check: advisories/bans/licenses/sources all ok.
+- Full-workspace clippy -- -D warnings still has warnings ONLY in parallel agents' files (dispatcher.rs test field-assignment, hypernext-testutil, hypernext-ui) — my gemini.rs, tests/gemini.rs, and hypernext-core error.rs are clippy-clean.
+- No commits (orchestrator handles). Deviations: (1) added TofuCertChanged error variant (acceptance criteria required it; not in original enum); (2) comrak pulls unmaintained bincode/yaml-rust + non-allowlisted licenses — deny.toml updated to allow permissive licenses + ignore the two unmaintained advisories (documented in-file).
