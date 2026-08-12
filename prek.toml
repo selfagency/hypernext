@@ -35,4 +35,10 @@ hooks = [
   # so local dev is never blocked. CI enforces them (tools installed there).
   { id = "cargo-audit", name = "cargo audit (RustSec CVEs)", language = "system", entry = "bash scripts/prek-cargo-audit.sh", pass_filenames = false },
   { id = "semgrep", name = "semgrep (Hypernext invariant rules)", language = "system", entry = "bash scripts/prek-semgrep.sh", pass_filenames = false },
+
+  # Markdown formatting — runs ONLY on changed .md files (types = markdown
+  # passes the staged .md paths as args). `rumdl fmt` rewrites in place; if a
+  # commit is rejected for formatting, run `rumdl fmt` / `prek run rumdl-fmt`
+  # to fix, then re-stage.
+  { id = "rumdl-fmt", name = "rumdl fmt (markdown)", language = "system", entry = "rumdl fmt", types = ["markdown"] },
 ]
