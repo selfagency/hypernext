@@ -259,3 +259,38 @@ Do NOT patch the 5 crates to edition 2021 to preserve 1.83 — that is upstream 
 - `PageDoc`/`Block`/`Metadata`: `crates/hypernext-core/src/types.rs`
 - ADR 0006 (direct deps), ADR 0008 (tokio), ADR 0009 (thiserror/anyhow)
 - Crate sources: `~/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/<crate>-<version>/`
+
+---
+
+## hypernext-http dependency audit (p3-t1 core)
+
+> Task: p3-t1 (Phase 3 Wave 1) — create `crates/hypernext-http` (FetchPolicy + client). Deps consumed: `reqwest`, `url`, `tokio`, `thiserror` (runtime); `wiremock` (dev).
+> Date: 2026-08-12.
+
+| Crate | Verdict | Notes |
+|---|---|---|
+| `reqwest` 0.13.4 | **Already approved** (crate-audit: 0.13.4, 2026-05-25, healthy) | Workspace dep, `default-features=false, features=["rustls"]`. Reused, no new feature flags added (kept `stream` off — HTTP/2 + streaming handled via `Response::chunk()`). Redirect: `redirect::Policy::custom` (reqwest 0.13 removed per-request redirect; Client-level policy set in `build_client`). |
+| `wiremock` 0.6 | **Dev-only, pre-declared** | Already in `[workspace.dependencies]` (orchestrator's pre-existing choice). Not in crate-audit.csv; MIT/Apache-2.0, LukeMathWalker, test-only (`[dev-dependencies]`), passes `cargo deny` (licenses ok). Documented here to close the audit gap. |
+| `url` / `tokio` / `thiserror` | **Already approved** | Workspace deps; `url` for parsing, `tokio` (ADR 0008), `thiserror` (ADR 0009). |
+
+**Outcome:** no NEW runtime dependency added beyond the already-approved workspace set; `wiremock` is a pre-declared dev dependency now first consumed. `cargo tree -p hypernext-http` shows only the standard reqwest tree (hyper/h2/tokio/bytes...) — already in Cargo.lock, no surprise transitive deps. `cargo deny check` passes (licenses/advisories/bans/sources all ok).
+
+
+---
+
+## hypernext-http dependency audit (p3-t2 extraction)
+
+> Task: p3-t2 (Phase 3 Wave 2) — `crates/hypernext-http/src/extract.rs` (HTML parsing + readability). New deps consumed: `legible`, `scraper`, `comrak`, `hypernext-core`, `hypernext-pgp` (runtime); `pgp`, `rand`, `smallvec` threaded for the PGP-order test.
+> Date: 2026-08-12.
+
+| Crate | Verdict | Notes |
+|---|---|---|
+| `legible` 0.5.1 | **Approved** (crate-audit: ✓, 2026-08-08 healthy) | Rust port of Readability.js. API is `legible::parse(&str, Option<&str base_url>, Option<Options>) -> Result<Article, legible::Error>` returning `Article { title, byline, site_name, published_time, content(html), markdown_content(commonmark), text_content, ... }`. **No `legible::extract` fn exists** — phase doc corrected (see phase-doc note). `Options.disable_json_ld` default false parses JSON-LD internally but does NOT expose it on `Article`, so JSON-LD is parsed from raw bytes separately. License: Apache-2.0 (allowlist-OK). |
+| `scraper` 0.27.0 | **Approved** (crate-audit: ✓, 2026-05-11 healthy; ISC) | Used for `Metadata` parsing (meta/OG/Twitter, `<link>`, JSON-LD, microformats h-card). Shares `html5ever 0.39` with legible — no extra html5ever tree. |
+| `comrak` 0.54.0 | **Already approved + workspace dep** | Reused (was workspace-pinned since Phase 1). Builds `Vec<Block>` by walking the CommonMark AST of `Article.markdown_content`. |
+| `hypernext-core` / `hypernext-pgp` | **Internal path deps** | Domain types (`Block`/`PageDoc`/`Metadata`/`DebugInfo`/`PgpInfo`) + `verify_clearsign`/`verify_detached`/`extract_clearsign_blocks`. No cycle: http -> core + pgp. |
+| `pgp` 0.20 (runtime, for `SignedPublicKey`) | **Already approved** (workspace dep since Phase 2) | `extract_doc` takes `&[SignedPublicKey]` to thread candidate keys into `verify_pgp`. |
+| ~~`microformats` 0.19~~ | **REJECTED — LGPL-3.0** | Phase doc suggested it; violates library-lookup-protocol license allowlist (no LGPL). Also drags a heavy `swc` HTML stack. Replaced with a `scraper`-based h-card/h-entry parse. |
+| `rand`/`smallvec` (dev) | **Dev-only** | Key generation + signing in the PGP-order integration test; `rand = "0.8"` must match rpgp's rand (0.10 incompatible). |
+
+**Outcome:** `legible` is the flagged R2 risk (fresh 0.5.1); phase doc's `legible::extract` call signature was wrong and has been corrected to `legible::parse`. `microformats` rejected on license grounds. `cargo tree -p hypernext-http` confirms a single `html5ever 0.39` shared by legible + scraper; `cargo deny check` passes (licenses/advisories/bans/sources ok).

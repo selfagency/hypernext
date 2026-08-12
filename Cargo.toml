@@ -9,6 +9,7 @@ members = [
     "crates/hypernext-testutil",
     "crates/hypernext-protocol",
     "crates/hypernext-pgp",
+    "crates/hypernext-http",
 ]
 
 [workspace.package]
@@ -87,6 +88,7 @@ titanite = "0.3.2"
 
 # Internal workspace crates (path deps for From-impl propagation)
 hypernext-core = { path = "crates/hypernext-core" }
+hypernext-http = { path = "crates/hypernext-http", version = "0.1.0" }
 hypernext-store = { path = "crates/hypernext-store" }
 hypernext-keychain = { path = "crates/hypernext-keychain" }
 
@@ -104,3 +106,11 @@ rcgen = "0.13"
 
 # Markdown parsing (text/markdown bodies)
 comrak = "0.54"
+
+# HTML readability extraction (p3-t2; legible v0.5.1 Rust Readability.js port)
+# API: legible::parse(&str, Option<&str>, Option<Options>) -> Result<Article, legible::Error>
+legible = "0.5"
+# HTML querying for metadata/microformats (ISC; shares html5ever 0.39 with legible)
+scraper = { version = "0.27", default-features = false }
+# Internal workspace crate (path dep for From-impl propagation)
+hypernext-pgp = { path = "crates/hypernext-pgp" }

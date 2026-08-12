@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Nested Frames Page</title>
+</head>
+<body>
+  <frameset cols="25%,75%">
+    <frame src="/nav.html" name="nav">
+    <frame src="/main.html" name="main">
+      <noframes>
+        <body>
+          <article>
+            <h1>Nested Frames Page</h1>
+            <p>Frames are not followed during extraction, but the reader should still surface the fallback article content present in the noframes element.</p>
+            <p>Modern pages rarely use frameset layout, yet the extractor must degrade gracefully when they appear.</p>
+          </article>
+        </body>
+      </noframes>
+    </frame>
+  </frameset>
+</body>
+</html>

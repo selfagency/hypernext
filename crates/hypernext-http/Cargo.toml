@@ -1,0 +1,49 @@
+[package]
+name = "hypernext-http"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "HTTP fetch policy + client core: SSRF defense, size limits, redirect policy"
+
+[dependencies]
+# HTTP client (SSRF defense, redirects, size limits)
+reqwest = { workspace = true }
+# URL parsing / validation
+url = { workspace = true }
+# Async runtime (ADR 0008)
+tokio = { workspace = true }
+# Errors (ADR 0009)
+thiserror = { workspace = true }
+
+# Domain model + error propagation (Block/PageDoc/Metadata/DebugInfo/PgpInfo)
+hypernext-core = { workspace = true }
+# PGP verification before extraction (Phase 2 crate; invariant #6)
+hypernext-pgp = { workspace = true }
+
+# HTML readability extraction (legible) + metadata querying (scraper)
+legible = { workspace = true }
+scraper = { workspace = true }
+# Markdown body -> HTML (comrak), then legible extract
+comrak = { workspace = true }
+
+# Metadata JSON-LD parsing + og/twitter values
+serde_json = { workspace = true }
+# PGP public-key type threaded through verify_pgp (rpgp; workspace-pinned + audited)
+pgp = { workspace = true }
+# Logging (pgp.verify / content.extract order events)
+tracing = { workspace = true }
+
+[dev-dependencies]
+# HTTP mock server for integration tests (90x redirects, size limits)
+wiremock = { workspace = true }
+# Async test harness
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+# PGP verify-before-extract order assertion (tracing hook) + general logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+# rpgp clearsign signing for the PGP-order integration test (pgp is a main dep for
+# SignedPublicKey; rand 0.8 matches pgp's rand, smallvec for key-builder helpers)
+rand = "0.8"
+smallvec = "1"

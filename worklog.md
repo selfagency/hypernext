@@ -759,3 +759,25 @@ Stage Summary:
 - 16 unit tests + 7 integration tests pass; full workspace 322 passed, exit 0.
 - cargo fmt --check clean; cargo clippy --workspace -- -D warnings clean; cargo deny check ok (advisories/bans/licenses/sources).
 - Scheme registered as "molerat" (matches spec + RECOGNIZED_SCHEMES). No commits (orchestrator handles). Prior attempt had produced zero code; this is the real implementation.
+
+---
+Task ID: p3-t2
+Agent: gem-implementer
+Task: hypernext-http extract.rs — HTML parsing + readability extraction pipeline (legible/comrak/scraper) + PGP-before-extract boundary
+
+Work Log:
+
+- Wrote crates/hypernext-http/src/extract.rs: `fetch_and_extract(url, client, policy)` + `extract_doc(url, final_url, bytes, content_type, keys, response)` (sync, testable) + content-type detect + block/metadata/debug build.
+- PGP-before-extract (invariant 6): `verify_pgp(bytes, keys)` runs on raw bytes BEFORE `extract_doc` emits `content.extract`. Requires a candidate key set (adapter p3-t7 supplies); production path (no key) records Unverified only. `Error::PgpInvalid` on invalid/tampered clearsign or detached sig.
+- Content routing: HTML/xhtml -> legible; markdown -> comrak::markdown_to_html -> legible; feed (Atom/RSS, incl. mislabeled text/html) -> feed::deferred Raw marker (feed-rs is Phase 1.1); text/plain -> preformatted Paragraph; image/video/audio/binary -> Block::Raw.
+- Blocks built by walking comrak AST of `legible::Article.markdown_content` (headings/para/list/quote/code/separator/table/image + inline bold/italic/code/link runs).
+- Metadata via scraper (meta/OG/Twitter, `<link canonical/icon>`, JSON-LD script, microformats h-card -> author).
+- 11 fixtures in tests/fixtures/http/ (>=10 gate: simple-article, article-with-ads, feed, markdown, empty-body, missing-metadata, microformats, json-ld, javascript-heavy, very-nested, nested-frames).
+- Unit tests (42 in extract.rs) + integration tests/pipeline.rs (6: wiremock round-trip, 5MB size limit, redirect final_url, PGP-order tracing hook, tampered->PgpInvalid, unsigned->no signature).
+- Phase doc corrected: `legible::extract` -> `legible::parse` (API mismatch, library-lookup step 5). `microformats` crate REJECTED (LGPL-3.0) -> scraper h-card. Article-with-ads: legible does not strip all ad divs (R2 gap) -> p3-t3 adblock owns aggressive stripping.
+
+Stage Summary:
+
+- Gates green: cargo test -p hypernext-http (42+5+6 = 53 passed), clippy -p hypernext-http --all-targets -- -D warnings clean, cargo fmt --check clean, cargo deny check ok (advisories/bans/licenses/sources). Crate line coverage ~88.8% (client 52/64, extract 405/453, policy 49/53).
+- Added deps: legible 0.5.1, scraper 0.27.0 (shared html5ever 0.39 with legible), pgp published as runtime dep for SignedPublicKey; microformats NOT added (LGPL). Dep audit appended to docs/references/protocol-crate-audit.md.
+- No commits (orchestrator handles git).

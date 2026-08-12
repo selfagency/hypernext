@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>JavaScript Heavy Page</title>
+</head>
+<body>
+  <div id="app"><!-- rendered client-side --></div>
+  <noscript>This page requires JavaScript to display its main content.</noscript>
+  <script>document.getElementById('app').innerHTML = '<article><p>This text only exists after JavaScript runs.</p></article>';</script>
+  <article>
+    <p>The statically served article text is what reader mode captures, since no JavaScript executes during extraction.</p>
+    <p>A second static paragraph provides additional extractable content for the reader.</p>
+  </article>
+</body>
+</html>
