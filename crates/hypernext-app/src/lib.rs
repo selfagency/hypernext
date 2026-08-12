@@ -9,6 +9,7 @@
 //! [`run`].
 
 pub mod logging;
+pub mod render;
 pub mod startup;
 
 use gtk::prelude::*;

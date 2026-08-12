@@ -44,6 +44,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-4-dev
+      - name: Install rumdl (markdown formatter for rumdl-fmt hook)
+        uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
+        with:
+          tool: rumdl
       - name: prek hooks (hygiene + fmt + clippy; test/deny/audit have dedicated jobs)
         uses: j178/prek-action@4e14d07f9231acabce116ccfca13b13dd9755ece # v3.0.0
         with:
@@ -107,8 +111,13 @@ jobs:
         uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
         with:
           tool: cargo-audit
+      # The three ignored advisories have no fixed upgrade and are indirect deps
+      # of crates we must keep: RUSTSEC-2023-0071 (rsa) via hypernext-pgp->pgp,
+      # RUSTSEC-2025-0141 (bincode) + RUSTSEC-2024-0320 (yaml-rust) via
+      # hypernext-protocol->comrak->syntect. They are also listed in
+      # deny.toml [advisories].ignore (see reasons there).
       - name: cargo audit --deny warnings
-        run: cargo audit --deny warnings
+        run: cargo audit --deny warnings --ignore RUSTSEC-2023-0071 --ignore RUSTSEC-2025-0141 --ignore RUSTSEC-2024-0320
 
   # Layer 3 — UB detection in unsafe code. 10-50x slow, so nightly + manual only.
   miri:

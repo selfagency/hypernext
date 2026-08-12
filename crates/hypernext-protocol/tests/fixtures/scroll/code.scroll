@@ -1,0 +1,9 @@
+# Code Sample
+
+```rust
+fn main() {
+    println!("hello scroll");
+}
+```
+
+Inline *strong* and _emphasis_ and `code`.

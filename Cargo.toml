@@ -7,6 +7,8 @@ members = [
     "crates/hypernext-store",
     "crates/hypernext-keychain",
     "crates/hypernext-testutil",
+    "crates/hypernext-protocol",
+    "crates/hypernext-pgp",
 ]
 
 [workspace.package]
@@ -19,6 +21,16 @@ authors = ["Hypernext maintainers"]
 [workspace.dependencies]
 # Async runtime (ADR 0008)
 tokio = { version = "1.53", features = ["full"] }
+
+# Async traits in trait objects (async-trait) + cancellation tokens (tokio-util)
+async-trait = "0.1"
+tokio-util = { version = "0.7", features = ["rt"] }
+
+# HTTP client (SSRF defense, redirects, size limits)
+# `rustls` feature enables HTTPS (WebFinger RFC 7033 and raw-mode HTTP);
+# default-features off + rustls keeps the TLS stack minimal and system-provider backed.
+# No `http2`: it would pull an h2 version not in the local registry index.
+reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
 
 # Storage (ADR 0004)
 # NOTE: rusqlite pinned to 0.39 (not 0.40) because refinery-core 0.9.2 caps
@@ -34,6 +46,10 @@ gtk4 = "0.9"
 
 # Keychain (ADR 0007)
 keyring = "4"
+
+# OpenPGP verification (rpgp; sequoia-openpgp rejected: LGPL, see p2-t7 spike in worklog)
+# rust-version 1.88 > MSRV 1.83; toolchain 1.97 resolves (same accepted pattern as smolnet crates)
+pgp = "0.20"
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
@@ -53,6 +69,22 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 # Filesystem locations (macOS data dir: ~/Library/Application Support)
 dirs = "6"
 
+# Smolnet protocol crates (ADR 0006) — direct crates.io deps, pinned, never vendored
+# 6 declare rust-version 1.88 (> Hypernext MSRV 1.83); toolchain 1.97 resolves, flag for CI
+# Note: guppy-protocol is the Molerat crate (guppy:// = Molerat protocol)
+gemini-protocol = "0.1.2"
+scroll-protocol = "0.1.0"
+text-protocol = "0.1.0"
+spartan-protocol = "0.1.1"
+nex-protocol = "0.1.1"
+gopher-protocol = "0.1.2"
+scorpion-protocol = "0.1.0"
+kepler-protocol = "0.1.0"
+guppy-protocol = "0.1.1"
+finger-protocol = "0.1.1"
+dict-protocol = "0.1.0"
+titanite = "0.3.2"
+
 # Internal workspace crates (path deps for From-impl propagation)
 hypernext-core = { path = "crates/hypernext-core" }
 hypernext-store = { path = "crates/hypernext-store" }
@@ -63,3 +95,12 @@ pretty_assertions = "1"
 rstest = "0.26"
 mockall = "0.15"
 wiremock = "0.6"
+
+# TLS (gemini adapter + integration test server)
+rustls = "0.23"
+tokio-rustls = "0.26"
+sha2 = "0.10"
+rcgen = "0.13"
+
+# Markdown parsing (text/markdown bodies)
+comrak = "0.54"

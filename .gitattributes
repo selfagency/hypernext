@@ -1,0 +1,6 @@
+# Protocol test fixtures that spartan-protocol parses byte-for-byte.
+# spartan-protocol's Response::parse STRICTLY requires \r\n line endings
+# ("status line has no CRLF" otherwise). Committing LF blobs made local
+# (CRLF checkout) pass while CI (LF checkout) failed. Pin eol=crlf so every
+# platform/runtime checks out CRLF and include_bytes! is deterministic.
+crates/hypernext-protocol/tests/fixtures/spartan/*.spartan text eol=crlf

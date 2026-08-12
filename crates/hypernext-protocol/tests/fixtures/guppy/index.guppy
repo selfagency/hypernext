@@ -1,0 +1,5 @@
+# Welcome to the Guppy Capsule
+
+This is a small smolweb page served over UDP.
+
+=> guppy://guppy.example.com/ A link to another page

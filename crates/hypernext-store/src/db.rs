@@ -108,7 +108,7 @@ mod tests {
                 row.get(0)
             })
             .expect("schema history should be queryable");
-        assert_eq!(count, 1, "exactly one migration should be recorded");
+        assert_eq!(count, 2, "two migrations should be recorded (V0001, V0002)");
     }
 
     #[test]
@@ -123,7 +123,7 @@ mod tests {
                 row.get(0)
             })
             .expect("queryable");
-        assert_eq!(count, 1);
+        assert_eq!(count, 2);
 
         // Re-open: no new migrations should be applied.
         let conn2 = open(&dir).expect("reopen should be a no-op");
@@ -132,7 +132,7 @@ mod tests {
                 row.get(0)
             })
             .expect("queryable");
-        assert_eq!(count2, 1, "reopen must not re-apply migrations");
+        assert_eq!(count2, 2, "reopen must not re-apply migrations");
 
         let _ = std::fs::remove_file(&dir);
     }

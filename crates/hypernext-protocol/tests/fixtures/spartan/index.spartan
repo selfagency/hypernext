@@ -1,0 +1,16 @@
+2 text/gemini
+# Welcome to the Spartan capsule
+
+This is a spartan page served over plaintext TCP.
+
+=> spartan://example.com/another Another page
+=> /about About us
+
+* one
+* two
+
+> a quote
+
+```rust
+fn main() {}
+```

@@ -1,0 +1,6 @@
+Hello, smolnet.
+
+This is a plain text document served over the Text Protocol.
+It has a couple of paragraphs and a link line below.
+
+=> text://textprotocol.org/license.txt rel=license CC0-1.0

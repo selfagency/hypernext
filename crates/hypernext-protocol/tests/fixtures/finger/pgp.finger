@@ -1,0 +1,8 @@
+Login: bob                 Name: Bob Signer
+Directory: /home/bob
+
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+
+mQENBFxExampleKeyHere
+=ABCD
+-----END PGP PUBLIC KEY BLOCK-----

@@ -1,0 +1,5 @@
+# About this site
+
+This is a gemtext document served over nex.
+
+=> /contact Contact

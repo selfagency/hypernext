@@ -1,0 +1,92 @@
+# Semgrep custom rules — Hypernext invariants (cross-cutting security).
+# Enforced in CI (semgrep job) and locally via prek (scripts/prek-semgrep.sh).
+# Every rule guards one of the Hypernext-Specific Invariants (AGENTS.md §8).
+rules:
+  - id: no-unwrap-in-production
+    pattern: $X.unwrap()
+    message: |
+      `.unwrap()` panics on error and violates the Hypernext invariant "no
+      unwrap() in library code — use ? with a proper error type (ADR 0009)".
+      Tests may use unwrap(); non-test code must propagate errors.
+    languages: [rust]
+    severity: WARNING
+    paths:
+      include:
+        - crates/
+      exclude:
+        - "**/*test*"
+        - "**/tests/**"
+        - "**/fixtures/**"
+        - "**/examples/**"
+
+  - id: no-expect-in-production
+    pattern: $X.expect(...)
+    message: |
+      `.expect(...)` panics and violates ADR 0009 (thiserror for libraries,
+      anyhow for app, errors propagated via ?). Allowed in tests only.
+    languages: [rust]
+    severity: WARNING
+    paths:
+      include:
+        - crates/
+      exclude:
+        - "**/*test*"
+        - "**/tests/**"
+        - "**/fixtures/**"
+        - "**/examples/**"
+
+  - id: no-format-sql
+    pattern: format!(...)
+    message: |
+      Building SQL with format! risks SQL injection. rusqlite must use
+      parameterized queries (parameterized SQL is a Hypernext security
+      invariant — AGENTS.md §9). Use rusqlite's `?n`/`@name` params.
+    languages: [rust]
+    severity: WARNING
+    paths:
+      include:
+        - crates/
+      exclude:
+        - "**/*test*"
+        - "**/tests/**"
+
+  - id: no-plaintext-secret
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $STORE.set_secret($KEY, $SECRET)
+          - pattern: |
+              $STORE.store_secret($KEY, $SECRET)
+    message: |
+      Secrets must live in the OS keychain only (ADR 0007 — keyring crate,
+      no plaintext fallback, no SQLite secret store). Any secret write outside
+      the keychain violates the Hypernext keychain-only invariant (§8 #2).
+    languages: [rust]
+    severity: ERROR
+    paths:
+      include:
+        - crates/
+      exclude:
+        - "**/*test*"
+        - "**/tests/**"
+
+  - id: no-webview-outside-raw-mode
+    patterns:
+      - pattern-either:
+          - pattern: webview = ...
+          - pattern: WebKitWebView::...
+          - pattern: $W.load_uri($URL)
+    message: |
+      Raw-mode webview is ONLY for raw-mode HTTP tabs (ADR 0001/0002, invariant
+      #10 — never introduce webviews anywhere else; the app shell is GTK4
+      native). This call must live inside the raw-mode module only.
+    languages: [rust]
+    severity: WARNING
+    paths:
+      include:
+        - crates/
+      exclude:
+        - "**/raw_mode/**"
+        - "**/raw-mode/**"
+        - "**/*test*"
+        - "**/tests/**"

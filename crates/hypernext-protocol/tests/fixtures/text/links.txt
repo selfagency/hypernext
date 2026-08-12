@@ -1,0 +1,5 @@
+Useful links
+
+=> text://example.org/a.txt First link
+=> text://example.org/b.txt rel=next Second link
+=> text://example.org/c.txt A label with = equals sign

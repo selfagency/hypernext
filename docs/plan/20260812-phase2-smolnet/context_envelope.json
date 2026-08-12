@@ -1,0 +1,105 @@
+{
+  "plan_id": "20260812-phase2-smolnet",
+  "objective": "Phase 2 Smolnet Protocol Adapters: Gemini, Gopher, Finger, Spartan, Nex, Text, Scroll, Molerat, Scorpion, Kepler, Titan, PGP verify, dispatcher, Block->GTK rendering",
+  "complexity": "HIGH",
+  "tech_stack": {
+    "language": "Rust 1.83+ (stable, MSRV enforced via CI)",
+    "ui": "Relm4 0.9 + GTK4 0.9 (native widgets, no webview)",
+    "async": "tokio 1.53 (exclusive, ADR 0008)",
+    "storage": "rusqlite 0.39 (bundled+modern_sqlite) + refinery 0.9 + sqlite-vec 0.1",
+    "keychain": "keyring 4 (OS keychain only, ADR 0007)",
+    "errors": "thiserror 2 (libraries) + anyhow 1 (app), ADR 0009",
+    "logging": "tracing 0.1 + tracing-subscriber 0.3 (env-filter, json)",
+    "serialization": "serde 1 + serde_json 1 + chrono 0.4 + uuid 1.24",
+    "protocol_crates": "12 direct deps (ADR 0006) from merely-made/smolweb: gemini-protocol 0.1.2, scroll-protocol 0.1.0, text-protocol 0.1.0, spartan-protocol 0.1.1, nex-protocol 0.1.1, gopher-protocol 0.1.2, guppy-protocol 0.1.1 (Guppy UDP), scorpion-protocol 0.1.0, kepler-protocol 0.1.0, finger-protocol, dict-protocol, titanite 0.3.2. Molerat first-party (no crate). misfin->4.0, fsp->3.0.",
+    "pgp": "pgp 0.20 + sequoia-openpgp 2.4 (alternatives)",
+    "tls": "rustls + tokio-rustls",
+    "testing": "cargo test (unit/integration) + wiremock + tokio::net::TcpListener mock servers; pretty_assertions, rstest, mockall"
+  },
+  "architecture_snapshot": {
+    "core_flow": "UI (Phase 4) -> Dispatcher::fetch(url) -> Protocol adapter -> PageDoc (normalized across all protocols)",
+    "protocol_trait": "Protocol: Send+Sync with scheme(), capabilities(), fetch(url, ctx) -> PageDoc, publish(url, payload, ctx) -> PublishResult (default Unsupported)",
+    "fetch_context": "FetchContext { http_client, cancel: CancellationToken, incognito, policy: FetchPolicy, keychain, store }",
+    "fetch_policy": "FetchPolicy { max_redirects, max_response_size, timeout, block_private_network (SSRF) }",
+    "dispatcher": "Dispatcher { protocols: HashMap<scheme, Vec<Route>> } with register() (scheme+optional path_prefix), fetch()/fetch_once() resolving by longest-path-prefix with prefix-less scheme-default fallback, normalize_address(). WebFinger owns https ONLY for /.well-known/; NO prefix-less http/https default (Phase 3 adds it; ordinary http(s) fetch returns UnknownScheme until then).",
+    "adapters": "Gemini, Gopher, Finger, Spartan, Nex, Text, Scroll, Molerat, Scorpion, Kepler (fetch), Titan (publish), WebFinger (building block)",
+    "pgp_boundary": "PGP verification runs on raw response bytes BEFORE any extraction/parsing/rendering (CRITICAL invariant)",
+    "titan_gate": "Protocol::publish NEVER called from navigation; only Titan upload dialog (Phase 4) calls it"
+  },
+  "phase_2_complete": true,
+  "phase_3_handoff": [
+    "h1: per-protocol fixture widget-tree render tests (unmet exit criterion 9; ADR defers to Phase 3)",
+    "h2: promote spike_textview (p2-t10) to production render path + wire link TextTag::activate to Dispatcher navigation",
+    "h3: register prefix-less http/https default adapter in Dispatcher::all() (currently UnknownScheme for all non-WebFinger http(s) fetches)",
+    "h4: add GtkTextTag CSS/theme for the promoted textview render path"
+  ],
+  "constraints": [
+    "Single-process Rust. No IPC, no bindings (ADR 0003)",
+    "Keychain-only secrets. No plaintext, no Base64 fallback (ADR 0007)",
+    "tokio exclusively. No async-std, no smol (ADR 0008)",
+    "thiserror for libraries, anyhow for app (ADR 0009)",
+    "No --no-verify ever (ADR 0010)",
+    "No webview anywhere except raw-mode HTTP tabs (ADR 0001, 0002)",
+    "No unwrap() in library code; unwrap() in tests acceptable",
+    "No magic values: use const for limits, timeouts",
+    "No SELECT *: explicit column lists in every SQL query",
+    "Every crate dependency must follow docs/references/library-lookup-protocol.md",
+    "TDD-first: Red (failing test) -> Green (minimal pass) -> Refactor",
+    "All checks must pass before commit: cargo fmt --check, cargo clippy --workspace -- -D warnings, cargo test --workspace, cargo deny check",
+    "PGP verification before extraction (CRITICAL invariant, ethics B-09)",
+    "Explicit confirmation for irreversible side effects (Titan upload, ethics B-09)",
+    "SSRF defense at HTTP layer: every outbound request through FetchPolicy::check_url"
+  ],
+  "conventions": [
+    "Conventional Commits: feat(phase-2):, fix(phase-2):, test(phase-2):, docs(phase-2):, chore(phase-2):, refactor(phase-2):, perf(phase-2):",
+    "Branch naming: feat/phase-2-<description>, fix/phase-2-<description>",
+    "Worklog: append to worklog.md (repo root) after every Task ID",
+    "Scripts saved to scripts/ before execution (no heredocs)",
+    "Co-authored commits: Co-Authored-By: <agent-name> <noreply@...>"
+  ],
+  "prior_decisions": [
+    "Relm4 + GTK4 over Dioxus/Iced/Tauri/Slint (ADR 0001)",
+    "Platform webviews via embedded widget; Servo deferred (ADR 0002)",
+    "Single-process Rust; no IPC (ADR 0003)",
+    "rusqlite + sqlite-vec + refinery migrations (ADR 0004)",
+    "Unit + integration + E2E layers, coverage gates (ADR 0005)",
+    "Direct crates.io deps for 10 smolnet protocol crates, pinned in lockfile (ADR 0006)",
+    "keyring crate; no plaintext fallback ever (ADR 0007)",
+    "tokio exclusively; no async-std mixing (ADR 0008)",
+    "thiserror for library errors, anyhow for app-level (ADR 0009)",
+    "Conventional commits, GitHub Actions matrix, no --no-verify (ADR 0010)"
+  ],
+  "research_digest": {
+    "key_risks": [
+      "R1: 0.1.0 protocol crates have fundamental API gaps (no TOFU, no cancellation) -> harden in 3.2; wrap in adapter or open upstream PR; drop protocol to 1.1 if unsalvageable",
+      "R2: Upstream 0.1.0 crate releases 0.2.0 with breaking changes mid-phase -> handle via dependency-update workflow",
+      "R3: Text selection across GTK widgets impossible without custom widget -> spike in 3.11; accept per-block selection for v1 if blocked",
+      "R4: Cross-protocol redirect handling edge cases (Gemini -> HTTP) -> documented in FetchPolicy; redirect chain records every hop in DebugInfo",
+      "R5: SSRF defense blocks legitimate URLs (localhost for testing) -> FetchPolicy::block_private_network configurable; tests use localhost with flag off"
+    ],
+    "must_read_refs": [
+      "Gemini spec: https://geminiprotocol.net/",
+      "Gopher RFC 1436: https://www.rfc-editor.org/rfc/rfc1436",
+      "Spartan: https://portal.mozest.com/protocol/spartan",
+      "Nex: https://nightfall.city/nex/",
+      "Text: https://textprotocol.org/",
+      "Scroll: https://scrollprotocol.com/",
+      "Molerat: https://github.com/jcs/molerat",
+      "Scorpion: https://github.com/jcs/scorpion",
+      "Titan: https://community.gemini-protocol.com/protocol/titan",
+      "Finger RFC 1288: https://www.rfc-editor.org/rfc/rfc1288",
+      "WebFinger RFC 7033: https://www.rfc-editor.org/rfc/rfc7033",
+      "pgp crate: https://docs.rs/pgp/latest/pgp/",
+      "sequoia-openpgp: https://docs.sequoia-pgp.org/",
+      "rustls: https://docs.rs/rustls/latest/rustls/",
+      "tokio-rustls: https://docs.rs/tokio-rustls/latest/tokio_rustls/",
+      "gtk4-rs widget reference: https://gtk-rs.org/gtk4-rs/stable/latest/docs/"
+    ]
+  },
+  "reuse_notes": [
+    "Original Bean (Wails) codebase is reference material only - no code carries over",
+    "Consult upstream Bean for prior art: internal/protocol/types.go, internal/protocol/dispatch.go, internal/protocol/gemini.go, internal/protocol/gopher.go, internal/pgp/verify.go",
+    "docs/references/smolnet-ethics.md ethical constraints still apply",
+    "Phase 1 delivered: hypernext-core (PageDoc, Block, Span, PgpInfo, DebugInfo), hypernext-store (tofu_certs, tofu_pgp_keys tables), hypernext-keychain, hypernext-protocol skeleton"
+  ]
+}

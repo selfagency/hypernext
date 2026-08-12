@@ -1,0 +1,3 @@
+  leading spaces preserved
+	tab indented line
+    four-space indent

@@ -10,8 +10,12 @@ exclude = { glob = [".codacy/**", ".opencode/**", "AGENTS.original.md"] }
 [[repos]]
 repo = "builtin"
 hooks = [
-  { id = "trailing-whitespace" },
-  { id = "end-of-file-fixer" },
+  # tests/fixtures/** is intentionally tab-terminated / no-final-newline
+  # (protocol wire formats: Molerat message:...\t<crlf>, gopher \t + "."
+  # terminator with no trailing newline). Exclude only the two byte-level
+  # hygiene hooks; the Rust gates and check-* hooks still cover them.
+  { id = "trailing-whitespace", exclude = "(^|/)tests/fixtures/" },
+  { id = "end-of-file-fixer", exclude = "(^|/)tests/fixtures/" },
   { id = "check-yaml" },
   { id = "check-toml" },
   { id = "check-json" },
@@ -29,4 +33,16 @@ hooks = [
   { id = "cargo-clippy", name = "cargo clippy -D warnings", language = "system", entry = "cargo clippy --workspace -- -D warnings", pass_filenames = false },
   { id = "cargo-test", name = "cargo test --workspace", language = "system", entry = "cargo test --workspace", pass_filenames = false },
   { id = "cargo-deny", name = "cargo deny check", language = "system", entry = "cargo deny check", pass_filenames = false },
+
+  # Static analysis layers (see docs/references/static-analysis.md).
+  # Both are resilient: if the tool is not installed locally they warn + pass,
+  # so local dev is never blocked. CI enforces them (tools installed there).
+  { id = "cargo-audit", name = "cargo audit (RustSec CVEs)", language = "system", entry = "bash scripts/prek-cargo-audit.sh", pass_filenames = false },
+  { id = "semgrep", name = "semgrep (Hypernext invariant rules)", language = "system", entry = "bash scripts/prek-semgrep.sh", pass_filenames = false },
+
+  # Markdown formatting — runs ONLY on changed .md files (types = markdown
+  # passes the staged .md paths as args). Resilient wrapper: warns + passes if
+  # rumdl is not installed locally (matching prek-semgrep.sh pattern); CI
+  # installs rumdl (taiki-e/install-action) and enforces.
+  { id = "rumdl-fmt", name = "rumdl fmt (markdown)", language = "system", entry = "bash scripts/prek-rumdl.sh", types = ["markdown"] },
 ]
