@@ -1,0 +1,20 @@
+# cargo-deny config (library-lookup-protocol.md approved licenses only)
+# Allow: MIT, Apache-2.0, MPL-2.0, BSD-3-Clause, ISC, Unicode-DFS-2016
+# Forbid: GPL, AGPL, LGPL (would force Hypernext to be GPL)
+
+[licenses]
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "MPL-2.0",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Unlicense",  # dual-licensed "Unlicense OR MIT"; MIT alternative is allowed
+    "Zlib",       # permissive OSI-approved; pulled by nanorand via flume->relm4
+    "Apache-2.0 WITH LLVM-exception",  # permissive, non-copyleft (target-lexicon, wasi)
+]
+private = { ignore = true }
+
+[bans]
+multiple-versions = "warn"

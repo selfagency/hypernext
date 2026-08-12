@@ -1,0 +1,56 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/hypernext-app",
+    "crates/hypernext-ui",
+    "crates/hypernext-core",
+    "crates/hypernext-store",
+    "crates/hypernext-keychain",
+    "crates/hypernext-testutil",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.83"
+license = "MIT"
+authors = ["Hypernext maintainers"]
+
+[workspace.dependencies]
+# Async runtime (ADR 0008)
+tokio = { version = "1.53", features = ["full"] }
+
+# Storage (ADR 0004)
+# NOTE: rusqlite pinned to 0.39 (not 0.40) because refinery-core 0.9.2 caps
+# rusqlite at "<=0.39" -- 0.40 would resolve a second rusqlite copy and break
+# the shared Connection type. Feature name is modern_sqlite (underscore).
+rusqlite = { version = "0.39", features = ["bundled", "modern_sqlite"] }
+refinery = { version = "0.9", features = ["rusqlite"] }
+sqlite-vec = "0.1"
+
+# UI (ADR 0001)
+relm4 = "0.9"
+gtk4 = "0.9"
+
+# Keychain (ADR 0007)
+keyring = "4"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.24", features = ["v4", "serde"] }
+
+# Errors (ADR 0009)
+anyhow = "1"
+thiserror = "2"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Testing (dev-deps)
+pretty_assertions = "1"
+rstest = "0.26"
+mockall = "0.15"
+wiremock = "0.6"
