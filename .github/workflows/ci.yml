@@ -44,6 +44,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-4-dev
+      - name: Install rumdl (markdown formatter for rumdl-fmt hook)
+        uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
+        with:
+          tool: rumdl
       - name: prek hooks (hygiene + fmt + clippy; test/deny/audit have dedicated jobs)
         uses: j178/prek-action@4e14d07f9231acabce116ccfca13b13dd9755ece # v3.0.0
         with:

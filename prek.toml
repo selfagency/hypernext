@@ -41,8 +41,8 @@ hooks = [
   { id = "semgrep", name = "semgrep (Hypernext invariant rules)", language = "system", entry = "bash scripts/prek-semgrep.sh", pass_filenames = false },
 
   # Markdown formatting — runs ONLY on changed .md files (types = markdown
-  # passes the staged .md paths as args). `rumdl fmt` rewrites in place; if a
-  # commit is rejected for formatting, run `rumdl fmt` / `prek run rumdl-fmt`
-  # to fix, then re-stage.
-  { id = "rumdl-fmt", name = "rumdl fmt (markdown)", language = "system", entry = "rumdl fmt", types = ["markdown"] },
+  # passes the staged .md paths as args). Resilient wrapper: warns + passes if
+  # rumdl is not installed locally (matching prek-semgrep.sh pattern); CI
+  # installs rumdl (taiki-e/install-action) and enforces.
+  { id = "rumdl-fmt", name = "rumdl fmt (markdown)", language = "system", entry = "bash scripts/prek-rumdl.sh", types = ["markdown"] },
 ]
