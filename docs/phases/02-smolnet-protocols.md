@@ -38,7 +38,7 @@ The single most important outcome of this phase: every protocol adapter returns 
                 ▼                ▼                ▼
         ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
         │   gemini     │ │    gopher    │ │    finger    │
-        │  (vendored)  │ │  (vendored)  │ │  (vendored)  │
+        │  (direct)   │ │  (direct)   │ │  (direct)   │
         └──────────────┘ └──────────────┘ └──────────────┘
                 ▲                ▲                ▲
                 │                │                │
@@ -58,13 +58,13 @@ The single most important outcome of this phase: every protocol adapter returns 
 
 ## 3. Sub-tasks
 
-### 3.1 Fork-vendor the 0.1.0 smolnet protocol crates (Week 1)
+### 3.1 Add the 0.1.0 smolnet protocol crates as direct dependencies (Week 1)
 
-Per the user's decision (see `docs/references/0006-fork-vendored-smolnet-crates.md`), the fresh 0.1.0 protocol crates (`gemini-protocol`, `scroll-protocol`, `text-protocol`, `spartan-protocol`, `nex-protocol`, `gopher-protocol`, `scorpion-protocol`, `kepler-protocol`, `guppy-protocol`, `titanite`) are fork-vendored into `crates-vendored/` so we control maintenance and can harden them in-plan.
+Per the user's decision (see `docs/references/0006-smolnet-protocol-crates.md`), the fresh 0.1.0 protocol crates (`gemini-protocol`, `scroll-protocol`, `text-protocol`, `spartan-protocol`, `nex-protocol`, `gopher-protocol`, `scorpion-protocol`, `kepler-protocol`, `guppy-protocol`, `titanite`) are used directly from crates.io, pinned in the workspace lockfile. We do not vendor them; upstream breaking changes are handled via the normal dependency-update workflow.
 
 **Action items:**
 
-- [ ] For each crate in the list below, clone the upstream repo (or download the crate tarball from crates.io) into `crates-vendored/<name>/`:
+- [ ] Add each crate to the root `Cargo.toml` `[workspace.dependencies]` block with a pinned version:
   - `gemini-protocol` v0.1.2 — https://crates.io/crates/gemini-protocol
   - `scroll-protocol` v0.1.0 — https://crates.io/crates/scroll-protocol
   - `text-protocol` v0.1.0 — https://crates.io/crates/text-protocol
@@ -75,28 +75,19 @@ Per the user's decision (see `docs/references/0006-fork-vendored-smolnet-crates.
   - `kepler-protocol` v0.1.0 — https://crates.io/crates/kepler-protocol
   - `guppy-protocol` v0.1.1 — https://crates.io/crates/guppy-protocol
   - `titanite` v0.3.2 — https://crates.io/crates/titanite (Titan — note this is more mature than the others)
-- [ ] Each vendored crate gets:
-  - A `LICENSE` file preserved from upstream
-  - A `README.md` noting "Fork-vendored from `<upstream-url>` at version `<x.y.z>` on 2026-08-XX; changes tracked in `HYPERNEXT_CHANGES.md`"
-  - A `HYPERNEXT_CHANGES.md` log of every modification we make (for upstream contribution later)
-- [ ] Add each vendored crate to the root `Cargo.toml` `[workspace] members`
-- [ ] Each vendored crate is renamed internally to `hypernext-<protocol>` to avoid crates.io collisions; e.g. `gemini-protocol` becomes `hypernext-gemini` in `crates-vendored/gemini-protocol/Cargo.toml`:
-  ```toml
-  [package]
-  name = "hypernext-gemini"
-  version = "0.1.2-hypernext.1"
-  ```
-- [ ] The upstream `0.1.2` version is preserved as a Git tag `vendor/gemini-protocol/0.1.2` before any modifications, so we can rebase on future upstream releases.
+- [ ] Run `cargo add` for each crate in the consuming crate (`hypernext-protocol`), pinning the version
+- [ ] Verify the lockfile pins the exact resolved versions (`cargo tree -p <crate>`)
+- [ ] Confirm no surprise transitive dependencies via `cargo tree`
 
 **TDD gate:**
 
-- Each vendored crate builds with `cargo build -p hypernext-gemini` etc.
-- Each vendored crate's existing tests (if any) pass with `cargo test -p hypernext-gemini`
-- A `cargo metadata --format-version=1` shows all 10 vendored crates as workspace members
+- Each crate resolves and builds with `cargo build -p hypernext-protocol`
+- `cargo metadata --format-version=1` shows all 10 crates as dependencies of `hypernext-protocol`
+- `cargo tree -p hypernext-protocol` lists all 10 crates at their pinned versions
 
-### 3.2 Harden each vendored crate (Weeks 1-4, in parallel with 3.3-3.6)
+### 3.2 Harden each protocol adapter (Weeks 1-4, in parallel with 3.3-3.6)
 
-Each vendored crate is 0.1.0 — fresh, possibly incomplete. We harden each one to production-grade:
+Each direct dependency is 0.1.0 — fresh, possibly incomplete. We harden our adapters around them to production-grade:
 
 **For each crate, do the following (track per-crate progress in `worklog.md`):**
 
@@ -112,8 +103,8 @@ Each vendored crate is 0.1.0 — fresh, possibly incomplete. We harden each one 
    - Fixture files in `tests/fixtures/` — real captured responses for happy path, malformed, edge cases
    - Coverage ≥70% line
 4. **Add doc comments** to every public API. Doc tests (`cargo test --doc`) must pass.
-5. **Document deviations** from the spec in `HYPERNEXT_CHANGES.md`. Any deviation must have a written rationale.
-6. **Bump the version** to `0.1.2-hypernext.1` (or similar) to indicate the fork.
+5. **Document deviations** from the spec in `worklog.md`. Any deviation must have a written rationale.
+6. **If the crate is missing a capability** (TOFU, cancellation, custom TLS config), open an upstream PR or wrap it in our adapter — do not fork the crate preemptively.
 
 **Per-protocol notes:**
 
@@ -134,7 +125,7 @@ Each vendored crate is 0.1.0 — fresh, possibly incomplete. We harden each one 
 
 ### 3.3 The `Protocol` trait and dispatcher (Week 2)
 
-Define the protocol trait in `hypernext-protocol`. Every adapter (vendored or first-party) implements it.
+Define the protocol trait in `hypernext-protocol`. Every adapter (direct dependency or first-party) implements it.
 
 **References to consult before writing code:**
 
@@ -229,14 +220,14 @@ Unit tests (`crates/hypernext-protocol/src/dispatcher.rs::tests`):
 - Gemini spec: https://geminiprotocol.net/ — read all sections
 - Gemini certificate TOFU: https://geminiprotocol.net/docs/protocol-documentation%20draft%20-%20Appendix%201.gmi
 - gemtext format: https://geminiprotocol.net/docs/gemtext.gmi
-- The vendored `hypernext-gemini` crate API (after hardening)
+- The `gemini-protocol` crate API (see docs.rs for the pinned version)
 - rustls docs (for TLS): https://docs.rs/rustls/latest/rustls/
 - tokio-rustls: https://docs.rs/tokio-rustls/latest/tokio_rustls/
 
 **Implementation:**
 
 - [ ] In `crates/hypernext-protocol/src/adapters/gemini.rs`:
-  - Wrap `hypernext-gemini::Client` (the vendored crate's public API)
+  - Wrap `gemini-protocol::Client` (the crate's public API)
   - Implement `Protocol::fetch` for `GeminiAdapter`
   - TOFU: on first TLS handshake, store the cert SHA-256 in `tofu_certs` table; on subsequent handshakes, compare and return `Error::TofuCertChanged` if mismatched
   - Status code handling: 1x input (return `PageDoc` with a prompt), 2x success, 3x redirect (follow up to max_redirects), 4x temporary failure, 5x permanent failure, 6x client cert required
@@ -272,11 +263,11 @@ Each of these is structurally similar: a TCP connection (some with TLS), a reque
 - Scroll: https://scrollprotocol.com/
 - Molerat: https://github.com/jcs/molerat (read README + spec)
 - Scorpion: https://github.com/jcs/scorpion (read README + spec)
-- Kepler: read the `hypernext-kepler` crate's README (no public spec URL found in audit; upstream README is authoritative)
+- Kepler: read the `kepler-protocol` crate's README (no public spec URL found in audit; upstream README is authoritative)
 
 **Implementation pattern (per adapter):**
 
-1. Read the vendored crate's API
+1. Read the crate's API
 2. Wrap it in a `Protocol::fetch` implementation in `crates/hypernext-protocol/src/adapters/<name>.rs`
 3. Convert the protocol's native response format to `Vec<Block>`:
    - Gopher menu → `Vec<Block::Link>`
@@ -302,7 +293,7 @@ Titan is the upload counterpart to Gemini — same TLS, same TOFU, but writes in
 **References to consult:**
 
 - Titan spec: https://community.gemini-protocol.com/protocol/titan
-- The vendored `titanite` crate (more mature than the other 0.1.0 crates)
+- The `titanite` crate (more mature than the other 0.1.0 crates)
 
 **Implementation:**
 
@@ -337,7 +328,7 @@ Integration tests:
 
 - RFC 1288 (Finger): https://www.rfc-editor.org/rfc/rfc1288
 - RFC 7033 (WebFinger): https://www.rfc-editor.org/rfc/rfc7033
-- The vendored crate (none — implement first-party; no good crate exists in audit)
+- The crate (none — implement first-party; no good crate exists in audit)
 
 **Implementation:**
 
@@ -506,9 +497,9 @@ HTML's selection model is global — you can drag-select across `<h1>`, `<p>`, `
 
 All of these must be true before Phase 3 starts:
 
-- [ ] All 10 fork-vendored crates compile and pass their own tests under `cargo test -p hypernext-<protocol>`
-- [ ] All 10 vendored crates have ≥70% line coverage (verified by `cargo tarpaulin -p hypernext-<protocol>`)
-- [ ] Each vendored crate has a `HYPERNEXT_CHANGES.md` log
+- [ ] All 10 protocol crates resolve and build as direct dependencies of `hypernext-protocol` (`cargo build -p hypernext-protocol`)
+- [ ] All 10 protocol adapters have ≥70% line coverage (verified by `cargo tarpaulin -p hypernext-protocol`)
+- [ ] Each protocol adapter's deviations from upstream spec are documented in `worklog.md`
 - [ ] `hypernext-protocol` crate's `Dispatcher::fetch` works for every registered protocol against local mock servers
 - [ ] PGP verification works for: clearsign valid, clearsign tampered, detached signature, inline HTML comment signature, key rotation
 - [ ] Titan upload respects the explicit-confirmation gate (verified by a test that asserts `publish` cannot be called from `fetch`)
@@ -526,11 +517,11 @@ All of these must be true before Phase 3 starts:
 
 | # | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|---|
-| R1 | A vendored 0.1.0 crate has fundamental API gaps (e.g. no TOFU support, no cancellation) | High | Medium | Hardening in §3.2 catches this in week 1-2. If a crate is unsalvageable, fork-vendor it more aggressively (rewrite parts) or drop the protocol from 1.0 and ship in 1.1. |
+| R1 | A 0.1.0 protocol crate has fundamental API gaps (e.g. no TOFU support, no cancellation) | High | Medium | Hardening in §3.2 catches this in week 1-2. If a crate is unsalvageable, wrap it in our adapter, open an upstream PR, or drop the protocol from 1.0 and ship in 1.1. |
 | R2 | The `pgp` crate's API is hard to use for the verification boundary (verify-before-extract) | Medium | High | Use `sequoia-openpgp` as alternative; spike in week 6 to confirm API fit |
 | R3 | Text selection across GTK widgets is impossible without a custom widget | High | Medium | Spike in week 8; if blocked, accept per-block selection for 1.0 and document the gap |
 | R4 | Cross-protocol redirect handling has edge cases (e.g. Gemini → HTTP) | Medium | Medium | Documented in `FetchPolicy`; redirect chain records every hop in `DebugInfo` |
-| R5 | An upstream 0.1.0 protocol crate releases 0.2.0 with breaking changes mid-phase | Low | Low | We fork-vendored; upstream changes are advisory, not auto-applied |
+| R5 | An upstream 0.1.0 protocol crate releases 0.2.0 with breaking changes mid-phase | Low | Low | We depend directly; handle via the normal dependency-update workflow (bump version, fix breakage, commit) |
 | R6 | SSRF defense blocks legitimate URLs (e.g. localhost for testing) | Medium | Low | `FetchPolicy::block_private_network` is configurable; tests use `localhost` with the flag off |
 
 ---
@@ -547,7 +538,7 @@ All of these must be true before Phase 3 starts:
 - Scroll: https://scrollprotocol.com/
 - Molerat: https://github.com/jcs/molerat
 - Scorpion: https://github.com/jcs/scorpion
-- Kepler: see vendored crate's README
+- Kepler: see the `kepler-protocol` crate's README
 - Titan: https://community.gemini-protocol.com/protocol/titan
 - Finger: https://www.rfc-editor.org/rfc/rfc1288
 - WebFinger: https://www.rfc-editor.org/rfc/rfc7033
@@ -588,14 +579,14 @@ All of these must be true before Phase 3 starts:
 **Before writing any code in Phase 2, you must:**
 
 1. Read the spec for the protocol you're implementing. Every protocol has a public spec (URLs in §6.1). Do NOT assume you know the protocol from training data — specs evolve.
-2. Read the vendored crate's source code in `crates-vendored/<protocol>-protocol/`. Understand what it already does before wrapping it.
+2. Read the crate's source code (from the pinned version in the lockfile, e.g. `~/.cargo/registry/src/` or the docs.rs source view). Understand what it already does before wrapping it.
 3. Read `hypernext-core::Block` and `PageDoc` definitions (from Phase 1) so you know what shape to produce.
 4. Read `hypernext-protocol::Protocol` trait (from §3.3 above).
-5. Read `docs/references/0006-fork-vendored-smolnet-crates.md` to understand the fork-vendor policy.
+5. Read `docs/references/0006-smolnet-protocol-crates.md` to understand the direct-dependency policy.
 
 **While writing code:**
 
-1. **Spec compliance is the test.** If the vendored crate does X but the spec says Y, the spec wins. Document the deviation in the crate's `HYPERNEXT_CHANGES.md` and consider upstreaming the fix.
+1. **Spec compliance is the test.** If the crate does X but the spec says Y, the spec wins. Document the deviation in `worklog.md` and consider upstreaming the fix.
 2. **Every fixture is real.** Don't synthesize a fixture; capture one from a live server (with permission — use `geminiprotocol.net` for Gemini fixtures, etc.). Fixtures are how we catch spec drift.
 3. **PGP verification runs before extraction.** This is invariant. If you find yourself calling `extract()` before `verify()`, STOP. You have a bug.
 4. **Titan upload is never called from navigation.** If you find `publish()` reachable from `fetch()`, STOP. You have a bug.
@@ -604,7 +595,7 @@ All of these must be true before Phase 3 starts:
 
 **After writing code:**
 
-1. Run `cargo test -p hypernext-<protocol>` and `cargo test -p hypernext-protocol`.
+1. Run `cargo test -p hypernext-protocol` (and the specific adapter's tests).
 2. Both must be green before committing.
 3. Update `worklog.md` with the Task ID and what you did.
 4. Use Conventional Commits: `feat(phase-2): implement Gemini adapter`, `test(phase-2): add TOFU cert rotation test`, `docs(phase-2): document PGP verification boundary`.
@@ -612,4 +603,4 @@ All of these must be true before Phase 3 starts:
 **If a protocol is harder than expected:**
 
 1. Don't push through. Document the blocker in `worklog.md` under `## Open questions`.
-2. If the blocker is fundamental (e.g. the spec is ambiguous, the vendored crate is broken), propose dropping the protocol from 1.0 and shipping it in 1.1. The plan supports this — better a smaller 1.0 than a stuck one.
+2. If the blocker is fundamental (e.g. the spec is ambiguous, the crate is broken), propose dropping the protocol from 1.0 and shipping it in 1.1. The plan supports this — better a smaller 1.0 than a stuck one.

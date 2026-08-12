@@ -191,7 +191,7 @@ The following ADRs live in `docs/references/` and must be read before writing an
 | `0003-authority-model.md` | Single-process Rust; no IPC, no bindings | Accepted |
 | `0004-storage-strategy.md` | rusqlite + sqlite-vec + refinery migrations | Accepted |
 | `0005-tdd-discipline.md` | Unit + integration + E2E layers, coverage gates | Accepted |
-| `0006-fork-vendored-smolnet-crates.md` | Fork-vendor the 0.1.0 protocol crates into `crates/` | Accepted |
+| `0006-smolnet-protocol-crates.md` | Direct crates.io deps for the 0.1.0 protocol crates, pinned in lockfile | Accepted |
 | `0007-keychain-only-secrets.md` | `keyring` crate; no plaintext fallback ever | Accepted |
 | `0008-async-runtime.md` | tokio exclusively; no async-std mixing | Accepted |
 | `0009-error-propagation.md` | `thiserror` for library errors, `anyhow` for app-level | Accepted |
@@ -239,7 +239,7 @@ To prevent scope creep, these are explicitly out of scope for Hypernext in any r
 4. Read every "References to consult before writing code" entry in that phase.
 5. If a library API doesn't match what the phase doc says, STOP and update the phase doc.
 6. Read `docs/references/crate-audit.md` to verify crate health before adding any dependency.
-7. Append your work to `/home/z/my-project/worklog.md` (Task ID + Agent + Work Log + Stage Summary, per the project rules).
+7. Append your work to `worklog.md` (repo root) (Task ID + Agent + Work Log + Stage Summary, per the project rules).
 
 **If you're a human reviewing:**
 1. Start here.
@@ -281,7 +281,7 @@ To prevent scope creep, these are explicitly out of scope for Hypernext in any r
 - `docs/references/0003-authority-model.md`
 - `docs/references/0004-storage-strategy.md`
 - `docs/references/0005-tdd-discipline.md`
-- `docs/references/0006-fork-vendored-smolnet-crates.md`
+- `docs/references/0006-smolnet-protocol-crates.md`
 - `docs/references/0007-keychain-only-secrets.md`
 - `docs/references/0008-async-runtime.md`
 - `docs/references/0009-error-propagation.md`

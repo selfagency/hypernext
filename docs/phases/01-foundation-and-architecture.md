@@ -36,7 +36,6 @@ hypernext/
 │   ├── hypernext-webmode/              # Raw-mode webview widget wrapper (Phase 3)
 │   ├── hypernext-indieauth/            # IndieAuth client (Phase 4)
 │   └── hypernext-testutil/             # shared test fixtures, mock servers
-├── crates-vendored/                    # fork-vendored smolnet protocol crates (Phase 2)
 ├── e2e/                                # Playwright E2E tests (separate package)
 ├── docs/                               # this plan
 ├── scripts/                            # CI/release helper scripts

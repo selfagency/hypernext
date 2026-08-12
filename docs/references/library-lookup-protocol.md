@@ -17,7 +17,7 @@ Before adding any `use` statement for an external crate, follow these steps in o
 Visit https://crates.io/crates/<name>. Check:
 
 - **Latest version released within the last 12 months.** If >18 months stale, the crate is likely abandoned — search for alternatives.
-- **Recent downloads > 100.** A signal of active use. (The smolnet protocol crates we fork-vendor are an exception — see `0006-fork-vendored-smolnet-crates.md`.)
+- **Recent downloads > 100.** A signal of active use. (The smolnet protocol crates we depend on directly are an exception — see `0006-smolnet-protocol-crates.md`.)
 - **Repository link works** (not a 404). The repo is where you'll read the CHANGELOG and recent issues.
 - **License is compatible.** Allow: `MIT`, `Apache-2.0`, `MPL-2.0`, `BSD-3-Clause`, `ISC`, `Unicode-DFS-2016`. Forbid: `GPL`, `AGPL`, `LGPL` (would force Hypernext to be GPL).
 - **MSRV ≤ Hypernext's MSRV.** Hypernext targets Rust 1.83+. If the crate requires 1.90+, it's too bleeding-edge for us.
@@ -154,7 +154,7 @@ The full audit results are in `crate-audit.md`. Highlights:
 
 - **Missing:** rpgp (the actual crate is `pgp`), vt10x (the actual crate is `vte` or `alacritty_terminal`)
 
-- **Fork-vendored (per `0006-fork-vendored-smolnet-crates.md`):** gemini-protocol, scroll-protocol, text-protocol, spartan-protocol, nex-protocol, gopher-protocol, scorpion-protocol, kepler-protocol, guppy-protocol, titanite
+- **Direct dependencies (per `0006-smolnet-protocol-crates.md`):** gemini-protocol, scroll-protocol, text-protocol, spartan-protocol, nex-protocol, gopher-protocol, scorpion-protocol, kepler-protocol, guppy-protocol, titanite
 
 - **XMPP (verified mid-plan):** The `xmpp` crate (v0.7.0, 2026-06-11, MPL-2.0) at https://xmpp.rs/ is the production-grade XMPP library — it was missed in the initial audit which only checked the abandoned `xmpp-core`/`xmpp-im` crates from 2017. Use `xmpp` v0.7.0 for the 2.0 Conversation release.
 

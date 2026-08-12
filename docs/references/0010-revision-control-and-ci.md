@@ -80,7 +80,7 @@ The hook is **non-bypassable except by editing the script**. Documented in `CONT
 
 ### Worklog protocol
 
-Every task (Phase 1 sub-task, Phase 2 adapter, etc.) has a Task ID. AI agents append to `/home/z/my-project/worklog.md`:
+Every task (Phase 1 sub-task, Phase 2 adapter, etc.) has a Task ID. AI agents append to `worklog.md` (repo root):
 
 ```markdown
 ---
@@ -90,7 +90,7 @@ Task: Implement Gemini adapter with TOFU cert pinning
 
 Work Log:
 - Read gemini-protocol spec at https://geminiprotocol.net/
-- Read hypernext-gemini crate API at crates-vendored/gemini-protocol/src/lib.rs
+- Read gemini-protocol crate API at https://docs.rs/gemini-protocol/latest/gemini_protocol/
 - Wrote failing unit tests for status code parsing (10 cases)
 - Implemented GeminiAdapter::fetch
 - Tests pass with 85% coverage
