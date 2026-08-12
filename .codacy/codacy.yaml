@@ -6,3 +6,4 @@ tools:
     - trivy@0.69.3
 exclude_paths:
     - "**/*.md"
+    - "*.md"
