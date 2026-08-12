@@ -31,6 +31,7 @@ real API; the phase doc's `AppWidgets` wording is a shorthand, not literal.
 ## Gotchas
 
 ### 1. GTK system library must exist for the build to even start (R1)
+
 - The gtk-rs `*-sys` build scripts call `pkg-config` for `gtk4 >= 4.6`.
 - If absent, `cargo check` fails at `gdk4-sys` with:
   `The system library gtk4 required by crate gdk4-sys was not found`.
@@ -40,6 +41,7 @@ real API; the phase doc's `AppWidgets` wording is a shorthand, not literal.
   valid fix for a real app; it only skips detection.
 
 ### 2. `connect_close_request` handler must return `glib::Propagation`
+
 - `close-request` is a `SignalHandler` returning `glib::Propagation`.
 - `Propagation::Proceed` lets the close proceed; `Propagation::Stop` cancels it.
 - Gotcha: `gtk::Inhibit` does NOT exist in gtk4 0.9.7 (it was the gtk3/older
@@ -50,33 +52,39 @@ real API; the phase doc's `AppWidgets` wording is a shorthand, not literal.
   `app.quit()` needed for the simple case.
 
 ### 3. `SimpleComponent` vs `Component`
+
 - For a single top-level window with no sub-components, `SimpleComponent` is
   the right trait (`#[relm4::component]` on an `impl SimpleComponent`).
 - Use `Component` only when the window hosts child components (e.g. t8 with a
   sidebar/panes).
 
 ### 4. `set_title: Some("...")` takes an `Option<&str>`
+
 - In `view!`, `set_title: Some("Hypernext")` (note the `Some`). Omitting it
   leaves the title unset.
 - `set_default_size` takes a tuple `(1024, 768)`.
 
 ### 5. `#[watch]` attribute on properties
+
 - Needed to bind a model field to a widget property reactively:
   `set_label: &format!("Count: {}", model.counter)` requires `#[watch]` above
   the property inside `view!`. Not needed for the empty t0 model.
 
 ### 6. Compile times are long on first build
+
 - First `cargo build` pulls the full gtk-rs stack (gtk4-sys, gdk4-sys,
   gsk4-sys, pango, glib, cairo, ...). Subsequent builds are incremental.
 - Use `cargo build -p hypernext-app` to limit to the affected crate.
 
 ## Open questions / follow-ups
+
 - gvsbuild end-to-end bundle not yet exercised (t0 used Homebrew GTK). Validate
   Option B in t8 before release; measure final `.app` size vs the ~100MB risk
   gate (R1).
 - Signing/notarization workflow for the bundled `.app` is TBD (release gate).
 
 ## References
-- Relm4 docs: https://relm4.org/docs/stable/
-- Relm4 book: https://relm4.org/book/stable/
-- gtk-rs book: https://gtk-rs.org/gtk4-rs/stable/latest/book/
+
+- Relm4 docs: <https://relm4.org/docs/stable/>
+- Relm4 book: <https://relm4.org/book/stable/>
+- gtk-rs book: <https://gtk-rs.org/gtk4-rs/stable/latest/book/>

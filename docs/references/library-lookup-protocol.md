@@ -14,7 +14,7 @@ Before adding any `use` statement for an external crate, follow these steps in o
 
 ### 1. Verify the crate exists and is healthy
 
-Visit https://crates.io/crates/<name>. Check:
+Visit <https://crates.io/crates/><name>. Check:
 
 - **Latest version released within the last 12 months.** If >18 months stale, the crate is likely abandoned — search for alternatives.
 - **Recent downloads > 100.** A signal of active use. (The smolnet protocol crates we depend on directly are an exception — see `0006-smolnet-protocol-crates.md`.)
@@ -23,13 +23,14 @@ Visit https://crates.io/crates/<name>. Check:
 - **MSRV ≤ Hypernext's MSRV.** Hypernext targets Rust 1.83+. If the crate requires 1.90+, it's too bleeding-edge for us.
 
 If the crate is stale, abandoned, or license-incompatible:
-- Search for alternatives: https://crates.io/search?q=<topic>
+
+- Search for alternatives: <https://crates.io/search?q=><topic>
 - If no alternative exists, document the risk in `worklog.md` under `## Open questions` and consult with the maintainer before depending on it
 - Do NOT silently depend on the abandoned crate
 
 ### 2. Read the API documentation
 
-Visit https://docs.rs/<crate>/<version>/<crate>/index.html. Read in this order:
+Visit <https://docs.rs/><crate>/<version>/<crate>/index.html. Read in this order:
 
 1. **Module-level docs** (the `//!` at the top of `lib.rs`) — gives the mental model
 2. **The main entry point** — the type or function you'll use first (usually a `Client`, `Engine`, or top-level function)
@@ -89,33 +90,35 @@ This is non-negotiable. Silent API drift is what made the Wails version's docs u
 
 ### Example 1: Adding `feed-rs` for RSS/Atom parsing
 
-1. **Verify:** Visit https://crates.io/crates/feed-rs
+1. **Verify:** Visit <https://crates.io/crates/feed-rs>
    - Latest: v2.4.0 (2026-07-07) ✓
    - Total downloads: ~2M ✓
    - Recent downloads: ~688K ✓
    - License: MIT ✓
    - MSRV: not specified (assume compatible)
-   - Repo: https://github.com/feed-rs/feed-rs ✓
+   - Repo: <https://github.com/feed-rs/feed-rs> ✓
 
-2. **Read docs:** Visit https://docs.rs/feed-rs/2.4.0/feed_rs/
+2. **Read docs:** Visit <https://docs.rs/feed-rs/2.4.0/feed_rs/>
    - Module-level docs explain the parser model
    - Main entry: `feed_rs::parser::parse(Parser)` or `feed_rs::parser::parse_url(...)`
    - Read both; we'll use `parse_url` since we have a URL
 
-3. **Read CHANGELOG:** Visit https://github.com/feed-rs/feed-rs/blob/main/CHANGELOG.md
+3. **Read CHANGELOG:** Visit <https://github.com/feed-rs/feed-rs/blob/main/CHANGELOG.md>
    - v2.4.0 added improved JSON Feed parsing
    - No breaking changes since v2.0
    - Our pinned v2.4 is the latest
 
 4. **Pin:** Add to workspace `Cargo.toml`:
+
    ```toml
    feed-rs = "2.4"
    ```
 
 5. **Implement:** In `hypernext-protocol/src/adapters/feed.rs` (Phase 1.1):
+
    ```rust
    use feed_rs::parser;
-   
+
    pub async fn fetch_feed(url: &Url, client: &reqwest::Client) -> Result<PageDoc, Error> {
        let response = client.get(url.as_str()).send().await?.bytes().await?;
        let feed = parser::parse(&response[..]).map_err(|e| Error::FeedParse(e.to_string()))?;
@@ -128,7 +131,7 @@ This is non-negotiable. Silent API drift is what made the Wails version's docs u
 
 ### Example 2: Encountering an unexpected API
 
-You're implementing SSH and read in the Phase 3.0 doc that `russh` v0.62 has a `Session::connect(url, config)` method. You visit https://docs.rs/russh/0.62.6/russh/ and find the API is actually `Session::connect(config, host, port)` — the arguments are different.
+You're implementing SSH and read in the Phase 3.0 doc that `russh` v0.62 has a `Session::connect(url, config)` method. You visit <https://docs.rs/russh/0.62.6/russh/> and find the API is actually `Session::connect(config, host, port)` — the arguments are different.
 
 1. STOP writing SSH code.
 2. Open `docs/phases/3.0-workshop.md` (to be written).
@@ -156,11 +159,11 @@ The full audit results are in `crate-audit.md`. Highlights:
 
 - **Direct dependencies (per `0006-smolnet-protocol-crates.md`):** gemini-protocol, scroll-protocol, text-protocol, spartan-protocol, nex-protocol, gopher-protocol, scorpion-protocol, kepler-protocol, guppy-protocol, titanite
 
-- **XMPP (verified mid-plan):** The `xmpp` crate (v0.7.0, 2026-06-11, MPL-2.0) at https://xmpp.rs/ is the production-grade XMPP library — it was missed in the initial audit which only checked the abandoned `xmpp-core`/`xmpp-im` crates from 2017. Use `xmpp` v0.7.0 for the 2.0 Conversation release.
+- **XMPP (verified mid-plan):** The `xmpp` crate (v0.7.0, 2026-06-11, MPL-2.0) at <https://xmpp.rs/> is the production-grade XMPP library — it was missed in the initial audit which only checked the abandoned `xmpp-core`/`xmpp-im` crates from 2017. Use `xmpp` v0.7.0 for the 2.0 Conversation release.
 
 ## References
 
-- crates.io: https://crates.io/
-- docs.rs: https://docs.rs/
-- The Rust API Guidelines: https://rust-lang.github.io/api-guidelines/
+- crates.io: <https://crates.io/>
+- docs.rs: <https://docs.rs/>
+- The Rust API Guidelines: <https://rust-lang.github.io/api-guidelines/>
 - Hypernext crate audit: `crate-audit.md` (in this folder)

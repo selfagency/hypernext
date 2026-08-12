@@ -57,6 +57,7 @@ Hypernext's single-process Rust architecture eliminates the binding layer. Tests
 ### Layer 4 (manual): Release gate
 
 Before tagging a release:
+
 - Cold start <2 seconds
 - Memory <150MB idle
 - Binary <60MB
@@ -110,11 +111,11 @@ AI agents writing Hypernext code must follow this discipline:
 
 ## References
 
-- cargo test: https://doc.rust-lang.org/cargo/commands/cargo-test.html
-- rstest: https://crates.io/crates/rstest
-- pretty_assertions: https://crates.io/crates/pretty_assertions
-- mockall: https://crates.io/crates/mockall
-- wiremock: https://crates.io/crates/wiremock
-- cargo-tarpaulin: https://crates.io/crates/cargo-tarpaulin
-- Playwright: https://playwright.dev/
+- cargo test: <https://doc.rust-lang.org/cargo/commands/cargo-test.html>
+- rstest: <https://crates.io/crates/rstest>
+- pretty_assertions: <https://crates.io/crates/pretty_assertions>
+- mockall: <https://crates.io/crates/mockall>
+- wiremock: <https://crates.io/crates/wiremock>
+- cargo-tarpaulin: <https://crates.io/crates/cargo-tarpaulin>
+- Playwright: <https://playwright.dev/>
 - Bean's e2e coverage plan: `docs/plans/e2e-coverage-plan.md` (consult upstream for journey list inspiration)

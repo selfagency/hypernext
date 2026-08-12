@@ -50,6 +50,14 @@ thiserror = "2"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 
+# Filesystem locations (macOS data dir: ~/Library/Application Support)
+dirs = "6"
+
+# Internal workspace crates (path deps for From-impl propagation)
+hypernext-core = { path = "crates/hypernext-core" }
+hypernext-store = { path = "crates/hypernext-store" }
+hypernext-keychain = { path = "crates/hypernext-keychain" }
+
 # Testing (dev-deps)
 pretty_assertions = "1"
 rstest = "0.26"

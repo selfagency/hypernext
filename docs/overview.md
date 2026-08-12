@@ -70,20 +70,20 @@ Hypernext ships in **dimension-named releases**, not feature-parity releases. Ea
 |---|---|---|---|---|
 | **1.0** | Hypertext | The readable web | HTTP reader, Gemini, Gopher, Finger, Spartan, Nex, Text, Scroll, Molerat, Scorpion, Kepler, Titan upload, PGP verify, IndieAuth, WebFinger | ~6 months |
 | **1.1** | Feeds | Subscribe and read | RSS, Atom, JSON Feed, Microsub, WebSub, Salmention, ActivityPub read-only, ATProto read-only, Nostr read-only | +2 months |
-| **1.5** | Distributed | Peer-to-peer | IPFS, IPNS, Iroh, BitTorrent (librqbit), remoteStorage, Solid pod, ATProto write, Nostr write, Mastodon write | +3 months |
+| **1.2** | Distributed | Peer-to-peer | IPFS, IPNS, Iroh, BitTorrent (librqbit), remoteStorage, Solid pod, ATProto write, Nostr write, Mastodon write | +3 months |
 | **2.0** | Conversation | Real-time chat | IRC (`irc` crate), Matrix (`matrix-sdk`), XMPP (`xmpp` v0.7.0), WebRTC DataChannel (`webrtc`), MUC, MAM, OMEMO (Matrix), OTR (`otrr` if hardened) | +4 months |
 | **3.0** | Workshop | Files and editing | SSH (`russh`), Telnet (`libmudtelnet-rs`), Mosh (`libmoshpit`), Eternal Terminal (`etr`), FTP, SFTP, ZMODEM, MUD/BBS profiles, built-in LSP editor (`tower-lsp`), userscripts | +3 months |
 | **4.0** | Correspondence | Email and news | IMAP (`async-imap`), SMTP (`lettre`), MIME (`mail-parser`), GnuPG integration, NNTP, NZB/PAR2, Bayes spam | +3 months |
 | **5.0** | Confidential | Privacy hardening | Onion routing via Arti, per-tab SOCKS5 webview, DoH (`hickory-resolver`), Privacy Shield (adblock rules + anti-fingerprinting), Capture consent coordinator | +2 months |
 | **6.0** | Sync | Multi-device | Encrypted instance-to-instance sync over WebRTC, ECDH pairing, conflict resolution | +2 months |
 
-**Releases are additive.** 1.1 ships after 1.0 ships. 1.5 ships after 1.1. The total Hypernext roadmap is roughly 24-30 months from start to 6.0, but each release is independently shippable.
+**Releases are additive.** 1.1 ships after 1.0 ships. 1.2 ships after 1.1. The total Hypernext roadmap is roughly 24-30 months from start to 6.0, but each release is independently shippable.
 
 ### Why these splits
 
 - **1.0 Hypertext is the foundation.** Every protocol here is read-only or single-action (Titan upload with explicit confirmation). No persistent connections, no streaming, no chat presence. A maintainer can ship this alone.
 - **1.1 Feeds builds on 1.0.** Subscriptions and read-state are the natural second step; the protocol adapters are similar to 1.0's.
-- **1.5 Distributed is "the small web grows up."** Adds IPFS/ATProto/Nostr write capabilities. Splitting from 1.1 because write paths need consent flows that read paths don't.
+- **1.2 Distributed is "the small web grows up."** Adds IPFS/ATProto/Nostr write capabilities. Splitting from 1.1 because write paths need consent flows that read paths don't.
 - **2.0 Conversation is the first persistent-connection release.** Chat protocols have very different UX from browsing; they deserve their own release. XMPP is here because the `xmpp` v0.7.0 crate is healthy — no need to write from scratch.
 - **3.0 Workshop is everything terminal + editing.** These are power-user features that share a common terminal emulator widget (`alacritty_terminal`).
 - **4.0 Correspondence is email + Usenet.** Both are "slow messaging" with threading and large local caches.
@@ -167,7 +167,7 @@ Each subsequent release has its own phase doc following the same TDD structure (
 | Release | Phase doc | Est. duration |
 |---|---|---|
 | 1.1 Feeds | [`phases/1.1-feeds.md`](phases/1.1-feeds.md) | 8 weeks |
-| 1.5 Distributed | [`phases/1.5-distributed.md`](phases/1.5-distributed.md) | 12 weeks |
+| 1.2 Distributed | [`phases/1.2-distributed.md`](phases/1.2-distributed.md) | 12 weeks |
 | 2.0 Conversation | [`phases/2.0-conversation.md`](phases/2.0-conversation.md) | 16 weeks |
 | 3.0 Workshop | [`phases/3.0-workshop.md`](phases/3.0-workshop.md) | 12 weeks |
 | 4.0 Correspondence | [`phases/4.0-correspondence.md`](phases/4.0-correspondence.md) | 12 weeks |
@@ -209,7 +209,7 @@ These are explicitly flagged for resolution during the relevant phase. The plan 
 | Q2 | How do we render `Block` trees (Gemini gemtext, Gopher menus) as GTK widgets without losing text selection across block boundaries? | Phase 2 spike | The Wails version leaned on HTML's selection model |
 | Q3 | Does the embedded `WebKitGTK` widget on macOS use the system `WKWebView` or its own bundled WebKit? Bundled = +30MB binary; system = tighter platform integration. | Phase 3 spike | Tauri has the same problem; we should follow their decision |
 | Q4 | The `xmpp` crate v0.7.0 README says "Still very much WIP" — what's the actual API stability for the chat release (2.0)? Do we pin to 0.7.0 or follow HEAD? | Phase 2.0 (chat) | Need to revisit when chat release approaches |
-| Q5 | Solid OIDC + DPoP requires a JSON-LD parser; do we use `microformats` v0.19.0 for everything or bring in `kuchiki` (stale) or hand-roll? | Phase 1.5 (distributed) | Defer until distributed release |
+| Q5 | Solid OIDC + DPoP requires a JSON-LD parser; do we use `microformats` v0.19.0 for everything or bring in `kuchiki` (stale) or hand-roll? | Phase 1.2 (distributed) | Defer until distributed release |
 | Q6 | The `tower-lsp` crate is stale (Aug 2023). Do we use it, fork it, or write our own thin LSP client? | Phase 3.0 (workshop) | Defer until workshop release |
 | Q7 | Ad filtering in raw mode: use `adblock` v0.13.2 (Brave's crate) directly, or layer a `cosmetic-rules` engine on top? | Phase 3 (1.0 HTTP) | Start with `adblock` directly; layer if needed |
 | Q8 | macOS code signing + notarization: who owns the developer ID, what's the CI flow for notarization? | Phase 5 (release gate) | Block release until answered |
@@ -233,6 +233,7 @@ To prevent scope creep, these are explicitly out of scope for Hypernext in any r
 ## 9. How to read this plan
 
 **If you're an AI agent writing code:**
+
 1. Read this overview first.
 2. Read `docs/references/0001-ui-framework-choice.md`, `0003-authority-model.md`, and `0005-tdd-discipline.md` before writing any UI code.
 3. Read the specific phase doc for the feature you're implementing.
@@ -242,12 +243,14 @@ To prevent scope creep, these are explicitly out of scope for Hypernext in any r
 7. Append your work to `worklog.md` (repo root) (Task ID + Agent + Work Log + Stage Summary, per the project rules).
 
 **If you're a human reviewing:**
+
 1. Start here.
 2. Read the ADRs in `docs/references/`.
 3. Read each phase doc in order.
 4. Push back on anything that doesn't make sense. This is a draft for review, not a directive.
 
 **If you're a future maintainer:**
+
 1. Read this overview + the ADRs.
 2. Read the worklog from the relevant Task ID.
 3. Trust the tests, not the docs. Docs drift; tests don't.
@@ -257,9 +260,11 @@ To prevent scope creep, these are explicitly out of scope for Hypernext in any r
 ## 10. Document index
 
 ### Overview (this file)
+
 - `docs/overview.md`
 
 ### Phase docs (1.0 Hypertext)
+
 - `docs/phases/01-foundation-and-architecture.md`
 - `docs/phases/02-smolnet-protocols.md`
 - `docs/phases/03-http-reader-and-raw-mode.md`
@@ -267,8 +272,9 @@ To prevent scope creep, these are explicitly out of scope for Hypernext in any r
 - `docs/phases/05-release-1.0-gate.md`
 
 ### Future release phase docs (all written — same TDD structure as 1.0)
+
 - `docs/phases/1.1-feeds.md` — RSS/Atom/JSON Feed, WebSub, Salmention, ATProto/Nostr/ActivityPub read-only
-- `docs/phases/1.5-distributed.md` — IPFS/Iroh/BitTorrent, remoteStorage, Solid, ATProto/Nostr/Mastodon write, crosspost dialog
+- `docs/phases/1.2-distributed.md` — IPFS/Iroh/BitTorrent, remoteStorage, Solid, ATProto/Nostr/Mastodon write, crosspost dialog
 - `docs/phases/2.0-conversation.md` — IRC, Matrix (with E2EE), XMPP, WebRTC DataChannel chat
 - `docs/phases/3.0-workshop.md` — SSH/Telnet/Mosh/ET, FTP/SFTP, ZMODEM, MUD/BBS, LSP editor, userscripts
 - `docs/phases/4.0-correspondence.md` — IMAP/SMTP/MIME, GnuPG, NNTP, NZB/yEnc/PAR2, Bayes spam
@@ -276,6 +282,7 @@ To prevent scope creep, these are explicitly out of scope for Hypernext in any r
 - `docs/phases/6.0-sync.md` — WebRTC sync, ECDH pairing, Yjs CRDTs, conflict resolution
 
 ### References
+
 - `docs/references/0001-ui-framework-choice.md`
 - `docs/references/0002-browser-engine-survey.md`
 - `docs/references/0003-authority-model.md`
@@ -291,6 +298,7 @@ To prevent scope creep, these are explicitly out of scope for Hypernext in any r
 - `docs/references/library-lookup-protocol.md` — guide for AI agents on how to verify a crate before depending on it
 
 ### Source material (read-only references)
+
 - The original Go/Wails Bean codebase: not copied into Hypernext; consulted via the upstream repo when needed
 - Original docs (Bean v1 PRD, master plan, etc.): consulted when verifying feature semantics, never used as authority for the rewrite
 

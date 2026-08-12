@@ -1,0 +1,179 @@
+# Hypernext CI — release gate for every phase (ADR 0010).
+#
+# Runner split:
+#   - ubuntu-latest: lint, test (GTK under xvfb-run), coverage (tarpaulin is
+#     Linux/ptrace-based), deny, cargo-audit. GTK tests need a display
+#     -> xvfb-run.
+#   - macos-latest: build (release) only, via cargo-auditable to embed the
+#     dependency tree in the binary (post-deploy audit).
+#   - Scheduled (nightly): Miri (UB in unsafe code) and Kani (formal
+#     verification) — both 10-50x slow, so NOT on every commit. They run on
+#     `schedule` (cron) + `workflow_dispatch` only.
+#
+# Coverage threshold starts at 30% (Phase 1 has little code) and ratchets up
+# each phase (see docs/references/0005-tdd-discipline.md).
+#
+# Full static-analysis tool stack documented in docs/references/static-analysis.md.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 3 * * *" # nightly: Miri + Kani only
+  workflow_dispatch: # manual trigger: Miri + Kani
+
+env:
+  CARGO_TERM_COLOR: always
+
+# Restrict the default GITHUB_TOKEN: this CI only reads code and runs checks
+# (no write permissions needed). ADR 0010 release gate.
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint (fmt + clippy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - name: Install GTK dev libs (clippy compiles gtk4-sys)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev
+      - name: prek hooks (hygiene + fmt + clippy; test/deny/audit have dedicated jobs)
+        uses: j178/prek-action@4e14d07f9231acabce116ccfca13b13dd9755ece # v3.0.0
+        with:
+          extra-args: --all-files --skip cargo-test --skip cargo-deny --skip cargo-audit
+          prek-version: 0.4.13
+
+  test:
+    name: Test (workspace, xvfb)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - name: Install GTK + xvfb
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev xvfb
+      - name: cargo test --workspace
+        run: xvfb-run -a cargo test --workspace
+
+  coverage:
+    name: Coverage (tarpaulin)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - name: Install GTK + xvfb (tarpaulin compiles workspace; smoke test needs display)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev xvfb
+      - name: Install cargo-tarpaulin
+        uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
+        with:
+          tool: cargo-tarpaulin
+      - name: cargo tarpaulin --workspace --out lcov --fail-under 30
+        run: xvfb-run -a cargo tarpaulin --workspace --out lcov --fail-under 30
+      - name: Upload coverage to Codacy
+        uses: codacy/codacy-coverage-reporter-action@89d6c85cfafaec52c72b6c5e8b2878d33104c699 # v1.3.0
+        with:
+          project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
+          coverage-reports: lcov.info
+
+  deny:
+    name: Deny (licenses + advisories)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
+        with:
+          tool: cargo-deny
+      - name: cargo deny check
+        run: cargo deny check
+
+  audit:
+    name: Audit (RustSec CVEs)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
+        with:
+          tool: cargo-audit
+      - name: cargo audit --deny warnings
+        run: cargo audit --deny warnings
+
+  # Layer 3 — UB detection in unsafe code. 10-50x slow, so nightly + manual only.
+  miri:
+    name: Miri (UB in unsafe code)
+    runs-on: ubuntu-latest
+    # Nightly + manual only; never on push/PR (too slow).
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@7c8d7d138f5c09cef361f8214cf96882cd029cdb # nightly
+        with:
+          components: miri
+      - name: Install GTK dev libs (miri compiles gtk4-sys)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev
+      # Miri on crates with unsafe code: store (sqlite-vec), keychain (keyring),
+      # protocol (adapters). -p runs each; xvfb not needed (no UI in these).
+      - name: cargo miri test (store, keychain, protocol)
+        run: |
+          cargo miri setup
+          cargo +nightly miri test -p hypernext-store
+          cargo +nightly miri test -p hypernext-keychain
+          cargo +nightly miri test -p hypernext-protocol
+
+  # Layer 3 — formal verification of safety-critical functions.
+  # Nightly + manual only. Targets what exists now (store, protocol); hypernext-pgp
+  # is covered when Phase 2 task p2-t7 lands it.
+  kani:
+    name: Kani (formal verification)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install GTK dev libs (kani compiles gtk4-sys)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev
+      - name: Install kani-verifier
+        run: cargo install --locked kani-verifier
+      - name: cargo kani (safety-critical functions)
+        run: |
+          # TOFU cert comparison (hypernext-protocol), Titan size-limit logic,
+          # sqlite-vec bounds (hypernext-store). hypernext-pgp PGP verification
+          # is added when p2-t7 lands the crate.
+          cargo kani -p hypernext-protocol
+          cargo kani -p hypernext-store
+
+  build:
+    name: Build (release, macOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - name: Install cargo-auditable
+        uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
+        with:
+          tool: cargo-auditable
+      - name: Install GTK4 (Homebrew)
+        run: brew install gtk4
+      - name: Unlock keychain (R4 mitigation; keychain tests must not prompt)
+        run: security unlock-keychain
+      # cargo-auditable embeds the dependency tree in the release binary for
+      # post-deploy audit (Layer 2). See docs/references/build-macos.md.
+      - name: cargo auditable build --release
+        run: cargo auditable build --release
+      - name: cargo test (subprocess smoke; verifies window opens + clean exit on primary target)
+        run: cargo test -p hypernext-app --test smoke

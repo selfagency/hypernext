@@ -21,6 +21,7 @@ This changes the authority model fundamentally.
 **Hypernext is a single-process Rust application. All code — UI, protocol adapters, storage, keychain, HTTP client, PGP verification — runs in the same process and shares types directly. There is no IPC, no bindings, no frontend/backend split.**
 
 Concretely:
+
 - A UI component imports `hypernext_protocol::Dispatcher` and calls `dispatcher.fetch(url, &ctx).await` directly — no FFI, no serialization, no message-passing
 - A UI component imports `hypernext_store::Store` and reads/writes SQLite directly
 - A UI component imports `hypernext_keychain` and queries the OS keyring directly
@@ -103,7 +104,7 @@ These boundaries are enforced by `cargo-deny` configuration that forbids certain
 ## References
 
 - Bean's original ADR 0001: `docs/references/0001-bean-v1-architecture.md` (consult upstream; the rationale is still informative)
-- Relm4 component model: https://relm4.org/docs/stable/component.html
-- thiserror: https://docs.rs/thiserror/latest/thiserror/
-- anyhow: https://docs.rs/anyhow/latest/anyhow/
-- cargo-deny: https://crates.io/crates/cargo-deny
+- Relm4 component model: <https://relm4.org/docs/stable/component.html>
+- thiserror: <https://docs.rs/thiserror/latest/thiserror/>
+- anyhow: <https://docs.rs/anyhow/latest/anyhow/>
+- cargo-deny: <https://crates.io/crates/cargo-deny>

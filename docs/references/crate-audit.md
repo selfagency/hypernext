@@ -6,7 +6,8 @@ Existing crates: 122
 Missing crates: 2
 
 Legend:
-- ✓ exists  ✗ missing  ⚠ abandoned (no release in 18+ months)
+
+- ✓ exists ✗ missing ⚠ abandoned (no release in 18+ months)
 - 'recent' = recent_downloads (last 90 days)
 
 ## adblock

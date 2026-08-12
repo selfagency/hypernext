@@ -1,21 +1,22 @@
 # Building and Bundling Hypernext for macOS
 
-> Status: **PROVEN for development compile + window-open via Homebrew GTK4** (spike t0, 2026-08-12).
-> Status: **gvsbuild bundling path DOCUMENTED but not yet exercised end-to-end** — the full gvsbuild GTK-from-source build was not run in the t0 spike (hours-long). The exact setup is below; it is the bundling path the app shell (t8) will use.
+> Status: **PROVEN end-to-end** (R1 spike, 2026-08-12): dev compile, window-open via Homebrew GTK4, AND a self-contained `Hypernext.app` via Homebrew-dylib-bundling (`cargo-bundle` + `dylibbundler`). Produced 46MB bundle; launches with no system GTK. gvsbuild (Option B) kept as documented fallback.
 
 ## Two distinct concerns
 
 1. **Dev/runtime deps for compiling** — the Rust `gtk4`/`relm4` crates need `gtk4.pc` (and its transitive `.pc` files) discoverable by `pkg-config`. Without this, `cargo check` fails at `gdk4-sys` build time.
-2. **Distribution bundle** — shipping a self-contained `.app` that carries the GTK runtime so end users do not need GTK installed. This is what gvsbuild provides.
+2. **Distribution bundle** — shipping a self-contained `.app` that carries the GTK runtime so end users do not need GTK installed. **PROVEN via Homebrew-dylib-bundling (Option C below) — the primary path.**
 
-The spike proved (1) and wrote the recipe for (2).
+The spike proved both.
 
 ## Prerequisites
 
 - Rust 1.83+ (MSRV, enforced via CI)
 - macOS 14+ (primary target)
 - Homebrew (`/opt/homebrew` on Apple Silicon)
-- For bundling: Python 3.11+ (gvsbuild requirement)
+- `cargo-bundle` (`cargo install cargo-bundle`)
+- `dylibbundler` (`brew install dylibbundler`)
+- For Option B (fallback): Python 3.11+ (gvsbuild requirement)
 
 ## Option A — Homebrew GTK4 (development / fastest path)
 
@@ -46,7 +47,7 @@ Headless note: on a machine with no display the window cannot open. Verify with 
 
 With no GTK installed, `cargo check` fails in the `gdk4-sys` build script:
 
-```
+```text
 The system library `gtk4` required by crate `gdk4-sys` was not found.
 The file `gtk4.pc` needs to be installed and the PKG_CONFIG_PATH
 environment variable must contain its parent directory.
@@ -56,6 +57,8 @@ HINT: you may need to install a package such as gtk4, gtk4-dev or gtk4-devel.
 Fix: install GTK4 (Homebrew option A, or gvsbuild below), or point `PKG_CONFIG_PATH` at the directory containing `gtk4.pc`.
 
 ## Option B — gvsbuild GTK runtime for distribution bundling
+
+> **Fallback path.** Option C (below) is the primary, proven bundling path. Use gvsbuild only if you need a fully relocatable non-Homebrew build (e.g. no Homebrew on the build machine).
 
 [gvsbuild](https://github.com/wingtk/gvsbuild) builds GTK and its dependency stack from source into a portable prefix that can be bundled into a `.app`. It is the macOS analog of what Windows apps use to avoid a system GTK dependency.
 
@@ -83,7 +86,7 @@ gvsbuild build --jobs=8 gtk4
 
 Output prefix defaults to `~/gtk/` (Windows: `C:\gtk-build`). The gvsbuild prefix layout is:
 
-```
+```text
 ~/gtk/bin
 ~/gtk/lib
 ~/gtk/share  # includes icons + glib-2.0/schemas
@@ -108,7 +111,7 @@ cargo build --release -p hypernext-app
 1. Build the release binary (above).
 2. Assemble `Hypernext.app`:
 
-```
+```text
 Hypernext.app/
   Contents/
     Info.plist
@@ -131,11 +134,48 @@ Hypernext.app/
 ### Known caveats / open items (t8)
 
 - **Binary size risk (R1):** the GTK stack is large. Spike did not measure a final bundle. If the shipped `.app` exceeds ~100MB, the phase plan says: switch to GTK3 or evaluate Iced (see `docs/phases/01-foundation-and-architecture.md` risk R1).
-- **Not yet exercised:** the t0 spike ran Option A, not Option B. The gvsbuild build + bundle steps above are the documented recipe and must be validated in t8 before first release.
+- **Fallback only:** the primary bundling path is Option C (Homebrew dylib bundling), proven in the R1 spike. gvsbuild remains the documented recipe for a from-source relocatable build and was NOT re-exercised end-to-end in this spike.
 - **Signing/notarization** is out of scope for t0; needed for distribution (ADR 0010 / release gate).
+
+## Option C — Homebrew-dylib-bundling (PROVEN, primary bundling path)
+
+> **Proven end-to-end in the R1 spike (2026-08-12).** Produces a self-contained `Hypernext.app` (~46MB) by bundling the Homebrew GTK dylibs into the `.app` and rewriting install names to `@executable_path`. Verifiable via the `--smoke-probe` flag (opens window, asserts title, exits 0). This is the standard, fast macOS path; gvsbuild remains the fallback (Option B).
+
+Bundle config lives in `crates/hypernext-app/Cargo.toml` under `[package.metadata.bundle]` (name `Hypernext`, identifier `com.selfagency.hypernext`, version `0.1.0`, `minimum_system_version = "14.0"`).
+
+Run the bundling script:
+
+```bash
+scripts/bundle-macos.sh
+```
+
+The script:
+
+1. `cargo build --release -p hypernext-app` then `cargo bundle --release -p hypernext-app` → `.app` skeleton under `target/release/bundle/osx/Hypernext.app`.
+2. `dylibbundler` recursively copies every `/opt/homebrew` dylib the binary links into `Contents/Frameworks/` and rewrites their install names to `@executable_path/../Frameworks` (bundle is relocatable).
+3. Copies gdk-pixbuf image loaders into `Resources/lib/gdk-pixbuf-2.0/<ver>/loaders/`, generates `loaders.cache` from the **original** brew loaders (bundled ones crash `gdk-pixbuf-query-loaders`), and substitutes a `@RES@` placeholder the runtime wrapper resolves.
+4. Copies share data (icons: hicolor + adwaita; `gtk-4.0`; glib schemas) into `Resources/share/` and compiles schemas with `glib-compile-schemas`.
+5. Writes a shell wrapper `Contents/MacOS/hypernext-app` that sets `GTK_DATA_PREFIX`, `XDG_DATA_DIRS`, `XDG_CONFIG_DIRS`, `GIO_EXTRA_MODULES`, and `GDK_PIXBUF_MODULE_FILE` to bundle-relative paths, then execs the real binary (`hypernext-app-bin`).
+6. Ad-hoc codesigns the bundle (required to run on Apple Silicon).
+
+Verify (all pass in the spike):
+
+```bash
+# No /opt/homebrew load commands remain (self-contained):
+otool -L Hypernext.app/Contents/MacOS/hypernext-app-bin   # all @executable_path/../Frameworks
+# Launches with bundled GTK and exits 0 (window opened, title asserted):
+Hypernext.app/Contents/MacOS/hypernext-app --smoke-probe
+echo $?   # 0
+```
+
+### Known caveats (t8 / spike)
+
+- **Size:** 46MB in the spike — under the ~100MB R1 gate. Grows if more of the Homebrew prefix is pulled in (e.g. adwaita icon theme variants).
+- **Homebrew linkage:** bundles whatever Homebrew is installed; install-name rewriting makes the bundle self-contained, but builds on a clean machine should re-verify sizes/closure.
+- **Codesign** is ad-hoc (`-s -`). Distribution requires real signing + notarization (ADR 0010 / release gate).
 
 ## References
 
-- gvsbuild: https://github.com/wingtk/gvsbuild
+- gvsbuild: <https://github.com/wingtk/gvsbuild>
 - Homebrew gtk4 formula: `brew info gtk4`
-- gtk-rs installation guide: https://gtk-rs.org/gtk4-rs/stable/latest/book/
+- gtk-rs installation guide: <https://gtk-rs.org/gtk4-rs/stable/latest/book/>

@@ -11,6 +11,7 @@
 Hypernext is an all-protocol internet client for viewing, interacting, and creating on the small web and smolnet. The user explicitly requested a UI that "isn't itself web rendered" — i.e., not a React/Vue/Svelte app running inside a webview. This rules out the Wails/Tauri/Dioxus-desktop family of architectures.
 
 The UI surface is complex:
+
 - Multi-pane layout: sidebar (tabs/bookmarks/history/site nav), main content area (reader view + raw webview), find bar, debug panel, settings dialog, author profile dialog, bookmark dialog
 - Per-tab state with load tokens, history stacks, cancellation
 - Complex list rendering: tab lists, history lists, bookmark trees with drag-drop (later release)
@@ -27,6 +28,7 @@ Four options were evaluated.
 Relm4 is an idiomatic Rust wrapper over GTK4 (via gtk-rs). It provides a component model inspired by Elm/The Elm Architecture, with message-passing and unidirectional data flow. GTK4 provides the native widget set used by GNOME apps; it runs on macOS, Linux, and Windows.
 
 The Relm4 component model maps cleanly to Hypernext's needs:
+
 - `AppModel` is the root, owns windows
 - `WindowModel` owns tabs
 - `TabModel` owns its URL, history, load token
@@ -39,6 +41,7 @@ The Relm4 component model maps cleanly to Hypernext's needs:
 ### Option A: Dioxus 0.7 desktop (rejected)
 
 Dioxus 0.7 desktop uses wry → platform webview (WebView2/WKWebView/WebKitGTK). The user's UI renders as React-like components inside a webview — the same architecture that made Wails painful:
+
 - Every protocol needs an IPC binding + a Rust type exposed to JS + a Dioxus component
 - The webview's JS engine (V8 or JavaScriptCore) is overhead for protocols that emit structured text (Gemini, Gopher, Finger)
 - Testing requires both Rust tests and webview-driving tests; the surface area doubles
@@ -48,11 +51,13 @@ Dioxus 0.7 documentation confirms it uses wry directly (not Tauri). Dioxus Nativ
 ### Option B: Iced (rejected for v1)
 
 Iced is a pure-Rust, wgpu-rendered GUI framework inspired by Elm. Pros:
+
 - No GTK runtime to bundle
 - Smaller binary (~10-15MB vs GTK's 30MB+)
 - Single language ecosystem
 
 Cons:
+
 - Widget set is less mature than GTK4's (no native `TreeView`, `Notebook` with tabs, `Popover` for hovercards)
 - Complex layouts (split panes, command palettes, drag-drop trees) require more custom code
 - Accessibility story is weaker than GTK4's AT-SPI / AXUIElement integration
@@ -63,11 +68,13 @@ Iced is a viable alternative if GTK4 bundling proves infeasible on macOS. Re-eva
 ### Option C: Slint (rejected)
 
 Slint is a declarative UI DSL compiled to Rust. Pros:
+
 - Best performance and binary size
 - Native rendering on each platform
 - Good for embedded-style apps
 
 Cons:
+
 - DSL adds friction for AI agents writing code — they have to learn Slint's syntax in addition to Rust
 - Less ecosystem for complex desktop patterns (split panes, command palettes, hovercards)
 - Better suited to kiosks and embedded devices than to a multi-protocol internet client
@@ -100,19 +107,20 @@ Tauri 2 uses wry → platform webview, same as Dioxus desktop. The webview-as-ap
 
 ## References
 
-- Relm4 docs: https://relm4.org/docs/stable/
-- Relm4 book: https://relm4.org/book/stable/
-- gtk4-rs book: https://gtk-rs.org/gtk4-rs/stable/latest/book/
-- GTK4 reference: https://docs.gtk.org/gtk4/
-- Iced: https://iced.rs/
-- Slint: https://slint.rs/
-- Dioxus 0.7 release blog: https://dioxuslabs.com/blog/release-070/
-- Tauri: https://v2.tauri.app/
-- wry: https://github.com/tauri-apps/wry
+- Relm4 docs: <https://relm4.org/docs/stable/>
+- Relm4 book: <https://relm4.org/book/stable/>
+- gtk4-rs book: <https://gtk-rs.org/gtk4-rs/stable/latest/book/>
+- GTK4 reference: <https://docs.gtk.org/gtk4/>
+- Iced: <https://iced.rs/>
+- Slint: <https://slint.rs/>
+- Dioxus 0.7 release blog: <https://dioxuslabs.com/blog/release-070/>
+- Tauri: <https://v2.tauri.app/>
+- wry: <https://github.com/tauri-apps/wry>
 
 ## Decision review
 
 This ADR should be reviewed:
+
 - After Phase 1 spike completes (verify GTK4 macOS bundling is feasible)
 - After 1.0 ships (verify the choice held up under real development)
 - Before starting 2.0 Conversation (verify the chat plane UI is expressible in Relm4)

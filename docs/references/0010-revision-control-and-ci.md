@@ -8,7 +8,7 @@
 
 ## Context
 
-The Wails version used `gitbutler/workspace` via `but` for branch management. The 2026-08-06 master plan flagged `skills-lock.json` and untracked skill directories as dirty-tree pain points during `but diff` / `but commit`. The `--no-verify` flag was used at least once in history, breaking the pre-commit hooks (the `scripts/check-no-verify.sh` script exists specifically to enforce this lesson).
+The Wails version used `gitbutler/workspace` via `but` for branch management. The 2026-08-06 master plan flagged `skills-lock.json` and untracked skill directories as dirty-tree pain points during `but diff` / `but commit`. The `--no-verify` flag was used at least once in history, breaking the pre-commit hooks. Hypernext enforces this lesson with prek (see below).
 
 Hypernext resets to a simpler, more conventional setup.
 
@@ -31,19 +31,24 @@ Hypernext resets to a simpler, more conventional setup.
   - `perf(phase-N): <description>`
 - **Commit message body:** Optional but encouraged for non-trivial changes. Wrapped at 72 chars.
 - **Co-authored commits:** If an AI agent wrote the code, the commit message body includes:
-  ```
+
+  ```text
   Co-Authored-By: Claude <noreply@anthropic.com>
   ```
+
   (Or whatever agent is used.)
 
 ### Pre-commit hook (mandatory)
 
-A pre-commit hook (via `cargo-husky` or a manual `.git/hooks/pre-commit`) runs:
+A pre-commit hook via **prek** (`prek.toml`, installed with `prek install`) runs:
+
 1. `cargo fmt --check` — must pass
 2. `cargo clippy --workspace -- -D warnings` — must pass
-3. `scripts/check-no-verify.sh` — refuses `--no-verify` in the commit command (the hook itself cannot bypass this; if you need to bypass for an emergency, you must edit the script, which leaves a paper trail)
+3. `cargo test --workspace` — must pass
+4. `cargo deny check` — must pass
+5. Builtin hygiene hooks (trailing-whitespace, end-of-file-fixer, check-yaml/toml/json, check-merge-conflict, check-added-large-files)
 
-The hook is **non-bypassable except by editing the script**. Documented in `CONTRIBUTING.md`.
+prek runs on every commit. CI runs prek regardless (`j178/prek-action`), so a `--no-verify` commit that skips the local hook still fails CI. This is the ADR 0010 enforcement: the local hook is the fast feedback, CI is the non-bypassable backstop.
 
 ### GitHub Actions CI
 
@@ -76,7 +81,7 @@ The hook is **non-bypassable except by editing the script**. Documented in `CONT
 
 - **Pre-1.0:** Phase 1-5 development uses version `0.1.0` for all crates
 - **1.0 release:** Tag `v1.0.0`; all crates bumped to `1.0.0`
-- **Post-1.0:** Semver — patch releases (1.0.1, 1.0.2) for bug fixes only; minor releases (1.1, 1.5, 2.0, etc.) per the dimension roadmap in `docs/overview.md`
+- **Post-1.0:** Semver — patch releases (1.0.1, 1.0.2) for bug fixes only; minor releases (1.1, 1.2, 2.0, etc.) per the dimension roadmap in `docs/overview.md`
 
 ### Worklog protocol
 
@@ -121,9 +126,9 @@ Stage Summary:
 
 ## References
 
-- Conventional Commits: https://www.conventionalcommits.org/
-- cargo-husky: https://crates.io/crates/cargo-husky
-- cargo-deny: https://crates.io/crates/cargo-deny
-- cargo-tarpaulin: https://crates.io/crates/cargo-tarpaulin
-- Swatinem/rust-cache: https://github.com/Swatinem/rust-cache
-- The original Bean's `scripts/check-no-verify.sh` (consult upstream)
+- Conventional Commits: <https://www.conventionalcommits.org/>
+- cargo-husky: <https://crates.io/crates/cargo-husky>
+- cargo-deny: <https://crates.io/crates/cargo-deny>
+- cargo-tarpaulin: <https://crates.io/crates/cargo-tarpaulin>
+- Swatinem/rust-cache: <https://github.com/Swatinem/rust-cache>
+- The original Bean's pre-commit setup (consult upstream)

@@ -1,0 +1,8 @@
+runtimes:
+tools:
+    - lizard@1.17.31
+    - opengrep@1.16.4
+    - pmd@7.11.0
+    - trivy@0.69.3
+exclude_paths:
+    - "**/*.md"

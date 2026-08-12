@@ -11,6 +11,7 @@
 **Hypernext** is all-protocol internet client for viewing, interacting, and creating on small web and smolnet. It's Rust desktop app — native GTK4 widgets for app shell, embedded platform webview surgically used only for raw-mode HTTP tabs.
 
 **Stack:**
+
 - Rust 1.83+ (stable, MSRV enforced via CI)
 - Relm4 + GTK4 (native UI; **not** webview-based shell)
 - tokio (exclusive async runtime — ADR 0008)
@@ -52,7 +53,7 @@
 
 1. **Receive → Clarify**: Identify constraints (security, perf, a11y, macOS-first, single-maintainer realism). **Primacy of user directives**: explicit user commands override any general rule.
 
-2. **Research → Plan**: Use `context7` MCP `exa` MCP for library/API research when available. Use `web-search`  `web-reader` skills as fallbacks. Read codebase via `magic-context` if available. **Verify version-dependent APIs, breaking changes, and performance implications before design.** For Hypernext specifically: every crate dependency must follow `docs/references/library-lookup-protocol.md`.
+2. **Research → Plan**: Use `context7` MCP `exa` MCP for library/API research when available. Use `web-search` `web-reader` skills as fallbacks. Read codebase via `magic-context` if available. **Verify version-dependent APIs, breaking changes, and performance implications before design.** For Hypernext specifically: every crate dependency must follow `docs/references/library-lookup-protocol.md`.
 
 3. **Plan → Approve**: Numbered subtasks, file changes, test strategy, internal todo list. **Declare intent**: concisely state action and purpose before executing any tool. Wait for approval unless explicitly authorized.
 
@@ -66,7 +67,7 @@
    - `cargo clippy --workspace -- -D warnings`
    - `cargo test --workspace`
    - `cargo deny check`
-   - No `--no-verify` in history (`scripts/check-no-verify.sh` enforces this)
+   - No `--no-verify` in history (prek runs on every commit; CI runs prek regardless)
    - Use `opencode-pty` for watch modes and long-running processes (`cargo watch`test watchers, dev servers). Do NOT use `opencode-pty` for one-off commands.
    - Use `aft` for CLI task orchestration.
 
@@ -85,7 +86,7 @@
 3. **opencode-pty**: For persistent processes (dev servers, `cargo watch`test watchers, build monitors). **Do NOT use for one-off commands.**
 4. **aft**: For task orchestration, multi-step workflows, and script composition.
 5. **MANDATORY: NO HEREDOCS**: Terminal heredoc operations (`cat > file << EOF` `tee` `>>`) are **FORBIDDEN**. File corruption risk.
-   - To create/modify files: use `Write`  `Edit` tool only.
+   - To create/modify files: use `Write` `Edit` tool only.
    - Terminal use allowed ONLY for: package management (`cargo add`), builds (`cargo build`), running tests (`cargo test`), and navigation (`ls` `cd`).
 6. **Script Persistence**: For any non-trivial script (>10 lines), save it to `scripts/<name>.rs` (or `.py` `.sh`) first via `Write`then execute. On failure, edit saved script — do NOT regenerate inline. (Same rule as main project instructions §9.)
 7. **CLI**: Last resort only. Use argument arrays, never pipe multi-line strings.
@@ -131,7 +132,7 @@ Before any code execution:
 ### Rust Quality Rules
 
 - **Clarity over cleverness**: straightforward, minimalist solutions. Avoid premature optimization.
-- **Standard library first**: prefer `std`  `tokio` over third-party where possible. Third-party only if industry standard (per `crate-audit.md`).
+- **Standard library first**: prefer `std` `tokio` over third-party where possible. Third-party only if industry standard (per `crate-audit.md`).
 - **Strict types**: explicit types on public APIs. Use `thiserror` enums for library errors, `anyhow` for app-level (ADR 0009).
 - **`clippy` clean**: `cargo clippy --workspace -- -D warnings` must pass. No `unwrap()` in library code (use `?` with proper error type); `unwrap()` in tests is acceptable.
 - **`rustfmt` clean**: `cargo fmt --check` must pass.
@@ -174,7 +175,7 @@ These are architectural invariants from ADRs. Violating them fails CI and is rel
 
 ### Accessibility (GTK4 a11y)
 
-- Every interactive widget has `accessible_role`  `accessible_label`.
+- Every interactive widget has `accessible_role` `accessible_label`.
 - Tab list uses `gtk::AccessibleRole::TabList`.
 - Keyboard navigation: every interactive element reachable via Tab key.
 - Use GTK4's AT-SPI (Linux), AXUIElement (macOS), UIAutomation (Windows) — abstracted by GTK4 itself.
@@ -203,14 +204,14 @@ These are architectural invariants from ADRs. Violating them fails CI and is rel
 - Branching workflow per §3.4 above.
 - Commit hygiene: one logical change per commit. Conventional message. Push to remote after PR draft.
 - **Safety order**: `restore` (uncommitted) > `stash` (context switch) > `revert` (published) > `reset` (local only).
-- **No `--no-verify`** ever (ADR 0010). `scripts/check-no-verify.sh` script enforces this in CI.
+- **No `--no-verify`** ever (ADR 0010). prek runs on every commit; CI runs prek regardless.
 
 ### Branch Operations
 
 - GitButler: virtual branch isolation. Commit frequently within logical unit.
 - git-mcp + Git Flow: `git_flow topic_start <type> <name> [<base>]` → topic branch from base. `git_flow topic_finish <type> <name>` → merge with strategy.
 - Standard branches: `feature/` `fix/` `chore/` from `main`. Keep commits atomic.
-- For Hypernext specifically: branch naming is `feat/<scope>-<description>`  `fix/<scope>-<description>` where `<scope>` is phase number (e.g., `feat/phase-2-gemini-adapter`).
+- For Hypernext specifically: branch naming is `feat/<scope>-<description>` `fix/<scope>-<description>` where `<scope>` is phase number (e.g., `feat/phase-2-gemini-adapter`).
 
 ### Commit & History
 
@@ -273,10 +274,10 @@ Before adding any `use` statement for external crate, AI agent MUST follow 6-ste
 4. **A feature requires breaking invariant** (§8 Hypernext-Specific Invariants) — propose change in `worklog.md` and ask maintainer.
 5. **The phase doc itself is ambiguous or wrong** — fix doc, commit separately, then proceed.
 6. **A security concern appears** (SSRF bypass path, secret leak path, PGP-before-extraction violation) — stop immediately, document, ask.
-7. **`cargo test --workspace` is failing** and you don't know why — don't `git push -f`  `--no-verify`. Investigate.
+7. **`cargo test --workspace` is failing** and you don't know why — don't `git push -f` `--no-verify`. Investigate.
 8. **You're about to introduce webview** anywhere except raw-mode HTTP tabs — stop. That violates ADR 0001 and 0002.
 9. **You're about to store secret in SQLite** or any non-keychain location — stop. That violates ADR 0007.
-10. **You're about to call `publish()`  `start_torrent_download()` from navigation handler** — stop. That violates explicit-confirmation invariant.
+10. **You're about to call `publish()` `start_torrent_download()` from navigation handler** — stop. That violates explicit-confirmation invariant.
 
 ---
 
@@ -302,8 +303,8 @@ Start of session read:
 Then read (Hypernext-specific):
 
 - `docs/overview.md`
--  relevant `docs/phases/<phase>.md` for current task
--  ADRs in `docs/references/` listed in §2
+- relevant `docs/phases/<phase>.md` for current task
+- ADRs in `docs/references/` listed in §2
 
 Project-specific overrides take precedence; silent sections use these global rules.
 
@@ -342,4 +343,3 @@ After writing code:
 - [ ] If crate API drifted from phase doc, doc change committed separately
 
 **Non-conformance with this contract is release blocker.** There is no wiggle room on invariants in §8 or safety rules in §4.
-
