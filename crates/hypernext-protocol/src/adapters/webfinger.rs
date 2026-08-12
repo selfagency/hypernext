@@ -347,4 +347,24 @@ mod tests {
         assert_eq!(url.port(), Some(8443));
         assert_eq!(url.path(), WELL_KNOWN_PATH);
     }
+
+    #[test]
+    fn default_and_protocol_trait_methods() {
+        // Exercises Default::default(), scheme(), path_prefix() and capabilities().
+        let adapter = WebFingerAdapter::default();
+        assert_eq!(adapter.scheme(), "https");
+        assert_eq!(adapter.path_prefix(), Some(WELL_KNOWN_PATH));
+        let caps = adapter.capabilities();
+        assert!(caps.supports_fetch);
+    }
+
+    #[test]
+    fn link_with_unparsable_href_is_skipped() {
+        // A link whose href/template is not a valid URL yields no block.
+        let jrd =
+            parse_webfinger(br#"{"subject":"acct:a@b","links":[{"rel":"x","href":"not a url"}]}"#)
+                .unwrap();
+        let blocks: Vec<Block> = jrd.links.into_iter().filter_map(link_block).collect();
+        assert!(blocks.is_empty());
+    }
 }

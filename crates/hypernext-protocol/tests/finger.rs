@@ -130,3 +130,16 @@ async fn finger_ssrf_blocks_loopback_by_default() {
     let err = adapter.fetch(&url, &c).await.unwrap_err();
     assert_eq!(err.code(), "SSRF_BLOCKED");
 }
+
+#[tokio::test]
+async fn finger_url_without_host_is_invalid() {
+    // A finger URL with no host must be rejected as INVALID_URL before any
+    // network I/O (host_str() is the source, so loopback is never needed).
+    let adapter = FingerAdapter::new();
+    let url = Url::parse("finger:///alice").unwrap();
+    let policy = FetchPolicy::default();
+    let c = ctx(&policy);
+
+    let err = adapter.fetch(&url, &c).await.unwrap_err();
+    assert_eq!(err.code(), "INVALID_URL");
+}

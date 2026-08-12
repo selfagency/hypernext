@@ -154,15 +154,10 @@ fn map_client_error(e: finger_protocol::ClientError) -> HypernextError {
 ///   the exact armor.
 /// - A `Plan:` header and its following text form one section (the RFC 1288
 ///   Plan convention).
-/// - An empty (or all-whitespace) body is a "user not found" reply and maps
-///   to [`HypernextError::NotFound`].
+/// - An empty (or all-whitespace) body yields no sections and maps to
+///   [`HypernextError::NotFound`].
 pub fn parse_finger(body: &str) -> Result<Vec<Block>, HypernextError> {
     let lines: Vec<&str> = body.lines().collect();
-    if lines.iter().all(|l| l.trim().is_empty()) {
-        return Err(HypernextError::NotFound(
-            "finger: empty response (user not found)".to_string(),
-        ));
-    }
 
     let mut blocks: Vec<Block> = Vec::new();
     let mut i = 0;
@@ -360,5 +355,57 @@ mQENBFxExampleKeyHere
         assert!(!verbose_from_url(
             &Url::parse("finger://h/user?verbose=yes").unwrap()
         ));
+    }
+
+    #[test]
+    fn default_returns_usable_instance() {
+        // Exercises the `Default` impl (delegates to `new`) and the trait it
+        // enables the adapter for.
+        let adapter = FingerAdapter::default();
+        assert_eq!(adapter.scheme(), "finger");
+    }
+
+    #[test]
+    fn scheme_is_finger() {
+        assert_eq!(FingerAdapter::new().scheme(), "finger");
+    }
+
+    #[test]
+    fn capabilities_support_fetch() {
+        let caps = FingerAdapter::new().capabilities();
+        assert!(caps.supports_fetch);
+    }
+
+    #[test]
+    fn map_client_error_handles_all_variants() {
+        use finger_protocol::ClientError;
+        let bad = map_client_error(ClientError::BadUrl("nope".into()));
+        assert_eq!(bad.code(), "INVALID_URL");
+        let connect = map_client_error(ClientError::Connect("refused".into()));
+        assert_eq!(connect.code(), "NETWORK_ERROR");
+        assert!(connect.to_string().contains("connect: refused"));
+        let io = map_client_error(ClientError::Io("timed out".into()));
+        assert_eq!(io.code(), "NETWORK_ERROR");
+        assert!(io.to_string().contains("io: timed out"));
+    }
+
+    #[test]
+    fn trailing_blank_lines_do_not_add_sections() {
+        // Trailing blank lines hit the end-of-input break without emitting a
+        // spurious section.
+        let blocks = parse_finger("only section\n\n\n").unwrap();
+        assert_eq!(blocks.len(), 1);
+        assert_eq!(plan_text(&blocks), "only section");
+    }
+
+    #[test]
+    fn whitespace_only_body_yields_not_found() {
+        // With no early return, a whitespace-only body flows through the
+        // section loop (skips blanks) and lands on the final empty-blocks
+        // check.
+        for body in ["", "   \n  \n", "\n\n\n"] {
+            let err = parse_finger(body).unwrap_err();
+            assert_eq!(err.code(), "NOT_FOUND", "body {body:?}");
+        }
     }
 }

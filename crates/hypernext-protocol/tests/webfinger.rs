@@ -12,6 +12,16 @@ const WELL_KNOWN_PATH: &str = "/.well-known/webfinger";
 /// A tiny in-process HTTP/1.1 server. Returns `body` with `status` for the
 /// WebFinger well-known path, `404` otherwise.
 async fn spawn_http_server(body: &'static [u8], status: &'static str) -> (String, u16) {
+    spawn_http_server_with_extra(status, None, body).await
+}
+
+/// Like [`spawn_http_server`] but allows injecting an extra `Location` header
+/// (used to exercise the redirect branch of the adapter).
+async fn spawn_http_server_with_extra(
+    status: &'static str,
+    location: Option<&'static str>,
+    body: &'static [u8],
+) -> (String, u16) {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     let host = addr.ip().to_string();
@@ -24,11 +34,15 @@ async fn spawn_http_server(body: &'static [u8], status: &'static str) -> (String
             };
             let body = body.to_vec();
             let status = status.to_string();
+            let location = location.map(str::to_string);
             tokio::spawn(async move {
                 let mut buf = [0u8; 4096];
                 let _n = sock.read(&mut buf).await.unwrap_or(0);
+                let loc = location
+                    .map(|l| format!("Location: {l}\r\n"))
+                    .unwrap_or_default();
                 let headers = format!(
-                    "HTTP/1.1 {status}\r\nContent-Type: application/jrd+json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    "HTTP/1.1 {status}\r\nContent-Type: application/jrd+json\r\n{loc}Content-Length: {}\r\nConnection: close\r\n\r\n",
                     body.len()
                 );
                 sock.write_all(headers.as_bytes()).await.ok();
@@ -149,4 +163,97 @@ async fn webfinger_ssrf_blocks_loopback_by_default() {
 
     let err = adapter.fetch(&url, &c).await.unwrap_err();
     assert_eq!(err.code(), "SSRF_BLOCKED");
+}
+
+#[tokio::test]
+async fn webfinger_redirect_returns_final_url() {
+    // 3xx with a valid Location: the adapter hands back the target and emits
+    // no link blocks (the Dispatcher re-vets + loops).
+    let (host, port) =
+        spawn_http_server_with_extra("302 Found", Some("https://example.com/target"), b"{}").await;
+    let adapter = WebFingerAdapter::new();
+    let url = Url::parse(&format!(
+        "http://{host}:{port}{WELL_KNOWN_PATH}?resource=acct%3Aa%40b"
+    ))
+    .unwrap();
+    let policy = FetchPolicy {
+        block_private_network: false,
+        ..FetchPolicy::default()
+    };
+    let c = ctx(&policy);
+
+    let doc = adapter.fetch(&url, &c).await.unwrap();
+    assert_eq!(doc.final_url.as_str(), "https://example.com/target");
+    assert!(doc.blocks.is_empty());
+}
+
+#[tokio::test]
+async fn webfinger_redirect_without_location_is_network_error() {
+    let (host, port) = spawn_http_server_with_extra("302 Found", None, b"{}").await;
+    let adapter = WebFingerAdapter::new();
+    let url = Url::parse(&format!(
+        "http://{host}:{port}{WELL_KNOWN_PATH}?resource=acct%3Aa%40b"
+    ))
+    .unwrap();
+    let policy = FetchPolicy {
+        block_private_network: false,
+        ..FetchPolicy::default()
+    };
+    let c = ctx(&policy);
+
+    let err = adapter.fetch(&url, &c).await.unwrap_err();
+    assert_eq!(err.code(), "NETWORK_ERROR");
+}
+
+#[tokio::test]
+async fn webfinger_redirect_with_unparseable_location_is_invalid_url() {
+    let (host, port) =
+        spawn_http_server_with_extra("302 Found", Some("http:// no space allowed"), b"{}").await;
+    let adapter = WebFingerAdapter::new();
+    let url = Url::parse(&format!(
+        "http://{host}:{port}{WELL_KNOWN_PATH}?resource=acct%3Aa%40b"
+    ))
+    .unwrap();
+    let policy = FetchPolicy {
+        block_private_network: false,
+        ..FetchPolicy::default()
+    };
+    let c = ctx(&policy);
+
+    let err = adapter.fetch(&url, &c).await.unwrap_err();
+    assert_eq!(err.code(), "INVALID_URL");
+}
+
+#[tokio::test]
+async fn webfinger_server_error_is_network_error() {
+    let (host, port) = spawn_http_server(b"oops", "500 Internal Server Error").await;
+    let adapter = WebFingerAdapter::new();
+    let url = Url::parse(&format!(
+        "http://{host}:{port}{WELL_KNOWN_PATH}?resource=acct%3Aa%40b"
+    ))
+    .unwrap();
+    let policy = FetchPolicy {
+        block_private_network: false,
+        ..FetchPolicy::default()
+    };
+    let c = ctx(&policy);
+
+    let err = adapter.fetch(&url, &c).await.unwrap_err();
+    assert_eq!(err.code(), "NETWORK_ERROR");
+}
+
+#[tokio::test]
+async fn webfinger_no_host_is_invalid_url() {
+    // A URL with no authority reaches the host gate: `file:///.well-known/webfinger`
+    // has no host but the correct well-known path.
+    let adapter = WebFingerAdapter::new();
+    let url = Url::parse("file:///.well-known/webfinger?resource=acct%3Aa%40b").unwrap();
+    let policy = FetchPolicy {
+        block_private_network: false,
+        ..FetchPolicy::default()
+    };
+    let c = ctx(&policy);
+
+    let err = adapter.fetch(&url, &c).await.unwrap_err();
+    assert_eq!(err.code(), "INVALID_URL");
 }
