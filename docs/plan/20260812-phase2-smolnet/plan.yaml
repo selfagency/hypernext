@@ -170,7 +170,7 @@ tasks:
     title: "Spike: text selection across blocks (ADR)"
     wave: 5
     agent: gem-implementer
-    status: pending
+    status: completed
     deps: [p2-t9]
     conflicts_with: []
     source: "phase-doc 3.11, open question Q2"
