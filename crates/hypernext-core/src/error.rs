@@ -52,6 +52,30 @@ pub enum HypernextError {
     /// The request was unauthorized.
     #[error("UNAUTHORIZED: {0}")]
     Unauthorized(String),
+
+    /// The operation is not supported by this protocol.
+    #[error("UNSUPPORTED")]
+    Unsupported,
+
+    /// No adapter is registered for the URL's scheme.
+    #[error("UNKNOWN_SCHEME: {0}")]
+    UnknownScheme(String),
+
+    /// The redirect chain exceeded the configured limit.
+    #[error("TOO_MANY_REDIRECTS")]
+    TooManyRedirects,
+
+    /// A TOFU-pinned TLS certificate changed between visits.
+    #[error("TOFU_CERT_CHANGED: {0}")]
+    TofuCertChanged(String),
+
+    /// The requested resource does not exist (HTTP 404, finger empty reply).
+    #[error("NOT_FOUND: {0}")]
+    NotFound(String),
+
+    /// The server returned a response that could not be parsed.
+    #[error("INVALID_RESPONSE: {0}")]
+    InvalidResponse(String),
 }
 
 impl HypernextError {
@@ -71,6 +95,12 @@ impl HypernextError {
             HypernextError::SizeLimitExceeded(_) => "SIZE_LIMIT_EXCEEDED",
             HypernextError::SsrfBlocked(_) => "SSRF_BLOCKED",
             HypernextError::Unauthorized(_) => "UNAUTHORIZED",
+            HypernextError::Unsupported => "UNSUPPORTED",
+            HypernextError::UnknownScheme(_) => "UNKNOWN_SCHEME",
+            HypernextError::TooManyRedirects => "TOO_MANY_REDIRECTS",
+            HypernextError::TofuCertChanged(_) => "TOFU_CERT_CHANGED",
+            HypernextError::NotFound(_) => "NOT_FOUND",
+            HypernextError::InvalidResponse(_) => "INVALID_RESPONSE",
         }
     }
 }
@@ -96,6 +126,12 @@ impl FromStr for HypernextError {
             "SIZE_LIMIT_EXCEEDED" => Ok(HypernextError::SizeLimitExceeded(0)),
             "SSRF_BLOCKED" => Ok(HypernextError::SsrfBlocked(String::new())),
             "UNAUTHORIZED" => Ok(HypernextError::Unauthorized(String::new())),
+            "UNSUPPORTED" => Ok(HypernextError::Unsupported),
+            "UNKNOWN_SCHEME" => Ok(HypernextError::UnknownScheme(String::new())),
+            "TOO_MANY_REDIRECTS" => Ok(HypernextError::TooManyRedirects),
+            "TOFU_CERT_CHANGED" => Ok(HypernextError::TofuCertChanged(String::new())),
+            "NOT_FOUND" => Ok(HypernextError::NotFound(String::new())),
+            "INVALID_RESPONSE" => Ok(HypernextError::InvalidResponse(String::new())),
             _ => Err(ParseError::UnknownCode(code.to_string())),
         }
     }
@@ -134,13 +170,24 @@ mod tests {
             (HypernextError::SizeLimitExceeded(0), "SIZE_LIMIT_EXCEEDED"),
             (HypernextError::SsrfBlocked("x".into()), "SSRF_BLOCKED"),
             (HypernextError::Unauthorized("x".into()), "UNAUTHORIZED"),
+            (HypernextError::Unsupported, "UNSUPPORTED"),
+            (HypernextError::UnknownScheme("x".into()), "UNKNOWN_SCHEME"),
+            (HypernextError::TooManyRedirects, "TOO_MANY_REDIRECTS"),
+            (
+                HypernextError::TofuCertChanged("x".into()),
+                "TOFU_CERT_CHANGED",
+            ),
+            (HypernextError::NotFound("x".into()), "NOT_FOUND"),
+            (
+                HypernextError::InvalidResponse("x".into()),
+                "INVALID_RESPONSE",
+            ),
         ];
         for (err, expected) in cases {
             assert_eq!(err.code(), *expected, "code() mismatch");
             assert!(
                 err.to_string().starts_with(expected),
-                "Display should start with code {expected}, got: {}",
-                err.to_string()
+                "Display should start with code {expected}, got: {err}"
             );
         }
     }
@@ -159,6 +206,12 @@ mod tests {
             HypernextError::SizeLimitExceeded(1024),
             HypernextError::SsrfBlocked("boom".into()),
             HypernextError::Unauthorized("boom".into()),
+            HypernextError::Unsupported,
+            HypernextError::UnknownScheme("boom".into()),
+            HypernextError::TooManyRedirects,
+            HypernextError::TofuCertChanged("boom".into()),
+            HypernextError::NotFound("boom".into()),
+            HypernextError::InvalidResponse("boom".into()),
         ];
         for err in cases {
             let s = err.to_string();

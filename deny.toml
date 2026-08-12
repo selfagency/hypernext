@@ -13,8 +13,32 @@ allow = [
     "Unlicense",  # dual-licensed "Unlicense OR MIT"; MIT alternative is allowed
     "Zlib",       # permissive OSI-approved; pulled by nanorand via flume->relm4
     "Apache-2.0 WITH LLVM-exception",  # permissive, non-copyleft (target-lexicon, wasi)
+    "bzip2-1.0.6",                     # bzip2/libbzip2 license, OSI-approved permissive (pgp -> bzip2)
+    "BSD-2-Clause",                     # comrak (markdown parser, p2-t3) — permissive, OSI-approved
+    "Unicode-DFS-2016",                # finl_unicode (comrak dep) — permissive Unicode license
+    "MITNFA",                          # fmt2io (comrak dep) — MIT + no-false-attribs, permissive
+    "CDLA-Permissive-2.0",             # webpki-root-certs (rustls dep) — permissive
 ]
 private = { ignore = true }
 
 [bans]
 multiple-versions = "warn"
+
+# RUSTSEC-2023-0071 (Marvin Attack): timing sidechannel on RSA *private-key*
+# operations (sign/decrypt). Hypernext-pgp only VERIFIES signatures with public
+# keys; it never signs or decrypts with RSA private keys, so the vulnerable path
+# is unreachable. rsa is an unavoidable transitive dep of pgp (rpgp) — the only
+# viable crate (sequoia-openpgp is LGPL, forbidden by library-lookup-protocol).
+# Revisit if a signing/decryption capability is ever added (Phase 5+ Confidential).
+[advisories]
+ignore = [
+    "RUSTSEC-2023-0071",
+    # RUSTSEC-2025-0141 (bincode unmaintained): transitive via comrak's
+    # syntect dep. bincode is only used for syntax-highlighting theme
+    # serialization, not for any security boundary. Revisit if comrak drops it.
+    "RUSTSEC-2025-0141",
+    # RUSTSEC-2024-0320 (yaml-rust unmaintained): transitive via comrak's
+    # syntect dep (syntax definition loading). No security boundary. Revisit
+    # if comrak/syntect drops it.
+    "RUSTSEC-2024-0320",
+]

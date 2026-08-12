@@ -1,0 +1,11 @@
+{
+  "subject": "acct:carol@example.com",
+  "aliases": ["https://www.example.com/~carol/"],
+  "links": [
+    { "rel": "http://webfinger.example/rel/profile-page",
+      "href": "https://www.example.com/~carol/" },
+    { "rel": "self", "type": "application/activity+json",
+      "href": "https://example.com/users/carol" },
+    { "rel": "http://example.com/rel/blog", "href": "https://blog.example.com/carol" }
+  ]
+}

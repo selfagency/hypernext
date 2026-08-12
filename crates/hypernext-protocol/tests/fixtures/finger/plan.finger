@@ -1,0 +1,7 @@
+Login: alice                Name: Alice Example
+Directory: /home/alice      Shell: /bin/zsh
+
+Plan:
+  - write the smolnet client
+  - ship phase two
+  - drink tea

@@ -1,0 +1,31 @@
+[package]
+name = "hypernext-pgp"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "OpenPGP clearsign/detached verification, key lookup, and TOFU key store (rpgp)"
+
+[dependencies]
+# Shared domain types + error (ADR 0009)
+hypernext-core = { workspace = true }
+# Errors (ADR 0009)
+thiserror = { workspace = true }
+# OpenPGP (rpgp; sequoia rejected for LGPL) — p2-t7 spike
+pgp = { workspace = true }
+# URL parsing for key-lookup chain (finger://, keys.openpgp.org)
+url = { workspace = true }
+# Logging
+tracing = { workspace = true }
+
+[dev-dependencies]
+# Key generation in tests — must match pgp's rand 0.8 (rand 0.10 has incompatible rand_core)
+rand = "0.8"
+# Hex formatting for fingerprints in tests
+hex = "0.4"
+# smallvec: rpgp key-builder test helper uses smallvec![]
+smallvec = "1"
+# Tracing subscriber for the verify-before-extract boundary test
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

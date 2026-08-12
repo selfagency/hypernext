@@ -28,7 +28,10 @@ fn schema_is_stable_across_reopen() {
                 r.get(0)
             })
             .expect("queryable");
-        assert_eq!(count, 1, "one migration recorded");
+        assert_eq!(
+            count, 2,
+            "two migrations recorded (V0001 schema, V0002 pgp host keys)"
+        );
     }
 
     // Re-open: schema must be identical, no re-migration.
@@ -39,7 +42,7 @@ fn schema_is_stable_across_reopen() {
                 r.get(0)
             })
             .expect("queryable");
-        assert_eq!(count, 1, "reopen must not re-apply migrations");
+        assert_eq!(count, 2, "reopen must not re-apply migrations");
 
         // Spot-check every domain table exists.
         for table in [
@@ -52,6 +55,7 @@ fn schema_is_stable_across_reopen() {
             "page_cache",
             "tofu_certs",
             "tofu_pgp_keys",
+            "tofu_pgp_host_keys",
             "capture_fts",
             "capture_vec",
         ] {
@@ -84,7 +88,7 @@ fn down_migration_is_not_supported() {
             |r| r.get(0),
         )
         .expect("queryable");
-    assert_eq!(version, 1, "migration version should be numeric");
+    assert_eq!(version, 2, "latest migration version should be 2");
     let _ = std::fs::remove_file(&path);
 }
 
@@ -218,6 +222,25 @@ fn rows_round_trip_through_every_table() {
         )
         .expect("query tofu_pgp_key");
     assert!(key.starts_with("-----BEGIN PGP"));
+
+    // tofu_pgp_host_keys (host -> signing-key fingerprint)
+    conn.execute(
+        "INSERT INTO tofu_pgp_host_keys (host, fingerprint, armored_key) VALUES (?1, ?2, ?3)",
+        rusqlite::params![
+            "smol.example",
+            "AABBCCDD",
+            "-----BEGIN PGP PUBLIC KEY BLOCK-----"
+        ],
+    )
+    .expect("insert tofu_pgp_host_key");
+    let host_fp: String = conn
+        .query_row(
+            "SELECT fingerprint FROM tofu_pgp_host_keys WHERE host = ?1",
+            ["smol.example"],
+            |r| r.get(0),
+        )
+        .expect("query tofu_pgp_host_key");
+    assert_eq!(host_fp, "AABBCCDD");
 
     // capture_fts (FTS5)
     conn.execute(

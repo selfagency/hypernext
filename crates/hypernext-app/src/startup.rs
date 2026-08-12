@@ -162,7 +162,10 @@ mod tests {
                 r.get(0)
             })
             .expect("schema history queryable");
-        assert_eq!(count, 1, "first launch must apply exactly one migration");
+        assert_eq!(
+            count, 2,
+            "first launch must apply all migrations (V0001, V0002)"
+        );
 
         // Drop the connection so WAL/SHM files are finalized before scanning.
         drop(s);
