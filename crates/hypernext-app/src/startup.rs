@@ -138,6 +138,10 @@ mod tests {
         // Point the data dir at a fresh temp location.
         std::env::set_var("HYPERNEXT_DATA_DIR", &data);
 
+        // Install the in-memory keychain mock before startup so the probe read
+        // never hits the real keychain (ADR 0007).
+        install_mock_keychain();
+
         let s = startup().expect("startup should succeed");
         assert_eq!(s.data_dir, data);
 
