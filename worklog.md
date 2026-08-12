@@ -362,3 +362,20 @@ Stage Summary:
 - All local gates green: cargo fmt --check, cargo clippy --workspace -- -D warnings, cargo test --workspace, cargo deny check, prek validate-config (exit 0).
 - .codacy/codacy.yaml and .rumdl.toml untouched; markdown notices untouched.
 - NO commits (orchestrator handles). NOT pushed.
+
+---
+Task ID: phase-1-pr1-fix
+Agent: gem-implementer
+Task: Fix 2 failing tests in crates/hypernext-app/src/startup.rs (keychain mock not installed before startup)
+
+Work Log:
+- Diagnosed: startup_runs_migrations_and_creates_no_files_outside_data_dir called startup() without install_mock_keychain(), so init_keychain() hit the real keychain -> KEYCHAIN_ERROR.
+- Verified install_mock_keychain() helper (startup.rs:96-103) matches keychain crate pattern: keyring::Entry::store_status() then keyring_core::set_default_store(mock). Correct order.
+- Added install_mock_keychain() call before startup() in the migration test.
+
+Stage Summary:
+- 1 file modified: crates/hypernext-app/src/startup.rs (+4 lines).
+- cargo test -p hypernext-app --lib: 5 passed, 0 failed.
+- cargo test --workspace: all pass.
+- cargo fmt --check, cargo clippy --workspace -- -D warnings, cargo deny check: all pass.
+- NO commits (orchestrator handles).
