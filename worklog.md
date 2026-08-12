@@ -341,3 +341,24 @@ Stage Summary:
 - hypernext-pgp absent: Kani job documents it will cover PGP when p2-t7 lands (no crate to target now).
 - All existing gates still pass (fmt/clippy/test/deny verified via prek run).
 - NO commits (orchestrator handles). .codacy/codacy.yaml + .rumdl.toml untouched.
+
+---
+Task ID: p1-codacy-fixes (Phase 1 PR #1 gate)
+Agent: gem-devops
+Task: Clear 5 Codacy WARNINGS (0-new-issues gate) on the Phase 1 PR without touching user's codacy config or the 16 markdown notices.
+
+Work Log:
+- Read ci.yml, crates/hypernext-app/src/{lib.rs,main.rs,startup.rs}, .codacy/codacy.yaml, worklog.md.
+- Resolved action SHAs via gh api (verified tag -> commit): actions/checkout@v4 -> 11d5960a326750d5838078e36cf38b85af677262; Swatinem/rust-cache@v2 -> 6323deb102c322ba6fcbdcafc7e3dddab59af2b6 (peeled annotated tag via git/tags endpoint).
+- ci.yml: added top-level `permissions: contents: read` (after env:, before jobs:). Pinned ALL 9 checkout@v4 + 5 rust-cache@v2 occurrences to full SHAs with `# v4` / `# v2` suffix comments. Left taiki-e/install-action@v2, j178/prek-action@v3.0.0, dtolnay/rust-toolchain@nightly as-is (not flagged).
+- Identified the actual opengrep rules (from semgrep-rules/rust/lang/security, opengrep@1.16.4 in codacy.yaml): id `args` (pattern std::env::args()), `args-os`, `temp-dir` (pattern std::env::temp_dir()). These are severity INFO/audit CWE-807.
+- Suppressed the 4 false positives with scoped inline `// nosemgrep: <rule-id>` comments (opengrep honors native semgrep suppression) on the exact flagged lines: lib.rs:64 (args), lib.rs:109 (args), main.rs:19 (args), startup.rs:125 (temp-dir). All are test-only self-test probe hooks / data-dir confinement check, NOT security decisions.
+- Did NOT switch to args_os() (recommended by some) because these are hidden test-probe flags where the UTF-8 panic risk is irrelevant and args_os would flag the paired args-os rule anyway; suppression is the minimal correct fix.
+
+Stage Summary:
+- 5/5 WARNINGS resolved: 1 permissions + SHA-pinning + 4 inline suppressions.
+- Pinned SHAs: checkout=11d5960a326750d5838078e36cf38b85af677262, rust-cache=6323deb102c322ba6fcbdcafc7e3dddab59af2b6.
+- Suppression comments added: 3x `// nosemgrep: args`, 1x `// nosemgrep: temp-dir`.
+- All local gates green: cargo fmt --check, cargo clippy --workspace -- -D warnings, cargo test --workspace, cargo deny check, prek validate-config (exit 0).
+- .codacy/codacy.yaml and .rumdl.toml untouched; markdown notices untouched.
+- NO commits (orchestrator handles). NOT pushed.
