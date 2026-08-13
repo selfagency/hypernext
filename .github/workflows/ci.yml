@@ -98,7 +98,8 @@ jobs:
           - name: testable
             pkgs: -p hypernext-core -p hypernext-keychain -p hypernext-pgp -p hypernext-protocol -p hypernext-store -p hypernext-http
             fail-under: 80
-            lcov: lcov-testable.info
+            outdir: coverage-testable
+            lcov: coverage-testable/lcov.info
             upload: true
           # Display-gated GUI crates (app/ui/webmode): their GTK/webkit coverage
           # needs a real display (tests #[ignore]d in CI), so gate low at 20% -
@@ -107,7 +108,8 @@ jobs:
           - name: gui
             pkgs: -p hypernext-app -p hypernext-ui -p hypernext-webmode
             fail-under: 20
-            lcov: lcov-gui.info
+            outdir: coverage-gui
+            lcov: coverage-gui/lcov.info
             upload: false
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -121,13 +123,13 @@ jobs:
         with:
           tool: cargo-tarpaulin
       - name: cargo tarpaulin ${{ matrix.pkgs }} --out lcov --fail-under ${{ matrix.fail-under }}
-        run: xvfb-run -a cargo tarpaulin ${{ matrix.pkgs }} --out lcov --output-path ${{ matrix.lcov }} --fail-under ${{ matrix.fail-under }}
+        run: xvfb-run -a cargo tarpaulin ${{ matrix.pkgs }} --out lcov --output-dir ${{ matrix.outdir }} --fail-under ${{ matrix.fail-under }}
       - name: Upload coverage to Codacy (testable group)
         if: matrix.upload
         uses: codacy/codacy-coverage-reporter-action@89d6c85cfafaec52c72b6c5e8b2878d33104c699 # v1.3.0
         with:
           project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
-          coverage-reports: lcov-testable.info
+          coverage-reports: ${{ matrix.lcov }}
 
   deny:
     name: Deny (licenses + advisories)
