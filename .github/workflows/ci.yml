@@ -43,7 +43,7 @@ jobs:
       - name: Install GTK dev libs (clippy compiles gtk4-sys)
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-4-dev
+          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev
       - name: Install rumdl (markdown formatter for rumdl-fmt hook)
         uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
         with:
@@ -63,7 +63,7 @@ jobs:
       - name: Install GTK + xvfb
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-4-dev xvfb
+          sudo apt-get install -y libgtk-4-dev xvfb libwebkitgtk-6.0-dev
       - name: cargo test --workspace
         run: xvfb-run -a cargo test --workspace
 
@@ -82,7 +82,7 @@ jobs:
       - name: Install GTK dev libs (check compiles gtk4-sys)
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-4-dev
+          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev
       - name: cargo check --workspace at MSRV
         run: cargo check --workspace
 
@@ -95,7 +95,7 @@ jobs:
       - name: Install GTK + xvfb (tarpaulin compiles workspace; smoke test needs display)
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-4-dev xvfb
+          sudo apt-get install -y libgtk-4-dev xvfb libwebkitgtk-6.0-dev
       - name: Install cargo-tarpaulin
         uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
         with:
