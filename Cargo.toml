@@ -45,8 +45,11 @@ sqlite-vec = "0.1"
 # UI (ADR 0001)
 # 0.11 targets gtk4 0.11; bumped together. webkit6 0.6 needs gtk4 0.11 (see ADR 0002),
 # and relm4 0.11 is the matching release. See worklog for the approved MSRV/edition contract change.
+# gtk4 v4_10 feature: webkit6 0.6.1 references gtk::Accessible (gir @implements), which gtk4
+# 0.11.4 gates behind the v4_10 feature; declaring it is required for the Linux webkit6
+# backend to build (bare "0.11" enables zero GTK-version features).
 relm4 = "0.11"
-gtk4 = "0.11"
+gtk4 = { version = "0.11", features = ["v4_10"] }
 
 # Keychain (ADR 0007)
 keyring = "4"
