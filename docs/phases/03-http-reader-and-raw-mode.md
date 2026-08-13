@@ -172,9 +172,10 @@ Integration tests:
 - [ ] In `crates/hypernext-http/src/adblock.rs`:
   - `pub struct AdblockEngine { engine: adblock::Engine }`
   - `pub fn new() -> Self` — loads EasyList + EasyPrivacy from bundled assets (download at build time, never at runtime)
-  - `pub fn should_block(url: &Url, source_origin: &Url, resource_type: ResourceType) -> bool`
+  - `pub fn should_block(url: &Url, source_origin: &Url, resource_type: adblock::request::RequestType) -> bool`
+    (API correction p3-t3: `adblock` 0.13.2 exposes `RequestType`, not `ResourceType`; re-exported as `hypernext_http::adblock::RequestType`)
   - `pub fn cosmetic_rules_for(domain: &str) -> Vec<String>` — CSS selectors to hide
-  - Apply cosmetic rules in `extract.rs`: strip matching elements from the HTML tree before `legible::extract`
+  - Apply cosmetic rules in `extract.rs`: strip matching elements from the HTML tree before `legible::parse` (correction p3-t3: the API is `legible::parse`, not `legible::extract`; generic `##.foo` rules need the page's classes/ids via `cosmetic_rules_for_document(url, html)`),
 - [ ] Filter list subscription: a `FilterListSource` enum (`Bundled`, `Url(url)`, `File(path)`); defaults to `Bundled` EasyList + EasyPrivacy
 - [ ] User can toggle adblock on/off per origin (stored in settings)
 - [ ] Never apply adblock in incognito (raw-mode only — see §3.5)
@@ -213,9 +214,18 @@ This is the only place a webview exists in Hypernext. It's an embedded widget �
 
 - [ ] In `crates/hypernext-webmode/src/raw_widget.rs`:
   - A platform-conditional module: `#[cfg(target_os = "macos")] mod macos;` etc.
-  - macOS: use `objc2-web-kit`'s `WKWebView` wrapped in a `gtk::Widget` via `gtk::nsview_to_widget` (or use `gtk4-macros`'s foreign drawing)
-    - **SPIKE:** macOS WKWebView does not natively integrate with GTK4. Either (a) use a `GtkSocket` to embed a native NSView, (b) use `wry` to wrap the WKWebView in a `gtk::Widget`, or (c) accept that macOS raw mode uses a separate window (not in-tab). Document the chosen approach in `docs/references/0002-browser-engine-survey.md` ADR.
-  - Linux: use `webkit6` crate's `WebView` directly as a `gtk::Widget`
+  - macOS: use `objc2-web-kit`'s `WKWebView`.
+    - **SPIKE (p3-t4, resolved 2026-08-12):** GTK4 cannot host a foreign NSView.
+      `GtkSocket`/`GtkPlug` were removed in GTK4 and were X11-only; there is no
+      `gtk4::nsview_to_widget`; `wry`'s `build_gtk` is Linux-only. **Decision:
+      Fallback A — macOS raw mode uses a separate native `NSWindow` hosting the
+      `WKWebView`** (the GTK tab hosts a placeholder widget). See
+      `docs/references/0002-browser-engine-survey.md` §SPIKE outcome.
+  - Linux: use `webkit6` crate's `WebView` directly as a `gtk::Widget`.
+    - **BLOCKED (spike finding):** `webkit6` 0.6 requires gtk4 0.11; Hypernext
+      pins gtk4 0.9 (only one `gtk4-sys` may link `gtk-4`). Deferred until the
+      workspace upgrades gtk4 to 0.11; `hypernext-webmode` ships a gtk4-only
+      placeholder on Linux until then.
   - Windows: use `webview2-com` via `windows` crate, embedded in a `gtk::Widget` via Win32 HWND parenting
 - [ ] `pub struct RawWebView { widget: gtk::Widget, ... }`
 - [ ] `pub fn new() -> Self`
@@ -246,10 +256,13 @@ Integration tests (require a display — `xvfb-run` on CI Linux):
 
 **SPIKE for macOS WKWebView + GTK4 integration:**
 
-This is the single biggest technical risk in Phase 3. Document the approach in `docs/references/0002-browser-engine-survey.md` ADR. If the integration is impossible without major work, fall back to:
-
-- (Fallback A) Raw mode opens in a separate native window (not in-tab) — worse UX but ships
-- (Fallback B) Drop raw mode from 1.0 entirely; document as 1.1 follow-on. Reduces 1.0 scope significantly.
+**RESOLVED (p3-t4, 2026-08-12) — see `docs/references/0002-browser-engine-survey.md`
+§SPIKE outcome.** Chosen approach: **Fallback A (separate native WKWebView
+window)**. Options (a) `GtkSocket` and (b) `wry build_gtk` are impossible on
+macOS (GtkSocket removed in GTK4; wry's GTK embedding is Linux-only). No
+fallback decision remains open: Fallback A ships raw mode in 1.0 with a
+documented worse-UX separate window. Fallback B (drop raw to 1.1) was** not**
+selected.
 
 ### 3.5 Web mode toggle + per-origin persistence (Week 4)
 
