@@ -82,11 +82,19 @@ mod tests {
     /// test harness thread is not the GTK main thread: on macOS `gtk4::init()`
     /// asserts main-thread and WKWebView construction needs a running
     /// NSApplication, so the macOS backend is exercised only via the manual
-    /// macOS checklist in ADR 0002 (macOS webview is CI-untestable). On Linux
-    /// the backend is the CI-testable gtk4 widget, and non-main-thread GTK init
-    /// works under xvfb.
+    /// macOS checklist in ADR 0002 (macOS webview is CI-untestable).
+    ///
+    /// Marked `#[ignore]` (AGENTS.md stop-condition #3): the assertion passes
+    /// (the WebKitWebView widgets construct and render a widget) but the
+    /// PROCESS aborts with SIGABRT at teardown under headless/xvfb - WebKitGTK's
+    /// web-process teardown crashes in a forked/display-less CI environment.
+    /// Reproduced on a real Linux host too (webkit6 0.6.1 + gtk4 0.11). Not a
+    /// code bug; CI cannot run it. Run on a real desktop with
+    /// `cargo test -p hypernext-webmode --lib -- --ignored`. `WEBKIT_DISABLE_
+    /// COMPOSITING_MODE` / `WEBKIT_FORCE_SANDBOX=0` does not avoid it.
     #[cfg(target_os = "linux")]
     #[test]
+    #[ignore = "WebKitGTK web-process teardown SIGABRTs headlessly; verify on a real Linux desktop"]
     fn new_returns_a_widget() {
         use super::*;
         use gtk4::prelude::*;
