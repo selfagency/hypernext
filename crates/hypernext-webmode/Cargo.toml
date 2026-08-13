@@ -1,0 +1,45 @@
+[package]
+name = "hypernext-webmode"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Raw-mode webview widget (platform native WKWebView / WebView2) + webview policy"
+
+[dependencies]
+# GTK4 shell (ADR 0001) -- the raw-mode webview is hosted as a gtk::Widget per
+# raw-mode tab. Only the raw-mode tab ever hosts a webview (invariant #10).
+gtk4 = { workspace = true }
+# URL parsing / validation for load_url
+url = { workspace = true }
+
+# --- Platform webview backends (target-gated; never built off-target) ---
+# Each binding is verified via docs/references/library-lookup-protocol.md and
+# pinned in the workspace [workspace.dependencies] block. See the ADR 0002
+# SPIKE section for the macOS embedding decision (separate native window;
+# GTK4 has no foreign-view embedding slot for an NSView) and for why the
+# Linux webkit6 backend is deferred (webkit6 0.6 needs gtk4 0.11; Hypernext
+# pins gtk4 0.9).
+
+# macOS: WKWebView via objc2-web-kit. SPIKE (ADR 0002) chose Fallback A --
+# a separate native WKWebView window, because GTK4 removed GtkSocket and
+# exposes no per-widget NSView embedding slot; wry's build_gtk is Linux-only.
+# This is the 1.0 target. gtk4-0.9-independent (uses objc2 only), so it builds
+# here on macOS.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { workspace = true }
+objc2-app-kit = { workspace = true }
+objc2-web-kit = { workspace = true }
+objc2-foundation = { workspace = true }
+
+# Windows: WebView2 (Edge Chromium) via webview2-com, hosted in a child HWND.
+# Post-1.0 target; compile-clean placeholder.
+[target.'cfg(target_os = "windows")'.dependencies]
+webview2-com = { workspace = true }
+
+# Linux: DEFERRED. webkit6 0.6 requires gtk4 0.11 but Hypernext pins gtk4 0.9
+# (see ADR 0002 SPIKE + phase-doc 3.4). No webkit6 dep is declared yet; the
+# RawWebViewImpl cfg arm for Linux resolves to a documented placeholder that
+# will be wired to webkit6 when the workspace upgrades gtk4 to 0.11.
+[dev-dependencies]

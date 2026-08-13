@@ -10,6 +10,7 @@ members = [
     "crates/hypernext-protocol",
     "crates/hypernext-pgp",
     "crates/hypernext-http",
+    "crates/hypernext-webmode",
 ]
 
 [workspace.package]
@@ -91,6 +92,23 @@ hypernext-core = { path = "crates/hypernext-core" }
 hypernext-http = { path = "crates/hypernext-http", version = "0.1.0" }
 hypernext-store = { path = "crates/hypernext-store" }
 hypernext-keychain = { path = "crates/hypernext-keychain" }
+hypernext-webmode = { path = "crates/hypernext-webmode" }
+
+# Raw-mode webview platform bindings (phase 3, p3-t4; ADR 0002 SPIKE).
+# Target-gated in hypernext-webmode's Cargo.toml; only the current platform's
+# binding is built. (gtk4 is declared above for the UI stack.)
+# NOTE: webkit6 0.6 needs gtk4 0.11 (conflicts with pinned gtk4 0.9), so the
+# Linux webkit6 backend is deferred and NOT declared here (see ADR 0002).
+objc2 = { version = "0.6", default-features = false }
+objc2-foundation = { version = "0.3", features = [
+    "NSString", "NSURL", "NSURLRequest", "NSGeometry", "NSObject", "NSArray",
+] }
+objc2-app-kit = { version = "0.3", features = ["NSWindow", "NSView", "NSApplication"] }
+objc2-web-kit = { version = "0.3", features = [
+    "WKWebView", "WKWebViewConfiguration", "WKNavigationDelegate", "WKUIDelegate",
+    "WKNavigationAction", "WKWindowFeatures", "WKWebpagePreferences",
+] }
+webview2-com = "0.39"
 
 # Testing (dev-deps)
 pretty_assertions = "1"
@@ -107,6 +125,10 @@ rcgen = "0.13"
 # Markdown parsing (text/markdown bodies)
 comrak = "0.54"
 
+# Ad filtering (p3-t3; Brave adblock-rust, audited in protocol-crate-audit.md)
+# License: MPL-2.0 (Brave adblock-rust) -- MPL-2.0 is on the allowed list.
+adblock = "0.13"
+# CSS selector matching for cosmetic filtering (shared html5ever with scraper/legible)
 # HTML readability extraction (p3-t2; legible v0.5.1 Rust Readability.js port)
 # API: legible::parse(&str, Option<&str>, Option<Options>) -> Result<Article, legible::Error>
 legible = "0.5"

@@ -28,6 +28,9 @@ scraper = { workspace = true }
 # Markdown body -> HTML (comrak), then legible extract
 comrak = { workspace = true }
 
+# Ad filtering (p3-t3): Brave adblock-rust engine
+adblock = { workspace = true }
+
 # Metadata JSON-LD parsing + og/twitter values
 serde_json = { workspace = true }
 # PGP public-key type threaded through verify_pgp (rpgp; workspace-pinned + audited)

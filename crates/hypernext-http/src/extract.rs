@@ -66,6 +66,33 @@ pub async fn fetch_and_extract(
     )
 }
 
+/// Like [`fetch_and_extract`], but applies adblock: network requests blocked by
+/// `engine.should_block` are not fetched, and cosmetic rules strip matching
+/// elements from the HTML tree before readability extraction. Caller decides
+/// when this runs (the per-origin toggle + incognito gate live at the
+/// fetch-context layer, not here).
+pub async fn fetch_and_extract_filtered(
+    url: &Url,
+    client: &Client,
+    policy: &FetchPolicy,
+    engine: &crate::adblock::AdblockEngine,
+) -> Result<PageDoc, Error> {
+    let (bytes, final_url, response) = fetch_doc(client, url, policy).await?;
+    // The top-level document is always fetched (reader mode fetches one URL);
+    // cosmetic rules then strip ad elements from the tree before extraction.
+    // Network subresource blocking (`should_block`) is the raw-mode webview's
+    // job (phase doc 3.4 resource interception), exercised via `should_block`.
+    extract_doc_filtered(
+        url,
+        &final_url,
+        bytes,
+        response.content_type.as_deref(),
+        &[],
+        &response,
+        Some(engine),
+    )
+}
+
 /// Fetch `url`, returning the raw body plus response metadata needed for
 /// `DebugInfo` and the raw-bytes PGP check.
 async fn fetch_doc(
@@ -135,6 +162,30 @@ pub fn extract_doc(
     keys: KeySet,
     response: &HttpResponseDebug,
 ) -> Result<PageDoc, Error> {
+    extract_doc_filtered(
+        url,
+        final_url,
+        bytes,
+        declared_content_type,
+        keys,
+        response,
+        None,
+    )
+}
+
+/// Like [`extract_doc`], but applies cosmetic ad-hiding: when `engine` is
+/// `Some`, elements matching the engine's cosmetic rules are stripped from the
+/// HTML **before** `legible::parse` (phase doc 3.3: ads removed before
+/// readability). `None` behaves exactly like [`extract_doc`].
+pub fn extract_doc_filtered(
+    url: &Url,
+    final_url: &Url,
+    bytes: Vec<u8>,
+    declared_content_type: Option<&str>,
+    keys: KeySet,
+    response: &HttpResponseDebug,
+    engine: Option<&crate::adblock::AdblockEngine>,
+) -> Result<PageDoc, Error> {
     let started = Instant::now();
 
     // 3. PGP verification BEFORE extraction (invariant #6).
@@ -163,8 +214,8 @@ pub fn extract_doc(
     }
 
     let (blocks, md, mut parser) = match content_type.kind {
-        ContentKind::Html => extract_html(&source, url),
-        ContentKind::Markdown => extract_markdown(&source, url),
+        ContentKind::Html => extract_html(&source, url, engine),
+        ContentKind::Markdown => extract_markdown(&source, url, engine),
         ContentKind::TextPlain => extract_plaintext(&source),
         ContentKind::Binary => extract_binary(&source, &content_type.raw),
         ContentKind::Feed => unreachable!("feed handled above"),
@@ -360,8 +411,20 @@ fn is_markdown_sniff(head: &str) -> bool {
  * Extraction by kind
  * ------------------------------------------------------------------ */
 
-fn extract_html(bytes: &[u8], url: &Url) -> (Vec<Block>, Metadata, Vec<String>) {
+fn extract_html(
+    bytes: &[u8],
+    url: &Url,
+    engine: Option<&crate::adblock::AdblockEngine>,
+) -> (Vec<Block>, Metadata, Vec<String>) {
     let html = String::from_utf8_lossy(bytes);
+    // Cosmetic ad-hiding BEFORE readability: strip matched elements so ads are
+    // removed from the tree before `legible::parse` (phase doc 3.3).
+    let html = if let Some(engine) = engine {
+        let selectors = engine.cosmetic_rules_for_document(url.as_str(), &html);
+        crate::adblock::strip_matching(&html, &selectors)
+    } else {
+        html.into_owned()
+    };
     let (mut md, meta_decisions) = parse_metadata(&html, url);
 
     match legible::parse(&html, Some(url.as_str()), None) {
@@ -393,12 +456,16 @@ fn extract_html(bytes: &[u8], url: &Url) -> (Vec<Block>, Metadata, Vec<String>) 
     }
 }
 
-fn extract_markdown(bytes: &[u8], url: &Url) -> (Vec<Block>, Metadata, Vec<String>) {
+fn extract_markdown(
+    bytes: &[u8],
+    url: &Url,
+    engine: Option<&crate::adblock::AdblockEngine>,
+) -> (Vec<Block>, Metadata, Vec<String>) {
     let src = String::from_utf8_lossy(bytes);
     let options = comrak::Options::default();
     let html = comrak::markdown_to_html(&src, &options);
     let mut decisions = vec!["markdown body: comrak::markdown_to_html -> legible".to_string()];
-    let (blocks, md, d) = extract_html(html.as_bytes(), url);
+    let (blocks, md, d) = extract_html(html.as_bytes(), url, engine);
     decisions.extend(d);
     (blocks, md, decisions)
 }

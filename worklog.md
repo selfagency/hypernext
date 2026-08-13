@@ -781,3 +781,72 @@ Stage Summary:
 - Gates green: cargo test -p hypernext-http (42+5+6 = 53 passed), clippy -p hypernext-http --all-targets -- -D warnings clean, cargo fmt --check clean, cargo deny check ok (advisories/bans/licenses/sources). Crate line coverage ~88.8% (client 52/64, extract 405/453, policy 49/53).
 - Added deps: legible 0.5.1, scraper 0.27.0 (shared html5ever 0.39 with legible), pgp published as runtime dep for SignedPublicKey; microformats NOT added (LGPL). Dep audit appended to docs/references/protocol-crate-audit.md.
 - No commits (orchestrator handles git).
+
+---
+Task ID: p3-t5
+Agent: gem-implementer (hypernext-store)
+Task: Phase 3 Wave 3 - WebMode toggle + per-origin persistence as pure domain logic
+
+Work Log:
+- Analyzed dependency graph: hypernext-store DEPENDS ON hypernext-core (ADR 0009 From<StoreError> for HypernextError lives in store, t4 decision). core does NOT depend on store. Thus a WebMode module in core taking &Connection would create a core -> store -> core cycle.
+- Placed WebMode module in hypernext-store (crates/hypernext-store/src/webmode.rs) - the crate that owns the settings table + Connection. Reusable by both http adapter and UI later without a cycle. Incremented dep count in lib.rs.
+- Added `url = { workspace = true }` to hypernext-store/Cargo.toml (was not a dep; module needs Url).
+- Schema: reused existing `settings` table (V0001): key TEXT PRIMARY KEY, value TEXT NOT NULL (JSON). No new migration needed.
+- Key scheme: `webmode.<scheme>://<host>[:<port>]`. VALUE_RAW = `"raw"` (JSON-encoded). Port included so prefs don't alias across ports (test covers this).
+- API: `WebMode { Reader, Raw }`; `resolve_mode(url: &Url, store: &Connection, incognito: bool) -> WebMode`; `set_mode_pref(url, mode, store) -> Result<(), StoreError>`.
+- Incognito: `resolve_mode` short-circuits to Reader when `incognito==true` regardless of saved pref (raw disabled in incognito for safety). Documented in module header.
+- set_mode_pref(Reader) DELETEs the settings row (no row, not a Reader row); set_mode_pref(Raw) upserts single `"raw"` row. Confirmed no unwrap() in non-test.
+
+Stage Summary:
+- 8 unit tests covering all 5 TDD gate cases + ports + idempotency + opaque URLs + persistence-across-reopen.
+- Gates green: cargo test --workspace (exit 0, all 40 suites ok), cargo clippy --workspace -- -D warnings clean, cargo fmt --check clean, cargo deny check ok (advisories/bans/licenses/sources).
+- WebMode module coverage via cargo-tarpaulin: 26/26 lines = 100% (>=80% gate).
+- One transient workspace-test flake on first run (~5 passed;1 failed, network-dependent protocol suite); immediate re-run green, isolated from store/webmode change which stayed green throughout.
+- No commits (orchestrator handles git). Touched only hypernext-store (Cargo.toml, lib.rs, new webmode.rs).
+
+---
+Task ID: p3-t4
+Agent: gem-implementer
+Task: Raw-mode webview widget + macOS WKWebView/GTK4 SPIKE (ADR 0002) — hypernext-webmode crate
+
+Work Log:
+
+- SPIKE (done first): macOS WKWebView cannot embed inside a GTK4 tab. Verified from source: GTK4 removed GtkSocket/GtkPlug (GTK3, X11-only), no gtk::nsview_to_widget exists, wry's build_gtk is Linux/Unix-only. Decision: **Fallback A — separate native WKWebView window** on macOS (ADR 0002 SPIKE outcome section). Fallback B (drop raw to 1.1) NOT selected.
+- Second spike finding: webkit6 0.6 requires gtk4 0.11 (gtk ^0.11), conflicts with Hypernext's pinned gtk4 0.9 (one gtk4-sys may link gtk-4). Linux webkit6 backend DEFERRED; crate ships a gtk4-only placeholder on Linux until gtk4 0.11 upgrade. Documented in ADR + phase-doc correction.
+- New crate crates/hypernext-webmode: src/lib.rs (re-exports), policy.rs (WebviewPolicy + Default/incognito/standard), raw_widget.rs (RawWebView widget + per-OS dispatch), macos.rs (objc2-web-kit WKWebView in separate NSWindow), linux.rs (deferred gtk4 placeholder), windows.rs (webview2-com compile-clean placeholder).
+- WebviewPolicy::default() = incognito-safe: scripts/storage/popups/cross-origin all false, downloads true (user-confirmed). 5 unit tests pass (location-agnostic, the CI-runnable TDD gate).
+- RawWebView::new() gui test is Linux-gated (CI-testable under xvfb; macOS backend needs main thread + NSApplication, CI-untestable — manual macOS checklist in ADR).
+- Library-lookup: objc2-web-kit 0.3.2 (MIT, active) verified from downloaded source (WKWebViewConfiguration::new, WKWebView::alloc+initWithFrame_configuration, NSWindowStyleMask::{Titled,Closable,Resizable,Miniaturizable}, NSURL::URLWithString, NSURLRequest::requestWithURL). webkit6 deferred (gtk 0.11). wry rejected for macOS embedding. webview2-com pinned for Windows.
+- Wired workspace Cargo.toml: added hypernext-webmode member + target-gated objc2/objc2-app-kit/objc2-web-kit/objc2-foundation/webview2-com workspace deps. Re-enabled hypernext-webmode member that p3-t3 had temporarily disabled.
+- Raw-mode adblock resource interception left as a documented seam/hook (owned by p3-t7 — needs p3-t3 engine); NOT implemented here.
+- Phase-doc 3.4 corrected: removed stale gtk::nsview_to_widget/GtkSocket refs, documented Fallback A + webkit6 gtk4-0.11 blocker.
+
+Stage Summary:
+
+- Gates green on macOS host: cargo test -p hypernext-webmode (5/5 policy tests), cargo clippy -p hypernext-webmode --all-targets -- -D warnings clean, cargo fmt --check clean, cargo deny check ok (advisories/bans/licenses/sources). hypernext-core + hypernext-store still compile.
+- Coverage: not computed here (no grcov/llvm-cov tooling in env). Policy logic 100% unit-tested; macOS backend 0% by design (local-only, CI-untestable) and Linux/windows placeholders not built on the macOS host — documented caveat per plan (macOS path local-only; CI covers Linux path when gtk4 0.11 upgrade lands).
+- No commits (orchestrator handles git). Touched: workspace Cargo.toml, new crates/hypernext-webmode/, ADR 0002, phase-doc 3.4, worklog.md. Did NOT touch hypernext-http, hypernext-store, hypernext-protocol, plan.yaml.
+
+---
+Task ID: p3-t3
+Agent: gem-implementer (hypernext-http)
+Task: Phase 3 Wave 3 - Ad filtering (adblock) in hypernext-http
+
+Work Log:
+- Library-lookup (protocol 6-step) for `adblock` 0.13.2: read source from cargo registry (authoritative). MPL-2.0 (allowlist OK), healthy (2026-07-19, ~1M DL). API verified: FilterSet::new + add_filter_list + Engine::new_with_filter_set; Request::new(url, source, type, method); check_network_request -> BlockerResult::should_block; url_cosmetic_resources -> UrlSpecificResources{hide_selectors,exceptions}; hidden_class_id_selectors(classes,ids,exceptions). No EngineOptions in 0.13.2; type is RequestType (not phase-doc ResourceType). cargo tree clean (addr/idna/base64 only, no GPL).
+- Bundled EasyList + EasyPrivacy: downloaded once (snapshot 2026-08-12) into crates/hypernext-http/assets/{easylist,easyprivacy}.txt, embedded at compile time via include_str!. NEVER runtime network. Added assets/README.md license/attribution note.
+- adblock.rs: AdblockEngine{engine}, new()/with_source(FilterListSource{Bundled,Url,File})/from_lists, should_block(url, source_origin, RequestType)->bool, cosmetic_rules_for(domain)->Vec<String> (domain-specific hide_selectors), cosmetic_rules_for_document(url, html)->Vec<String> (generic class/id rules via two-pass hidden_class_id_selectors on page classes/ids), strip_matching(html, selectors)->String (scraper tree detach via NodeId). Re-exported RequestType as hypernext_http::adblock::RequestType.
+- extract.rs: cosmetic stripping BEFORE legible::parse. Added fetch_and_extract_filtered + extract_doc_filtered(..., Option<&AdblockEngine>); extract_doc/fetch_and_extract untouched public signatures (delegate with None).
+- Cosmetic two-pass finding: generic ##.foo rules require page classes/ids (hidden_class_id_selectors), not just url_cosmetic_resources().hide_selectors.
+- Wiremock integration tests (tests/adblock.rs): bundled engine blocks doubleclick image (should_block); reader-mode page with tracker img + ad-banner-300x250 div extracts without ad content; cosmetic strip removes ad-banner-300x250 div; non-tracker not blocked. Used set_body_raw(...,"text/html") (set_body_string forces text/plain, bypassing cosmetic path).
+
+Stage Summary:
+- 54 lib tests + 4 adblock integration + 5 integration + 6 pipeline green. (pipeline pgp-order test is pre-existing flaky/order-dependent: passes 5/5 isolated, intermittent full-binary; not my regression - refactor preserves verify->extract event order.)
+- Gates: cargo test -p hypernext-http green, clippy -p hypernext-http --all-targets -- -D warnings clean, cargo fmt --check clean, cargo deny check ok (advisories/bans/licenses/sources).
+- Coverage (tarpaulin): crate ~87% (adblock.rs 85/86 = 98.8%, client 81%, extract 90%, policy 92%) - meets >=80% gate.
+- Phase-doc 3.3 corrected: should_block ResourceType -> adblock::request::RequestType; legible::extract -> legible::parse; noted two-pass cosmetic model. Audit appended to docs/references/protocol-crate-audit.md.
+- No commit in non-test (unwrap in non-test only inside constant-fallback unwrap_or_else on a static URL; clippy-clean).
+- No commits (orchestrator handles git). Touched: hypernext-http only (adblock.rs new, extract.rs, lib.rs, tests/adblock.rs new, assets/ new, Cargo.toml) + workspace Cargo.toml (adblock pin) + docs (phase 3.3, protocol-crate-audit.md). Did NOT touch hypernext-webmode, hypernext-store, hypernext-protocol, plan.yaml.
+
+## Open questions
+- EasyList/EasyPrivacy dual-licensed GPL-3.0 OR CC BY-SA 3.0 (copyleft data assets). Bundled verbatim with attribution retained (industry-standard for Chromium/uBlock/Brave). Flag for maintainer: confirm long-term redistribution approach for the filter-list snapshots (vendored-with-attribution vs build-time release fetch). Proposed: keep current vendored-with-attribution approach.

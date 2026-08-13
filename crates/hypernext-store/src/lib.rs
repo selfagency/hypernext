@@ -5,5 +5,7 @@
 
 pub mod db;
 pub mod error;
+pub mod webmode;
 
 pub use error::StoreError;
+pub use webmode::{resolve_mode, set_mode_pref, WebMode};

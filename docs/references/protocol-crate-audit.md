@@ -294,3 +294,20 @@ Do NOT patch the 5 crates to edition 2021 to preserve 1.83 — that is upstream 
 | `rand`/`smallvec` (dev) | **Dev-only** | Key generation + signing in the PGP-order integration test; `rand = "0.8"` must match rpgp's rand (0.10 incompatible). |
 
 **Outcome:** `legible` is the flagged R2 risk (fresh 0.5.1); phase doc's `legible::extract` call signature was wrong and has been corrected to `legible::parse`. `microformats` rejected on license grounds. `cargo tree -p hypernext-http` confirms a single `html5ever 0.39` shared by legible + scraper; `cargo deny check` passes (licenses/advisories/bans/sources ok).
+
+
+---
+
+## hypernext-http dependency audit (p3-t3 ad filtering)
+
+> Task: p3-t3 (Phase 3 Wave 3) — `crates/hypernext-http/src/adblock.rs` (ad filtering). New deps consumed: `adblock` (runtime). No other new runtime dep.
+> Date: 2026-08-12. Method: read `adblock` source at the pinned version from the cargo registry (authoritative), per library-lookup-protocol.
+
+| Crate | Verdict | Notes |
+|---|---|---|
+| `adblock` 0.13.2 | **Approved** (crate-audit: ✓ healthy, 2026-07-19, ~1M total / 268k recent DL, MPL-2.0) | Brave adblock-rust. API verified against source: `FilterSet::new(debug)` + `add_filter_list(String, ParseOptions)` + `Engine::new_with_filter_set(set)`; `Request::new(url, source_url, request_type_str, method) -> Result<Request, _>`; `Engine::check_network_request(&Request) -> BlockerResult` (`.should_block()`); `Engine::url_cosmetic_resources(url) -> UrlSpecificResources { hide_selectors, procedural_actions, exceptions, injected_script }`; `Engine::hidden_class_id_selectors(classes, ids, exceptions) -> Vec<String>`; `adblock::request::RequestType` enum (Beacon..Xmlhttprequest). **No `EngineOptions` in 0.13.2** (removed; phase doc's `ResourceType` name is now `RequestType` — see phase-doc note). MPL-2.0 is on the allowlist. `cargo tree -p hypernext-http` shows only addr/idna/base64 etc. — no GPL transitive. |
+| EasyList / EasyPrivacy (data assets) | **Bundled with attribution** | Downloaded once (snapshot 2026-08-12) into `crates/hypernext-http/assets/{easylist,easyprivacy}.txt`, embedded via `include_str!` at compile time — never a runtime network fetch. **Dual-licensed GPL-3.0 OR CC BY-SA 3.0.** Redistributed verbatim with in-band attribution retained + `assets/README.md` license note (matches how Chromium/uBlock/Brave bundle these exact files). Data assets, not linked source; does not relicense Hypernext (MIT). Verify terms before updating the snapshots. |
+
+**Phase-doc correction (committed separately per protocol):** §3.3 lists the signature as `should_block(url, source_origin, resource_type: ResourceType)`. The actual `adblock` 0.13.2 type is `adblock::request::RequestType` (there is no `ResourceType`). `hypernext-http` re-exports it as `hypernext_http::adblock::RequestType`. Cosmetic rules: generic `##.foo` rules are returned by the two-pass model (`hidden_class_id_selectors` against the page's classes/ids), not by `url_cosmetic_resources().hide_selectors` alone — so reader mode uses `cosmetic_rules_for_document(url, html)`.
+
+**Outcome:** `cargo deny check` passes (licenses/advisories/bans/sources ok). `cargo test -p hypernext-http` green, clippy/fmt clean, crate coverage ~87% (adblock.rs 85/86).
