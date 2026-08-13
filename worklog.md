@@ -933,3 +933,30 @@ Stage Summary:
 
 ## Open questions
 - EasyList/EasyPrivacy dual-licensed GPL-3.0 OR CC BY-SA 3.0 (copyleft data assets). Bundled verbatim with attribution retained (industry-standard for Chromium/uBlock/Brave). Flag for maintainer: confirm long-term redistribution approach for the filter-list snapshots (vendored-with-attribution vs build-time release fetch). Proposed: keep current vendored-with-attribution approach.
+
+---
+Task ID: 27
+Agent: gem-orchestrator
+Task: Disable nightly Miri CI job (overnight scan failed)
+
+Work Log:
+- Overnight Miri scan failed: `can't call foreign function sqlite3_auto_extension` in hypernext-store/src/db.rs (sqlite-vec FFI). Error is explicit that it is NOT a code bug -- Miri cannot execute C.
+- Root-caused: EVERY unsafe block in the workspace is C-FFI (hypernext-store sqlite3_auto_extension/rusqlite, hypernext-keychain keyring native keychain, hypernext-protocol adapter tests open a real rusqlite::Connection). Miri can only interpret Rust; it cannot run the SQLite C library. Hypernext has no pure-Rust unsafe for Miri to verify.
+- Decision (user-approved): disable the Miri job. Removed the miri job from .github/workflows/ci.yml, replaced with a doc comment; corrected stale "Miri + Kani" comments; updated docs/references/static-analysis.md Miri section to record the disable + root cause + re-enable condition.
+- Kani (the other half of layer-3) remains unchanged and formally verifies the safety-critical logic (sqlite-vec bounds, TOFU, Titan limits).
+
+Stage Summary:
+- Nightly Miri disabled + documented. Re-enable when a crate gains pure-Rust `unsafe`.
+
+---
+Task ID: 28
+Agent: gem-orchestrator
+Task: Phase 3 Wave 4 complete (reader render p3-t6 + http adapter p3-t7)
+
+Work Log:
+- p3-t6 (hypernext-ui reader_view/document_view/style): folded h2 (spike_textview promo, link->Navigator gesture-click), h3 (per-protocol fixture render tests), h4 (GtkTextTag CSS). Block::Webview raw dispatch compile-safe.
+- p3-t7 (hypernext-protocol http.rs): added Block::Webview{url} to core; HttpAdapter fetch (Reader->fetch_and_extract w/ PGP-verify-before-extract, Raw->Block::Webview, incognito forces Reader); raw-mode adblock interception (thread-local engine); registered prefix-less http+https default (handoff h1 unblocks ordinary fetch).
+- Integrated: cargo check + cargo test --workspace EXIT 0; committed ops.
+
+Stage Summary:
+- Wave 4 complete. Phase 3 functionally done; handoffs h1-h4 folded in. Phase-3 exit-criteria + final gate pending.
