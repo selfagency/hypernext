@@ -54,14 +54,14 @@ The binary-size cost of `full` is acceptable (~2MB). The alternative — cherry-
 
 ## Consequences
 
-**Positive**
+### Positive
 
 - One runtime, one mental model, one set of primitives
 - All dependencies integrate cleanly (no adapter layers)
 - `tokio::select!` for cancellation is consistent across the codebase
 - Mature ecosystem; `tokio-console` for debugging, `tokio-stream` for stream utilities
 
-**Negative / accepted costs**
+### Negative / accepted costs
 
 - `async-std` and `smol` ecosystem crates are off-limits. If a future dependency only supports `async-std`, we either find a `tokio` alternative or write a small adapter (rare).
 - Some crates (e.g. `pgp` for PGP verification) are sync. We always wrap them in `spawn_blocking`. Documented in the crate's docs.

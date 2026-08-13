@@ -136,14 +136,14 @@ The application binary MAY use `anyhow::Result` for setup and CLI code where the
 
 ## Consequences
 
-**Positive**
+### Positive
 
 - Library errors are typed; callers can pattern-match
 - Application errors get rich context via `anyhow::Context`
 - Error codes are stable for E2E tests
 - No `eyre` / `snafu` / `Box<dyn Error>` mess
 
-**Negative / accepted costs**
+### Negative / accepted costs
 
 - Every crate defines its own error enum — some boilerplate
 - `From` impls must be written or derived (`#[from]`)

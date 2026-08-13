@@ -6,7 +6,7 @@ compile time via `include_str!` -- never fetched over the network at runtime.
 
 ## Sources (snapshot date 2026-08-12)
 
-- `easylist.txt`  -- EasyList, downloaded from <https://easylist.to/easylist/easylist.txt>
+- `easylist.txt` -- EasyList, downloaded from <https://easylist.to/easylist/easylist.txt>
 - `easyprivacy.txt` -- EasyPrivacy, downloaded from <https://easylist.to/easylist/easyprivacy.txt>
 
 Each file retains its in-band `! Version:` / `! Last modified:` header, which
@@ -27,7 +27,7 @@ See <https://easylist.to/pages/licence.html> and
 Redistribution terms: both licenses permit redistribution of the lists when
 the upstream attribution and license notice are retained (as done here).
 As prescribed by the license, this project attributes the material to
-"The EasyList authors (https://easylist.to/)". These are data assets, not
+"The EasyList authors (<https://easylist.to/>)". These are data assets, not
 source code linked into the program; Hypernext's own MIT license is
 unaffected. Contact the maintainer before altering or re-licensing these
 files.

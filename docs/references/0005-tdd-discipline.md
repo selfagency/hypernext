@@ -93,14 +93,14 @@ AI agents writing Hypernext code must follow this discipline:
 
 ## Consequences
 
-**Positive**
+### Positive
 
 - Regression catches happen at the unit level (fast) before integration (slower) before E2E (slowest)
 - Every PRD acceptance criterion has automated coverage
 - Refactoring is safe — tests catch behavior changes
 - AI agents have clear guidance on how to write tests
 
-**Negative / accepted costs**
+### Negative / accepted costs
 
 - TDD is slower than "write code, ship it" — by design. The cost is paid up front.
 - Some tests will be expensive to write (GTK UI tests, raw-mode webview tests). We accept this.

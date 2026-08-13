@@ -275,7 +275,6 @@ Do NOT patch the 5 crates to edition 2021 to preserve 1.83 — that is upstream 
 
 **Outcome:** no NEW runtime dependency added beyond the already-approved workspace set; `wiremock` is a pre-declared dev dependency now first consumed. `cargo tree -p hypernext-http` shows only the standard reqwest tree (hyper/h2/tokio/bytes...) — already in Cargo.lock, no surprise transitive deps. `cargo deny check` passes (licenses/advisories/bans/sources all ok).
 
-
 ---
 
 ## hypernext-http dependency audit (p3-t2 extraction)
@@ -294,7 +293,6 @@ Do NOT patch the 5 crates to edition 2021 to preserve 1.83 — that is upstream 
 | `rand`/`smallvec` (dev) | **Dev-only** | Key generation + signing in the PGP-order integration test; `rand = "0.8"` must match rpgp's rand (0.10 incompatible). |
 
 **Outcome:** `legible` is the flagged R2 risk (fresh 0.5.1); phase doc's `legible::extract` call signature was wrong and has been corrected to `legible::parse`. `microformats` rejected on license grounds. `cargo tree -p hypernext-http` confirms a single `html5ever 0.39` shared by legible + scraper; `cargo deny check` passes (licenses/advisories/bans/sources ok).
-
 
 ---
 

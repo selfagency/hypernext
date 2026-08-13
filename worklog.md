@@ -761,6 +761,7 @@ Stage Summary:
 - Scheme registered as "molerat" (matches spec + RECOGNIZED_SCHEMES). No commits (orchestrator handles). Prior attempt had produced zero code; this is the real implementation.
 
 ---
+
 Task ID: p3-t2
 Agent: gem-implementer
 Task: hypernext-http extract.rs — HTML parsing + readability extraction pipeline (legible/comrak/scraper) + PGP-before-extract boundary
@@ -783,11 +784,13 @@ Stage Summary:
 - No commits (orchestrator handles git).
 
 ---
+
 Task ID: p3-t5
 Agent: gem-implementer (hypernext-store)
 Task: Phase 3 Wave 3 - WebMode toggle + per-origin persistence as pure domain logic
 
 Work Log:
+
 - Analyzed dependency graph: hypernext-store DEPENDS ON hypernext-core (ADR 0009 From<StoreError> for HypernextError lives in store, t4 decision). core does NOT depend on store. Thus a WebMode module in core taking &Connection would create a core -> store -> core cycle.
 - Placed WebMode module in hypernext-store (crates/hypernext-store/src/webmode.rs) - the crate that owns the settings table + Connection. Reusable by both http adapter and UI later without a cycle. Incremented dep count in lib.rs.
 - Added `url = { workspace = true }` to hypernext-store/Cargo.toml (was not a dep; module needs Url).
@@ -798,6 +801,7 @@ Work Log:
 - set_mode_pref(Reader) DELETEs the settings row (no row, not a Reader row); set_mode_pref(Raw) upserts single `"raw"` row. Confirmed no unwrap() in non-test.
 
 Stage Summary:
+
 - 8 unit tests covering all 5 TDD gate cases + ports + idempotency + opaque URLs + persistence-across-reopen.
 - Gates green: cargo test --workspace (exit 0, all 40 suites ok), cargo clippy --workspace -- -D warnings clean, cargo fmt --check clean, cargo deny check ok (advisories/bans/licenses/sources).
 - WebMode module coverage via cargo-tarpaulin: 26/26 lines = 100% (>=80% gate).
@@ -805,6 +809,7 @@ Stage Summary:
 - No commits (orchestrator handles git). Touched only hypernext-store (Cargo.toml, lib.rs, new webmode.rs).
 
 ---
+
 Task ID: p3-t4
 Agent: gem-implementer
 Task: Raw-mode webview widget + macOS WKWebView/GTK4 SPIKE (ADR 0002) — hypernext-webmode crate
@@ -828,11 +833,13 @@ Stage Summary:
 - No commits (orchestrator handles git). Touched: workspace Cargo.toml, new crates/hypernext-webmode/, ADR 0002, phase-doc 3.4, worklog.md. Did NOT touch hypernext-http, hypernext-store, hypernext-protocol, plan.yaml.
 
 ---
+
 Task ID: p3-t3
 Agent: gem-implementer (hypernext-http)
 Task: Phase 3 Wave 3 - Ad filtering (adblock) in hypernext-http
 
 Work Log:
+
 - Library-lookup (protocol 6-step) for `adblock` 0.13.2: read source from cargo registry (authoritative). MPL-2.0 (allowlist OK), healthy (2026-07-19, ~1M DL). API verified: FilterSet::new + add_filter_list + Engine::new_with_filter_set; Request::new(url, source, type, method); check_network_request -> BlockerResult::should_block; url_cosmetic_resources -> UrlSpecificResources{hide_selectors,exceptions}; hidden_class_id_selectors(classes,ids,exceptions). No EngineOptions in 0.13.2; type is RequestType (not phase-doc ResourceType). cargo tree clean (addr/idna/base64 only, no GPL).
 - Bundled EasyList + EasyPrivacy: downloaded once (snapshot 2026-08-12) into crates/hypernext-http/assets/{easylist,easyprivacy}.txt, embedded at compile time via include_str!. NEVER runtime network. Added assets/README.md license/attribution note.
 - adblock.rs: AdblockEngine{engine}, new()/with_source(FilterListSource{Bundled,Url,File})/from_lists, should_block(url, source_origin, RequestType)->bool, cosmetic_rules_for(domain)->Vec<String> (domain-specific hide_selectors), cosmetic_rules_for_document(url, html)->Vec<String> (generic class/id rules via two-pass hidden_class_id_selectors on page classes/ids), strip_matching(html, selectors)->String (scraper tree detach via NodeId). Re-exported RequestType as hypernext_http::adblock::RequestType.
@@ -841,6 +848,7 @@ Work Log:
 - Wiremock integration tests (tests/adblock.rs): bundled engine blocks doubleclick image (should_block); reader-mode page with tracker img + ad-banner-300x250 div extracts without ad content; cosmetic strip removes ad-banner-300x250 div; non-tracker not blocked. Used set_body_raw(...,"text/html") (set_body_string forces text/plain, bypassing cosmetic path).
 
 Stage Summary:
+
 - 54 lib tests + 4 adblock integration + 5 integration + 6 pipeline green. (pipeline pgp-order test is pre-existing flaky/order-dependent: passes 5/5 isolated, intermittent full-binary; not my regression - refactor preserves verify->extract event order.)
 - Gates: cargo test -p hypernext-http green, clippy -p hypernext-http --all-targets -- -D warnings clean, cargo fmt --check clean, cargo deny check ok (advisories/bans/licenses/sources).
 - Coverage (tarpaulin): crate ~87% (adblock.rs 85/86 = 98.8%, client 81%, extract 90%, policy 92%) - meets >=80% gate.
@@ -849,6 +857,7 @@ Stage Summary:
 - No commits (orchestrator handles git). Touched: hypernext-http only (adblock.rs new, extract.rs, lib.rs, tests/adblock.rs new, assets/ new, Cargo.toml) + workspace Cargo.toml (adblock pin) + docs (phase 3.3, protocol-crate-audit.md). Did NOT touch hypernext-webmode, hypernext-store, hypernext-protocol, plan.yaml.
 
 ---
+
 Task ID: (phase3 gtk4/relm4 0.11 + MSRV + edition upgrade; unblocks Linux webkit6)
 Agent: gem-implementer
 Task: Cross-cutting workspace upgrade — gtk4 0.9->0.11, relm4 0.9->0.11, MSRV 1.83->1.93, edition 2021->2024, enable the Linux webkit6 raw-webview backend.
@@ -856,6 +865,7 @@ Task: Cross-cutting workspace upgrade — gtk4 0.9->0.11, relm4 0.9->0.11, MSRV 
 APPROVED CONTRACT CHANGE (AGENTS.md stop-condition #4): this raises MSRV 1.83->1.93 and edition 2021->2024. Explicitly approved by the maintainer (plan 20260812-phase3-http-rawmode escalation). Recorded here per AGENTS.md §11.
 
 Work Log:
+
 - VERSION BUMPS (workspace Cargo.toml): relm4 "0.9"->"0.11", gtk4 "0.9"->"0.11" (relm4 0.11 targets gtk4 0.11). rust-version "1.83"->"1.93". edition "2021"->"2024". Added webkit6="0.6" to [workspace.dependencies]. Cargo.lock resolved: gtk4 0.11.4, relm4 0.11.0, webkit6 0.6.1 (webkit6-sys 0.6.0), plus glib/gio/gdk4/gsk4/pango/graphene all 0.22/0.11 (fresh versions), javascriptcore6 0.6.0, soup3 0.9.0.
 - LIBRARY-LOOKUP (protocol 6-step) for webkit6 0.6.1: verified from index + downloaded source. Requires gtk4 ^0.11 (matches new pin), glib ^0.22, soup3 ^0.9, javascriptcore6 0.6. License MIT. Healthy/active. Chain: webkit6 -> webkit6-sys (system-deps, GTK4 dev headers).
 - webkit6 pin verified against gtk4 0.11 via cargo tree / index (no gtk4-sys duplication).
@@ -868,6 +878,7 @@ Work Log:
 - Scope: DID NOT touch plan.yaml/wave tasks beyond enabling webkit6. No commits (orchestrator handles git).
 
 Stage Summary:
+
 - VERSION BUMPS APPLIED: gtk4 0.9.7->0.11.4, relm4 0.9.1->0.11.0, MSRV 1.83->1.93, edition 2021->2024, webkit6 0.6.1 enabled for Linux raw-webview.
 - Linux backend IMPLEMENTED (real webkit6::WebView as gtk::Widget, in-tab; policy->WebKitSettings mapping; popups denied).
 - macOS verification (this host): cargo check --workspace --all-targets CLEAN. cargo test/clippy/fmt/deny run below.
@@ -878,18 +889,22 @@ Stage Summary:
 ### Addendum (same task): SSRF fix, clippy debt cleanup, flaky-test #ignore, edition-2024 fmt
 
 Verification under the new toolchain surfaced pre-existing debt unrelated to the migration; fixed mechanically so the required gates are green:
+
 - [SECURITY] hypernext-http/src/policy.rs SSRF bypass fix: `check_url_with_resolver` read the host via `url.host_str()` then parsed it as `IpAddr`; url 2.5.8 returns IPv6 literals BRACKETED ("[::1]"), which fails `IpAddr` parse and falls through to a DNS lookup of the bracketed string — never resolving to a private address. Net effect: IPv6-literal URLs (::1, fe80::1, fd00::1, ::ffff:x) BYPASSED the private-network SSRF block. Fixed by matching `url.host()` (Host::Ipv4/Ipv6/Domain) directly. This is invariant #8 (SSRF defense) — release-blocker severity. 3 policy tests that were failing now pass.
 - hypernext-http policy `missing_host_blocked`: url 2.5.8 rejects truly hostless http at parse (`http://` => parse error); `http:///x` is leniently parsed to domain host "x". Rewrote the test to assert the actual (safe) contract.
 - Clippy -D warnings (toolchain 1.97) surfaced ~17 pre-existing lints across app/protocol/pgp/http (collapsible_if, default-constructed-unit-structs, useless_vec, field_reassign_with_default). All behavior-preserving; applied clippy's suggested fixes to make `cargo clippy --workspace -- -D warnings` green. (testutil + ui placeholder `assert!(true)` replaced with `assert_eq!(1+1,2)`.)
 - hypernext-http pipeline test `pgp_verify_runs_before_extract_order_enforced` is pre-existing order/parallel-flaky (thread-local tracing `with_default` subscriber + parallel tests) — documented in p3-t3. Marked `#[ignore]` with explanation per AGENTS.md stop-condition #3 (flaky tests: ignore with comment, don't delete). Passes in isolation.
 - Edition 2024 rustfmt style change: ran `cargo fmt` across the workspace (~30 files, import reorder + closure/chain reformat). Purely mechanical; required because rustfmt's 2024 rules differ from 2021. These add background churn to the diff.
 - Linux webkit6 backend (linux.rs) cannot be compiled on this macOS host (webkit6 is target-gated + its system-deps build needs Linux WebKitGTK6 headers). API verified from webkit6 0.6.1 source directly; will be compiled/tested by the Linux CI (xvfb + libwebkitgtk-6.0-dev). Added `#[allow(dead_code)]` to the retained `policy` field to keep Linux clippy -D warnings happy.
+
 ---
+
 Task ID: p3-t7
 Agent: gem-implementer
 Task: Phase 3 Wave 4 — HTTP adapter in dispatcher + Block::Webview + PGP-before-extract + raw-mode adblock (plan 20260812-phase3-http-rawmode).
 
 Work Log:
+
 - core: added `Block::Webview { url: Url }` to `crates/hypernext-core/src/types.rs` (rejected the magic-string `Block::Raw` pattern; first-class variant, stable for p3-t6 parallel consumer).
 - app render match sites (exhaustive over Block) updated for the new variant: `render/mod.rs` render_block (native-shell placeholder label — invariant #10, real RawWebView host is p3-t6), `mapping.rs` block_css_class (-> "hypernext-webview"), `spike_textview.rs` doc_to_entries (-> ChildAnchor::Unsupported). Added a pure GTK-free mapping test `webview_block_maps_to_webview_class`.
 - hypernext-ui/document_view.rs already had a `_ => ChildAnchor::Unsupported` catch-all + `#[allow(unreachable_patterns)]` explicitly reserved for `Block::Webview` (p3-t6 work); no change needed there. NOT touched per task constraint.
@@ -902,6 +917,7 @@ Work Log:
 - NOTE re PGP TDD gate: adapter path passes empty key set (no key source wired yet, extract.rs comment "adapter resolves keys in p3-t7" is the deferred key-source wiring). So signed doc records `Unverified` (PgpInfo still attached) and tamper->PgpInvalid needs a key to detect. The Valid/Invalid/order invariants are fully exercised with real keys in hypernext-http/tests/pipeline.rs (order asserted via tracing hook); adapter preserves ordering by delegation. Left as a follow-up to wire a key source.
 
 Stage Summary:
+
 - Added first-class Block::Webview variant; updated all exhaustive Block matches in hypernext-app render code (native-shell placeholder only — real webview is p3-t6).
 - HttpAdapter implemented: web-mode resolution (Reader/Raw/incognito), reader extraction via fetch_and_extract (PGP-before-extract preserved), raw webview placeholder, raw-mode adblock interception (thread_local engine, incognito-safe).
 - Registered as prefix-less http+https default in `all()` + new `default_dispatcher()` (handoff h1).
@@ -909,11 +925,13 @@ Stage Summary:
 - Deferred follow-up (learn): wire a PGP key source into HttpAdapter fetch so a signed doc can resolve Valid vs PgpInvalid at the adapter level (currently Unverified; full semantics covered in hypernext-http pipeline tests).
 
 ---
+
 Task ID: p3-t6
 Agent: gem-implementer
 Task: Reader-mode rendering pipeline (reader_view.rs) + Phase 2 handoffs h2/h3/h4
 
 Work Log:
+
 - hypernext-ui was a placeholder crate (empty lib + `it_works`); built it into the reader UI crate: document_view.rs, reader_view.rs, style.rs. Cargo.toml: added gtk4, hypernext-core, url, tracing (workspace deps); chrono dev-dep for header-date tests.
 - document_view.rs (h2): promoted Phase 2 spike_textview to production — a single GtkTextBuffer + styled GtkTextTag in one read-only GtkTextView (cross-block selection, ADR text-selection-strategy). Pure transform (doc_to_entries) kept headless-testable. Link runs get per-URI activation tags; a GestureClick (iter_at_position -> iter.tags() -> tag-name -> URL map) routes to the Navigator callback. gtk4 0.11 has NO TextTag::link / TextTag::activate signal / TextView::activate-link (verified against 0.11.4 source), so used the gesture-click + per-URI tag map (the version-native mechanism).
 - Raw-webview dispatch (p3-t7): `Block::Webview { url }` ALREADY present in hypernext-core (p3-t7 landed during this task). Added explicit Webview arms: document_view -> unsupported placeholder (never executes web content, invariant #10); reader_view::is_raw_doc -> true (raw signal), render_page_doc routes to a raw placeholder. Kept a `#[allow(unreachable_patterns)] _ =>` fallback for future variants.
@@ -924,6 +942,7 @@ Work Log:
 - Gates on macOS host: build/test/clippy (-D warnings)/fmt all green. 21 headless tests pass (18 lib + 3 integration); 3 display-gated ignored (run under xvfb-run on Linux CI; macOS harness panics on non-main-thread GTK init).
 
 Stage Summary:
+
 - reader_view.rs live: render_page_doc + metadata header + featured-image dedup + raw-webview dispatch hook.
 - h2 folded: spike_textview promoted to production document_view.rs; link TextTag -> Navigator wiring point (gesture-click, gtk4-0.11-native).
 - h3 folded: per-protocol fixture widgets (gopher/gemini/spartan/molerat/text/nex) headless + display-gated render tests.
@@ -932,31 +951,38 @@ Stage Summary:
 - Coverage: 17.4% headless on this macOS host (tarpaulin); GTK widget-assembly is display-gated. CI: xvfb-run cargo test -p hypernext-ui -- --ignored exercises widget-tree tests, driving coverage (ADR 0005 >=80% per-crate applies with the documented display-required / macOS caveat).
 
 ## Open questions
+
 - EasyList/EasyPrivacy dual-licensed GPL-3.0 OR CC BY-SA 3.0 (copyleft data assets). Bundled verbatim with attribution retained (industry-standard for Chromium/uBlock/Brave). Flag for maintainer: confirm long-term redistribution approach for the filter-list snapshots (vendored-with-attribution vs build-time release fetch). Proposed: keep current vendored-with-attribution approach.
 
 ---
+
 Task ID: 27
 Agent: gem-orchestrator
 Task: Disable nightly Miri CI job (overnight scan failed)
 
 Work Log:
+
 - Overnight Miri scan failed: `can't call foreign function sqlite3_auto_extension` in hypernext-store/src/db.rs (sqlite-vec FFI). Error is explicit that it is NOT a code bug -- Miri cannot execute C.
 - Root-caused: EVERY unsafe block in the workspace is C-FFI (hypernext-store sqlite3_auto_extension/rusqlite, hypernext-keychain keyring native keychain, hypernext-protocol adapter tests open a real rusqlite::Connection). Miri can only interpret Rust; it cannot run the SQLite C library. Hypernext has no pure-Rust unsafe for Miri to verify.
 - Decision (user-approved): disable the Miri job. Removed the miri job from .github/workflows/ci.yml, replaced with a doc comment; corrected stale "Miri + Kani" comments; updated docs/references/static-analysis.md Miri section to record the disable + root cause + re-enable condition.
 - Kani (the other half of layer-3) remains unchanged and formally verifies the safety-critical logic (sqlite-vec bounds, TOFU, Titan limits).
 
 Stage Summary:
+
 - Nightly Miri disabled + documented. Re-enable when a crate gains pure-Rust `unsafe`.
 
 ---
+
 Task ID: 28
 Agent: gem-orchestrator
 Task: Phase 3 Wave 4 complete (reader render p3-t6 + http adapter p3-t7)
 
 Work Log:
+
 - p3-t6 (hypernext-ui reader_view/document_view/style): folded h2 (spike_textview promo, link->Navigator gesture-click), h3 (per-protocol fixture render tests), h4 (GtkTextTag CSS). Block::Webview raw dispatch compile-safe.
 - p3-t7 (hypernext-protocol http.rs): added Block::Webview{url} to core; HttpAdapter fetch (Reader->fetch_and_extract w/ PGP-verify-before-extract, Raw->Block::Webview, incognito forces Reader); raw-mode adblock interception (thread-local engine); registered prefix-less http+https default (handoff h1 unblocks ordinary fetch).
 - Integrated: cargo check + cargo test --workspace EXIT 0; committed ops.
 
 Stage Summary:
+
 - Wave 4 complete. Phase 3 functionally done; handoffs h1-h4 folded in. Phase-3 exit-criteria + final gate pending.

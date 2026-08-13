@@ -69,7 +69,7 @@ This means:
 
 ## Consequences
 
-**Positive**
+### Positive
 
 - App shell is native GTK4 — no V8/JavaScriptCore overhead for 90% of UI
 - Smaller attack surface: only raw-mode tabs execute remote JS, and only when user opts in
@@ -77,7 +77,7 @@ This means:
 - No contribution burden to Servo or Verso
 - macOS WKWebView has best-in-class rendering fidelity for the platform
 
-**Negative / accepted costs**
+### Negative / accepted costs
 
 - Platform webviews differ across platforms: WKWebView ≠ WebView2 ≠ WebKitGTK — features and behavior vary
 - macOS: WKWebView doesn't natively embed in GTK4; requires a spike (see Phase 3 §3.4) — may require using `gtk::Socket` for native view embedding, or falling back to a separate-window raw mode

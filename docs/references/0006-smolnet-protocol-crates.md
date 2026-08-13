@@ -90,13 +90,13 @@ Con: 10 protocols × ~1000 LOC each = 10K LOC of new code we have to write, test
 
 ## Consequences
 
-**Positive**
+### Positive
 
 - No rebase burden
 - Smaller repo
 - Simpler dependency management
 
-**Negative / accepted costs**
+### Negative / accepted costs
 
 - No maintenance control over upstream
 - Breaking-change risk handled via dependency updates

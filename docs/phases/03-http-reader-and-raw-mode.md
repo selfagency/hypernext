@@ -131,6 +131,7 @@ Integration tests:
 > with the `comrak` AST (`comrak::parse_document`) — this reuses the already-audited
 > comrak dep and avoids a second HTML pass. legible already extracts JSON-LD internally
 > but does not expose it on `Article`, so JSON-LD is parsed from the raw bytes separately.
+
     8. If feed: hand off to `feed-rs` (Phase 1.1)
     9. If text/plain: wrap in `Block::Paragraph` with `preformatted: true`
     10. If image/video/audio/binary: `Block::Raw`
