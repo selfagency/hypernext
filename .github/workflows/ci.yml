@@ -87,8 +87,28 @@ jobs:
         run: cargo check --workspace
 
   coverage:
-    name: Coverage (tarpaulin)
+    name: Coverage (${{ matrix.name }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Testable crates: no display needed; gated at 80% per ADR 0005
+          # (measured aggregate ~90%). Uploaded to Codacy.
+          - name: testable
+            pkgs: -p hypernext-core -p hypernext-keychain -p hypernext-pgp -p hypernext-protocol -p hypernext-store -p hypernext-http
+            fail-under: 80
+            lcov: lcov-testable.info
+            upload: true
+          # Display-gated GUI crates (app/ui/webmode): their GTK/webkit coverage
+          # needs a real display (tests #[ignore]d in CI), so gate low at 20% -
+          # only catches gross regressions, not the known display gap. Runs on a
+          # separate runner so it parallelizes with the testable group.
+          - name: gui
+            pkgs: -p hypernext-app -p hypernext-ui -p hypernext-webmode
+            fail-under: 20
+            lcov: lcov-gui.info
+            upload: false
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
@@ -100,13 +120,14 @@ jobs:
         uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
         with:
           tool: cargo-tarpaulin
-      - name: cargo tarpaulin --workspace --out lcov --fail-under 65
-        run: xvfb-run -a cargo tarpaulin --workspace --out lcov --fail-under 65
-      - name: Upload coverage to Codacy
+      - name: cargo tarpaulin ${{ matrix.pkgs }} --out lcov --fail-under ${{ matrix.fail-under }}
+        run: xvfb-run -a cargo tarpaulin ${{ matrix.pkgs }} --out lcov --output-path ${{ matrix.lcov }} --fail-under ${{ matrix.fail-under }}
+      - name: Upload coverage to Codacy (testable group)
+        if: matrix.upload
         uses: codacy/codacy-coverage-reporter-action@89d6c85cfafaec52c72b6c5e8b2878d33104c699 # v1.3.0
         with:
           project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
-          coverage-reports: lcov.info
+          coverage-reports: lcov-testable.info
 
   deny:
     name: Deny (licenses + advisories)
