@@ -122,6 +122,13 @@ Integration tests:
     5. Detect content type from `Content-Type` header; if missing, sniff first 512 bytes
     6. If HTML: `legible::parse(&html, Some(url), None)` → readable content + metadata
     7. If markdown: `comrak::markdown_to_html` then `legible::parse` on the rendered HTML
+    8. If feed: hand off to `feed-rs` (Phase 1.1)
+    9. If text/plain: wrap in `Block::Paragraph` with `preformatted: true`
+    10. If image/video/audio/binary: `Block::Raw`
+    11. Build `Vec<Block>` from extracted content
+    12. Build `Metadata` from `<meta>` tags, JSON-LD, OG/Twitter cards, microformats (h-card, h-entry — parsed with `scraper`, NOT the `microformats` crate: that crate is **LGPL-3.0**, rejected by library-lookup-protocol's license allowlist)
+    13. Build `DebugInfo` with timing, headers, redirect chain, parser decisions
+    14. Return `PageDoc`
 
 > **API correction (library-lookup protocol step 5, p3-t2):** legible 0.5.1's real entry
 > point is `legible::parse(&str, Option<&str base_url>, Option<Options>) -> Result<Article, legible::Error>`,
@@ -131,14 +138,6 @@ Integration tests:
 > with the `comrak` AST (`comrak::parse_document`) — this reuses the already-audited
 > comrak dep and avoids a second HTML pass. legible already extracts JSON-LD internally
 > but does not expose it on `Article`, so JSON-LD is parsed from the raw bytes separately.
-
-    8. If feed: hand off to `feed-rs` (Phase 1.1)
-    9. If text/plain: wrap in `Block::Paragraph` with `preformatted: true`
-    10. If image/video/audio/binary: `Block::Raw`
-    11. Build `Vec<Block>` from extracted content
-    12. Build `Metadata` from `<meta>` tags, JSON-LD, OG/Twitter cards, microformats (h-card, h-entry — parsed with `scraper`, NOT the `microformats` crate: that crate is **LGPL-3.0**, rejected by library-lookup-protocol's license allowlist)
-    13. Build `DebugInfo` with timing, headers, redirect chain, parser decisions
-    14. Return `PageDoc`
 
 **TDD gate:**
 

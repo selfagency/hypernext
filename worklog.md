@@ -1,9 +1,13 @@
+# Hypernext Worklog
+
 ---
+
 Task ID: t0
 Agent: gem-implementer
 Task: Phase 1 spike — prove a minimal Relm4 + GTK4 window opens on macOS and document the gvsbuild bundling path (de-risk R6, R1)
 
 Work Log:
+
 - Verified crate versions on crates.io: relm4 0.9.1 (MSRV 1.75, Apache-2.0/MIT), gtk4 0.9.7 (MSRV 1.70, MIT). Pinned `relm4 = "0.9"` + `gtk4 = "0.9"` in workspace [workspace.dependencies] and wired into hypernext-app.
 - Read relm4 0.9.1 example `simple.rs` from crate source (not training data) to confirm the real API: `#[relm4::component] impl SimpleComponent`, `view!`, `view_output!()`, `ComponentParts`. Phase doc's "AppWidgets struct" is shorthand, not literal — documented in relm4-debugging.md.
 - Wrote crates/hypernext-app/src/main.rs: RelmApp::new("com.selfagency.hypernext"), AppModel empty struct, gtk::ApplicationWindow title "Hypernext" 1024x768, connect_close_request -> exit cleanly.
@@ -14,6 +18,7 @@ Work Log:
 - Wrote docs/references/build-macos.md (Homebrew dev path proven + gvsbuild bundling recipe documented, not yet run end-to-end) and docs/references/relm4-debugging.md (gotchas).
 
 Stage Summary:
+
 - R6 de-risked: minimal Relm4+GTK4 window compiles and runs on macOS against real crate API.
 - R1 status: dev path proven via Homebrew GTK4; gvsbuild bundling path documented with exact setup, NOT yet exercised end-to-end (hours-long GTK-from-source build deferred to t8). Bundle size not measured — open gate in t8.
 - Key gotchas: (1) GTK4 system lib required or build fails at gdk4-sys; (2) close-request returns glib::Propagation not gtk::Inhibit; (3) gtk4 re-exports glib as gtk::glib.
@@ -886,7 +891,7 @@ Stage Summary:
 - gtk4 0.11 behavior flag for orchestrator: per-instance set_accessible_role REMOVED from the public API (was used for heading/link a11y); roles are now widget-class-derived. If richer a11y than default widget roles is required later, implement via a GtkWidget subclass with gtk_widget_class_set_accessible_role.
 - Gates on macOS host (see verification section in agent report): check/test/clippy/fmt/deny green. deny/advisories unaffected by the upgrade.
 
-### Addendum (same task): SSRF fix, clippy debt cleanup, flaky-test #ignore, edition-2024 fmt
+## Addendum (same task): SSRF fix, clippy debt cleanup, flaky-test #ignore, edition-2024 fmt
 
 Verification under the new toolchain surfaced pre-existing debt unrelated to the migration; fixed mechanically so the required gates are green:
 
@@ -988,11 +993,13 @@ Stage Summary:
 - Wave 4 complete. Phase 3 functionally done; handoffs h1-h4 folded in. Phase-3 exit-criteria + final gate pending.
 
 ---
+
 Task ID: p3-codacy (Phase 3 PR #3 Codacy failures)
 Agent: gem-implementer
 Task: Fix Codacy FAILURE findings on hypernext-http extract.rs (file size, cyclomatic complexity) + test temp_dir warnings, no behavior change.
 
 Work Log:
+
 - Split crates/hypernext-http/src/extract.rs into mod root + extract/classify.rs + extract/metadata.rs; public API re-exported via lib.rs unchanged.
 - Refactored classify_header: folded OR-chains into contains_any(s, &[...]) predicate; CC 17 -> 6.
 - Refactored parse_metadata: extracted extract_head_meta/apply_og/extract_link_tags/extract_json_ld/extract_microformats; CC 27 -> 1 (helpers 3-8 ea).
@@ -1000,6 +1007,7 @@ Work Log:
 - Did NOT touch hypernext-store/src/db.rs temp_dir (not in task scope; same test-lint class, left for orchestrator).
 
 Stage Summary:
+
 - cargo test --workspace: all pass (0 failures; pre-existing ignored PGP-order + 2 others unchanged).
 - cargo clippy hypernext-http + hypernext-store + hypernext-protocol -D warnings: clean.
 - cargo fmt --check: clean. cargo deny check: ok.

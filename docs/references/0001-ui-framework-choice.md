@@ -87,7 +87,7 @@ Tauri 2 uses wry → platform webview, same as Dioxus desktop. The webview-as-ap
 
 ## Consequences
 
-**Positive**
+### Positive
 
 - Native widgets: no webview overhead for the 90% of UI that doesn't need HTML rendering
 - Mature widget set: `Notebook`, `ListBox`, `ColumnView`, `Popover`, `EntryCompletion`, `ShortcutController` all standard
