@@ -42,6 +42,7 @@ pub fn block_css_class(block: &Block) -> &'static str {
                 RAW_UNSUPPORTED_CLASS
             }
         }
+        Block::Webview { .. } => "hypernext-webview",
     }
 }
 
@@ -242,5 +243,15 @@ mod tests {
             bytes: vec![],
         };
         assert_eq!(block_css_class(&html), RAW_UNSUPPORTED_CLASS);
+    }
+
+    #[test]
+    fn webview_block_maps_to_webview_class() {
+        assert_eq!(
+            block_css_class(&Block::Webview {
+                url: "https://example.com/".parse().unwrap()
+            }),
+            "hypernext-webview"
+        );
     }
 }

@@ -8,6 +8,7 @@ pub mod finger;
 pub mod gemini;
 pub mod gopher;
 pub mod guppy;
+pub mod http;
 pub mod kepler;
 pub mod molerat;
 pub mod nex;
@@ -25,6 +26,7 @@ pub use finger::FingerAdapter;
 pub use gemini::GeminiAdapter;
 pub use gopher::GopherAdapter;
 pub use guppy::GuppyAdapter;
+pub use http::HttpAdapter;
 pub use kepler::KeplerAdapter;
 pub use molerat::MoleratAdapter;
 pub use nex::NexAdapter;
@@ -36,6 +38,18 @@ pub use titan::TitanAdapter;
 pub use webfinger::WebFingerAdapter;
 
 use crate::dispatcher::Protocol;
+
+/// Register every built-in adapter into a fresh [`Dispatcher`] and return it:
+/// the default dispatcher (handoff h1). This unblocks ordinary `http`/`https`
+/// fetches (the prefix-less `HttpAdapter` default), with WebFinger keeping the
+/// `/.well-known/webfinger` https path via its longer path prefix.
+pub fn default_dispatcher() -> crate::dispatcher::Dispatcher {
+    let mut d = crate::dispatcher::Dispatcher::new();
+    for protocol in all() {
+        d.register(protocol);
+    }
+    d
+}
 
 /// Build every built-in adapter, ready to be handed to a `Dispatcher`.
 ///
@@ -58,5 +72,13 @@ pub fn all() -> Vec<Box<dyn Protocol>> {
         Box::new(GuppyAdapter::new()),
         Box::new(DictAdapter::new()),
         Box::new(TitanAdapter::new()),
+        // Raw-mode HTTP is handled by the webview (invariant #10); this adapter
+        // drives reader-mode extraction + the raw-mode adblock interception.
+        // One instance per scheme (http + https); both are prefix-less defaults.
+        Box::new(HttpAdapter::new()),
+        Box::new(HttpAdapter::with_scheme(
+            hypernext_http::FetchPolicy::default(),
+            "http",
+        )),
     ]
 }

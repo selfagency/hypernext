@@ -884,6 +884,52 @@ Verification under the new toolchain surfaced pre-existing debt unrelated to the
 - hypernext-http pipeline test `pgp_verify_runs_before_extract_order_enforced` is pre-existing order/parallel-flaky (thread-local tracing `with_default` subscriber + parallel tests) — documented in p3-t3. Marked `#[ignore]` with explanation per AGENTS.md stop-condition #3 (flaky tests: ignore with comment, don't delete). Passes in isolation.
 - Edition 2024 rustfmt style change: ran `cargo fmt` across the workspace (~30 files, import reorder + closure/chain reformat). Purely mechanical; required because rustfmt's 2024 rules differ from 2021. These add background churn to the diff.
 - Linux webkit6 backend (linux.rs) cannot be compiled on this macOS host (webkit6 is target-gated + its system-deps build needs Linux WebKitGTK6 headers). API verified from webkit6 0.6.1 source directly; will be compiled/tested by the Linux CI (xvfb + libwebkitgtk-6.0-dev). Added `#[allow(dead_code)]` to the retained `policy` field to keep Linux clippy -D warnings happy.
+---
+Task ID: p3-t7
+Agent: gem-implementer
+Task: Phase 3 Wave 4 — HTTP adapter in dispatcher + Block::Webview + PGP-before-extract + raw-mode adblock (plan 20260812-phase3-http-rawmode).
+
+Work Log:
+- core: added `Block::Webview { url: Url }` to `crates/hypernext-core/src/types.rs` (rejected the magic-string `Block::Raw` pattern; first-class variant, stable for p3-t6 parallel consumer).
+- app render match sites (exhaustive over Block) updated for the new variant: `render/mod.rs` render_block (native-shell placeholder label — invariant #10, real RawWebView host is p3-t6), `mapping.rs` block_css_class (-> "hypernext-webview"), `spike_textview.rs` doc_to_entries (-> ChildAnchor::Unsupported). Added a pure GTK-free mapping test `webview_block_maps_to_webview_class`.
+- hypernext-ui/document_view.rs already had a `_ => ChildAnchor::Unsupported` catch-all + `#[allow(unreachable_patterns)]` explicitly reserved for `Block::Webview` (p3-t6 work); no change needed there. NOT touched per task constraint.
+- NEW `crates/hypernext-protocol/src/adapters/http.rs`: `HttpAdapter { client, policy, scheme }`. fetch() resolves per-origin web mode via `hypernext_store::webmode::resolve_mode`; Reader -> `hypernext_http::fetch_and_extract` (PGP verify before extract, invariant #6, delegated); Raw (and incognito forces Reader) -> PageDoc with `Block::Webview { url }` placeholder. `decide_policy(resource, source_origin, rt, incognito)` -> Reject/Allow via bundled AdblockEngine; no adblock in incognito (invariant #9).
+- adblock engine ownership: Brave `adblock::Engine` is `!Send`/`!Sync` (interior Rc), so it CANNOT live in the Send+Sync HttpAdapter (async-trait). Kept OUT of the struct; used a `thread_local!` RefCell<AdblockEngine> per thread (webview interception runs on the UI thread). Documented. Contract's `{client, policy}` preserved; added a `scheme: &'static str` field so one instance per scheme (http + https) can be registered under the single-key `Protocol::scheme()`.
+- dispatcher registration (handoff h1): `adapters::mod.rs all()` now registers HttpAdapter under BOTH http and https as prefix-less defaults; added `default_dispatcher()` helper building a `Dispatcher` with every adapter registered (unblocks ordinary http/https fetch; WebFinger keeps `/.well-known/webfinger` https via longest-prefix).
+- http error mapping: hypernext_http::Error -> HypernextError (PgpInvalid->Pgp, SsrfBlocked->SsrfBlocked, SizeLimitExceeded->SizeLimitExceeded, Redirect->TooManyRedirects, Dns/other->Network).
+- protocol Cargo.toml: added `hypernext-http` workspace dep (one-way protocol->http; verified no cycle — http does not dep on protocol) + `wiremock` dev-dep.
+- integration tests `tests/http.rs`: default_dispatcher fetches https -> PageDoc with blocks; webmode Raw -> Block::Webview; incognito forces Reader; raw adblock decide_policy Reject/Allow/incognito.
+- NOTE re PGP TDD gate: adapter path passes empty key set (no key source wired yet, extract.rs comment "adapter resolves keys in p3-t7" is the deferred key-source wiring). So signed doc records `Unverified` (PgpInfo still attached) and tamper->PgpInvalid needs a key to detect. The Valid/Invalid/order invariants are fully exercised with real keys in hypernext-http/tests/pipeline.rs (order asserted via tracing hook); adapter preserves ordering by delegation. Left as a follow-up to wire a key source.
+
+Stage Summary:
+- Added first-class Block::Webview variant; updated all exhaustive Block matches in hypernext-app render code (native-shell placeholder only — real webview is p3-t6).
+- HttpAdapter implemented: web-mode resolution (Reader/Raw/incognito), reader extraction via fetch_and_extract (PGP-before-extract preserved), raw webview placeholder, raw-mode adblock interception (thread_local engine, incognito-safe).
+- Registered as prefix-less http+https default in `all()` + new `default_dispatcher()` (handoff h1).
+- Gates: cargo test --workspace 45/45 binaries green (0 failures); clippy --workspace -D warnings clean; fmt --check clean; cargo deny check ok (advisories/bans/licenses/sources).
+- Deferred follow-up (learn): wire a PGP key source into HttpAdapter fetch so a signed doc can resolve Valid vs PgpInvalid at the adapter level (currently Unverified; full semantics covered in hypernext-http pipeline tests).
+
+---
+Task ID: p3-t6
+Agent: gem-implementer
+Task: Reader-mode rendering pipeline (reader_view.rs) + Phase 2 handoffs h2/h3/h4
+
+Work Log:
+- hypernext-ui was a placeholder crate (empty lib + `it_works`); built it into the reader UI crate: document_view.rs, reader_view.rs, style.rs. Cargo.toml: added gtk4, hypernext-core, url, tracing (workspace deps); chrono dev-dep for header-date tests.
+- document_view.rs (h2): promoted Phase 2 spike_textview to production — a single GtkTextBuffer + styled GtkTextTag in one read-only GtkTextView (cross-block selection, ADR text-selection-strategy). Pure transform (doc_to_entries) kept headless-testable. Link runs get per-URI activation tags; a GestureClick (iter_at_position -> iter.tags() -> tag-name -> URL map) routes to the Navigator callback. gtk4 0.11 has NO TextTag::link / TextTag::activate signal / TextView::activate-link (verified against 0.11.4 source), so used the gesture-click + per-URI tag map (the version-native mechanism).
+- Raw-webview dispatch (p3-t7): `Block::Webview { url }` ALREADY present in hypernext-core (p3-t7 landed during this task). Added explicit Webview arms: document_view -> unsupported placeholder (never executes web content, invariant #10); reader_view::is_raw_doc -> true (raw signal), render_page_doc routes to a raw placeholder. Kept a `#[allow(unreachable_patterns)] _ =>` fallback for future variants.
+- reader_view.rs: render_page_doc -> vertical Box = meta_header (title/author/date/PGP shield/share/read-state ToggleButton) + featured image (dedup) + document_view::render_blocks. Empty metadata -> untitled/unknown author/unknown date placeholders, no panic. a11y via widget-class roles (no set_accessible_role — removed in gtk4 0.11).
+- Featured-image dedup: pure featured_image_url(meta,blocks) -> Some only when featured set AND no Block::Image with same URL in body. Headless-tested (prepend/dedup/no-meta/different-image).
+- h3 per-protocol fixtures: tests/reader_render.rs builds synthetic PageDocs for gopher/gemini/spartan/molerat/text/nex; headless asserts not-raw + produce text entries; display-gated (ignore) protocol_docs_render_widget_tree + reader_body_contains_a_text_view under xvfb on CI.
+- h4 GtkTextTag styling: style.rs register_tags sets tag properties (scale/weight/style/underline/family/indent/margins); add_document_css attaches a CssProvider (.hypernext-document padding). GTK4 has no per-tag CSS-class mechanism, so tag visuals are properties + container CSS (documented).
+- Gates on macOS host: build/test/clippy (-D warnings)/fmt all green. 21 headless tests pass (18 lib + 3 integration); 3 display-gated ignored (run under xvfb-run on Linux CI; macOS harness panics on non-main-thread GTK init).
+
+Stage Summary:
+- reader_view.rs live: render_page_doc + metadata header + featured-image dedup + raw-webview dispatch hook.
+- h2 folded: spike_textview promoted to production document_view.rs; link TextTag -> Navigator wiring point (gesture-click, gtk4-0.11-native).
+- h3 folded: per-protocol fixture widgets (gopher/gemini/spartan/molerat/text/nex) headless + display-gated render tests.
+- h4 folded: GtkTextTag styling (tag properties + CssProvider reader chrome).
+- Raw dispatch compile-safe: explicit Block::Webview arm (p3-t7 already landed) + `_ =>` future-proof fallback.
+- Coverage: 17.4% headless on this macOS host (tarpaulin); GTK widget-assembly is display-gated. CI: xvfb-run cargo test -p hypernext-ui -- --ignored exercises widget-tree tests, driving coverage (ADR 0005 >=80% per-crate applies with the documented display-required / macOS caveat).
 
 ## Open questions
 - EasyList/EasyPrivacy dual-licensed GPL-3.0 OR CC BY-SA 3.0 (copyleft data assets). Bundled verbatim with attribution retained (industry-standard for Chromium/uBlock/Brave). Flag for maintainer: confirm long-term redistribution approach for the filter-list snapshots (vendored-with-attribution vs build-time release fetch). Proposed: keep current vendored-with-attribution approach.

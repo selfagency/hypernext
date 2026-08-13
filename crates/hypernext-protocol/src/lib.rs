@@ -9,9 +9,9 @@ pub mod adapters;
 pub mod dispatcher;
 
 pub use adapters::{
-    DictAdapter, FingerAdapter, GeminiAdapter, GopherAdapter, GuppyAdapter, KeplerAdapter,
-    MoleratAdapter, NexAdapter, ScorpionAdapter, ScrollAdapter, SpartanAdapter, TextAdapter,
-    TitanAdapter, WebFingerAdapter,
+    DictAdapter, FingerAdapter, GeminiAdapter, GopherAdapter, GuppyAdapter, HttpAdapter,
+    KeplerAdapter, MoleratAdapter, NexAdapter, ScorpionAdapter, ScrollAdapter, SpartanAdapter,
+    TextAdapter, TitanAdapter, WebFingerAdapter,
 };
 pub use dispatcher::{
     Capabilities, DEFAULT_SCHEME, Dispatcher, FetchContext, FetchPolicy, Protocol, PublishPayload,

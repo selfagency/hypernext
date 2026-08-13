@@ -83,6 +83,16 @@ fn render_block(block: &Block) -> gtk::Widget {
             true => raw_image_widget(bytes, css).upcast(),
             false => unsupported_widget().upcast(),
         },
+        Block::Webview { url } => {
+            // Raw-mode placeholder: the real RawWebView host (p3-t6) owns this
+            // tab and switches the shell to the platform webview. v1 renders a
+            // labelled placeholder so the variant is still represented here
+            // (invariant #10: this native shell never executes web content).
+            let label = gtk::Label::new(Some("raw webview"));
+            label.set_tooltip_text(Some(url.as_str()));
+            label.add_css_class(css);
+            label.upcast()
+        }
     }
 }
 

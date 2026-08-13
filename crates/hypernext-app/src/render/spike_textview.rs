@@ -148,6 +148,15 @@ fn push_block(block: &Block, out: &mut Vec<TextEntry>) {
                 });
             }
         }
+        Block::Webview { .. } => {
+            // Raw-mode webview is hosted by the raw-mode tab (p3-t6), never by
+            // this native text renderer (invariant #10).
+            out.push(TextEntry {
+                text: Cow::Borrowed(""),
+                tags: vec![],
+                anchor: Some(ChildAnchor::Unsupported),
+            });
+        }
     }
 }
 
