@@ -121,6 +121,7 @@ pretty_assertions = "1"
 rstest = "0.26"
 mockall = "0.15"
 wiremock = "0.6"
+tempfile = "3"
 
 # TLS (gemini adapter + integration test server)
 rustls = "0.23"

@@ -19,3 +19,7 @@ chrono = { workspace = true }
 url = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+
+[dev-dependencies]
+# Isolated temp dirs for tests (replaces std::env::temp_dir in webmode tests)
+tempfile = { workspace = true }

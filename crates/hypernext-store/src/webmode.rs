@@ -165,23 +165,21 @@ mod tests {
     /// Preference persists across DB re-open (file-backed).
     #[test]
     fn preference_persists_across_reopen() {
-        let dir =
-            std::env::temp_dir().join(format!("hypernext-store-webmode-{}.db", std::process::id()));
-        let _ = std::fs::remove_file(&dir);
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let db_path = tmp.path().join("webmode.db");
 
         {
-            let conn = db::open(&dir).expect("open");
+            let conn = db::open(&db_path).expect("open");
             set_mode_pref(&url("https://example.com"), WebMode::Raw, &conn).expect("set raw");
         }
         {
-            let conn = db::open(&dir).expect("reopen");
+            let conn = db::open(&db_path).expect("reopen");
             assert_eq!(
                 resolve_mode(&url("https://example.com/x"), &conn, false),
                 WebMode::Raw,
                 "pref must survive reopen"
             );
         }
-        let _ = std::fs::remove_file(&dir);
     }
 
     /// Incognito forces Reader even when Raw is saved.

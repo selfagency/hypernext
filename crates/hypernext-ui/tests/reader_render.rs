@@ -61,9 +61,10 @@ fn doc(url: &str, meta: Metadata, blocks: Vec<Block>) -> PageDoc {
 }
 
 fn meta(title: &str) -> Metadata {
-    let mut m = Metadata::default();
-    m.title = Some(title.into());
-    m
+    Metadata {
+        title: Some(title.into()),
+        ..Default::default()
+    }
 }
 
 /// Gopher: menu lines map to `Block::Link` + paragraph info lines.

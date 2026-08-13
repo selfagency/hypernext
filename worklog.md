@@ -986,3 +986,21 @@ Work Log:
 Stage Summary:
 
 - Wave 4 complete. Phase 3 functionally done; handoffs h1-h4 folded in. Phase-3 exit-criteria + final gate pending.
+
+---
+Task ID: p3-codacy (Phase 3 PR #3 Codacy failures)
+Agent: gem-implementer
+Task: Fix Codacy FAILURE findings on hypernext-http extract.rs (file size, cyclomatic complexity) + test temp_dir warnings, no behavior change.
+
+Work Log:
+- Split crates/hypernext-http/src/extract.rs into mod root + extract/classify.rs + extract/metadata.rs; public API re-exported via lib.rs unchanged.
+- Refactored classify_header: folded OR-chains into contains_any(s, &[...]) predicate; CC 17 -> 6.
+- Refactored parse_metadata: extracted extract_head_meta/apply_og/extract_link_tags/extract_json_ld/extract_microformats; CC 27 -> 1 (helpers 3-8 ea).
+- Replaced std::env::temp_dir in adblock.rs (file/url source tests) and store webmode.rs (reopen test) with tempfile::tempdir; added tempfile v3 to workspace deps + http/http store dev-deps.
+- Did NOT touch hypernext-store/src/db.rs temp_dir (not in task scope; same test-lint class, left for orchestrator).
+
+Stage Summary:
+- cargo test --workspace: all pass (0 failures; pre-existing ignored PGP-order + 2 others unchanged).
+- cargo clippy hypernext-http + hypernext-store + hypernext-protocol -D warnings: clean.
+- cargo fmt --check: clean. cargo deny check: ok.
+- Pre-existing workspace clippy blocker (NOT from this change, not scoped): hypernext-ui/tests/reader_render.rs field_reassign_with_default fires under clippy 1.97; file HEAD-identical, crate untouched by me. Requires a separate out-of-scope fix to make `cargo clippy --workspace -D warnings` pass end-to-end.

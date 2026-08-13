@@ -50,3 +50,5 @@ tracing-subscriber = { workspace = true }
 # SignedPublicKey; rand 0.8 matches pgp's rand, smallvec for key-builder helpers)
 rand = "0.8"
 smallvec = "1"
+# Isolated temp dirs for tests (replaces std::env::temp_dir in adblock tests)
+tempfile = { workspace = true }

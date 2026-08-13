@@ -338,8 +338,10 @@ example.com##.ad-banner
             AdblockEngine::with_source(FilterListSource::Url(url("https://lists.example/x.txt")));
         assert!(url_engine.cosmetic_rules_for("example.com").is_empty());
 
+        let dir = tempfile::tempdir().expect("tempdir");
+
         // `File` source reads the file verbatim.
-        let file = std::env::temp_dir().join("hypernext-adblock-test-easylist.txt");
+        let file = dir.path().join("easylist.txt");
         std::fs::write(&file, "||tracker.example^\n").unwrap();
         let file_engine = AdblockEngine::with_source(FilterListSource::File(file));
         let blocked = file_engine.should_block(
@@ -351,7 +353,7 @@ example.com##.ad-banner
 
         // Missing file degrades to an empty engine, never panics.
         let missing = AdblockEngine::with_source(FilterListSource::File(
-            std::env::temp_dir().join("does-not-exist-easylist.txt"),
+            dir.path().join("does-not-exist-easylist.txt"),
         ));
         assert!(missing.cosmetic_rules_for("example.com").is_empty());
     }
