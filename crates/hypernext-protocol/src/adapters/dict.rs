@@ -25,7 +25,7 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
-use dict_protocol::{ClientError, Definition, Match, Session, DEFAULT_PORT};
+use dict_protocol::{ClientError, DEFAULT_PORT, Definition, Match, Session};
 use hypernext_core::{
     Block, DebugInfo, HttpRequestDebug, HypernextError, Metadata, PageDoc, Span, SpanRun, SpanStyle,
 };

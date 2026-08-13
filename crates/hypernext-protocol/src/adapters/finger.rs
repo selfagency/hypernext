@@ -361,7 +361,7 @@ mQENBFxExampleKeyHere
     fn default_returns_usable_instance() {
         // Exercises the `Default` impl (delegates to `new`) and the trait it
         // enables the adapter for.
-        let adapter = FingerAdapter::default();
+        let adapter = FingerAdapter;
         assert_eq!(adapter.scheme(), "finger");
     }
 

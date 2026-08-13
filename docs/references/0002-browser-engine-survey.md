@@ -69,7 +69,7 @@ This means:
 
 ## Consequences
 
-**Positive**
+### Positive
 
 - App shell is native GTK4 — no V8/JavaScriptCore overhead for 90% of UI
 - Smaller attack surface: only raw-mode tabs execute remote JS, and only when user opts in
@@ -77,7 +77,7 @@ This means:
 - No contribution burden to Servo or Verso
 - macOS WKWebView has best-in-class rendering fidelity for the platform
 
-**Negative / accepted costs**
+### Negative / accepted costs
 
 - Platform webviews differ across platforms: WKWebView ≠ WebView2 ≠ WebKitGTK — features and behavior vary
 - macOS: WKWebView doesn't natively embed in GTK4; requires a spike (see Phase 3 §3.4) — may require using `gtk::Socket` for native view embedding, or falling back to a separate-window raw mode
@@ -88,6 +88,81 @@ This means:
 
 - **Fallback A:** Raw mode opens in a separate native window (not in-tab) — worse UX but ships
 - **Fallback B:** Drop raw mode from 1.0 entirely; document as 1.1 follow-on. Reduces 1.0 scope.
+
+## SPIKE outcome (p3-t4, 2026-08-12)
+
+### Decision: Fallback A on macOS — separate native WKWebView window
+
+The Phase 3 raw-mode spike (task p3-t4) reached an unambiguous conclusion:
+**a `WKWebView` cannot be embedded *inside* a GTK4 tab on macOS.** The two
+in-window options named in the phase doc are both impossible:
+
+- **(a) `GtkSocket` embedding a native NSView — impossible.** `GtkSocket`/`GtkPlug`
+  existed in GTK3 and were *X11-only*; they were removed in GTK4. There is no
+  `gtk::nsview_to_widget` (that name does not exist in the gtk4 crate) and no
+  per-widget foreign-view injection slot at all. GTK4 renders the entire widget
+  tree through a single `GdkMacosView` (NSView); a second NSView cannot be
+  parented into it. Confirmed by inspecting gtk4 0.9.7 + gtk4-sys (no quartz /
+  socket / nsview APIs).
+- **(b) `wry` wrapping WKWebView in a `gtk::Widget` — impossible on macOS.**
+  `wry`'s GTK embedding (`WebViewBuilderExtUnix::build_gtk` / `new_gtk`) is
+  **Linux/Unix only**. On macOS, `wry` builds a `WKWebView` that needs a native
+  `NSWindow`/`NSView` parent (`HasWindowHandle` / `build_as_child`) — there is
+  no path from a GTK-rendered window to a hostable NSView parent.
+- **(c) Separate native window for raw mode — CHOSEN (Fallback A).** The raw-mode
+  tab owns a separate native `NSWindow` hosting the `WKWebView`; the GTK tab
+  hosts a placeholder widget and the window is positioned alongside it (Phase 4).
+  Worse UX than in-tab, but ships raw mode in 1.0 (avoids Fallback B's scope cut).
+
+### Second finding: Linux webkit6 was blocked by the gtk4 version pin (resolved)
+
+A second spike finding initially blocked the Linux embedded widget:
+**`webkit6` 0.6.x requires gtk4 0.11** (`gtk = "^0.11"`), while Hypernext pinned
+gtk4 0.9. Cargo forbids two `gtk4-sys` copies in one graph (both link `gtk-4`), so
+`webkit6` could not be added while the workspace pinned gtk4 0.9.
+
+**Resolved** in the gtk4/relm4 0.11 + MSRV 1.93 + edition 2024 workspace upgrade
+(plan 20260812-phase3-http-rawmode; an approved MSRV/edition contract change —
+see worklog). The workspace now pins gtk4 0.11 and relm4 0.11, so `webkit6 0.6`
+is enabled: `hypernext-webmode` declares it as the Linux raw-webview backend and
+`RawWebViewLinux` hosts a real `webkit6::WebView` (which is a `gtk4::Widget`) in-
+tab.
+
+### Manual macOS test checklist (validated locally, not in CI)
+
+The macOS webview is **not** exercised by CI (macos job is build-only; the test
+job is ubuntu/xvfb). Manual verification on a macOS host:
+
+1. `cargo test -p hypernext-webmode` on macOS — policy unit tests pass.
+2. Instantiate `RawWebView::new(WebviewPolicy::standard())` on the GTK main
+   thread — the companion `NSWindow` appears with the `WKWebView`.
+3. `load_url("https://example.com")` — page renders; `https://example.com`
+   loads in the window.
+4. `set_policy(&WebviewPolicy::default())` — scripts disabled: a page with JS
+   does not run scripts.
+5. New-window (`window.open`) is suppressed (no UIDelegate).
+6. Download link does not auto-download (Phase 4 confirmation hook pending).
+7. Close the tab — the companion window is torn down with the `RawWebView`.
+
+### Library-lookup results (objc2-web-kit 0.3.2)
+
+- **objc2-web-kit 0.3.2** — MIT, active, the canonical WKWebView Rust binding.
+  Verified API from the downloaded source: `WKWebViewConfiguration::new(mtm)`,
+  `WKWebView::alloc(mtm)` + `initWithFrame_configuration(alloc, frame, &config)`,
+  `NSURL::URLWithString`, `NSURLRequest::requestWithURL`, `NSWindow::new(mtm)`,
+  `NSWindowStyleMask::{Titled,Closable,Resizable,Miniaturizable}`.
+  Feature-gated per-class; pinned in workspace `[workspace.dependencies]`.
+- **webkit6 0.6.x** — Linux WebKitGTK backend; requires gtk4 0.11, now pinned
+  (resolved above). License MIT. Enabled in `hypernext-webmode` (Linux target).
+- **wry** — rejected for macOS embedding (Linux-only `build_gtk`); not added.
+- **webview2-com 0.39** — Windows-only; post-1.0 target; pinned in workspace.
+
+### Phase-doc correction
+
+Phase-doc 3.4 references `gtk4::nsview_to_widget` and `GtkSocket`, neither of
+which exists in GTK4 (section 3.4 Implementation + the spike note). These were
+corrected (see the phase doc diff in this change set); the spike note is
+superseded by this ADR section.
 
 ## Future direction
 

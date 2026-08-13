@@ -302,9 +302,9 @@ fn scorpion_block(block: scorpion_protocol::Block, base: &Url) -> Option<Block> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use scorpion_protocol::Header;
     use scorpion_protocol::client::Response;
     use scorpion_protocol::document::{Block as SBlock, BlockType, Encoding};
-    use scorpion_protocol::Header;
 
     fn url(s: &str) -> Url {
         Url::parse(s).unwrap()

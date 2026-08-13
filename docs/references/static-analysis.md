@@ -40,16 +40,24 @@ They trigger on `schedule` (nightly cron) and `workflow_dispatch` only.
 
 | Tool | What it catches | Targets |
 |------|-----------------|---------|
-| `cargo +nightly miri test` | Undefined behavior in `unsafe` code (memory errors, data races, aliasing) | Crates with `unsafe`: `hypernext-store` (sqlite-vec), `hypernext-keychain` (keyring), `hypernext-protocol` (adapters) |
+| `cargo +nightly miri test` | Undefined behavior in `unsafe` code (memory errors, data races, aliasing) | **DISABLED** — see below. All current `unsafe` is C-FFI (sqlite-vec/rusqlite, keyring, objc2); Miri cannot execute C, and every test in store/keychain/protocol opens a real C SQLite/keychain connection. |
 | `cargo kani` | Formal verification (exhaustive proof) of safety-critical functions: bounds, panics, arithmetic overflow | `hypernext-protocol` (TOFU cert comparison), `hypernext-store` (sqlite-vec/Titan size limits), `hypernext-pgp` (PGP verification) when Phase 2 task p2-t7 lands |
 
 ### Miri
 
-Uses `dtolnay/rust-toolchain@nightly` with the `miri` component. Runs
-`cargo +nightly miri test` per targeted crate. If a crate has no `unsafe`
-blocks yet, Miri still validates the safe code's soundness; the targets above
-are the ones with confirmed `unsafe` usage (verified 2026-08-12: only
-`hypernext-store/src/db.rs` currently contains `unsafe`).
+**DISABLED (2026-08-12).** The nightly Miri CI job was removed. Root cause: every
+`unsafe` block in the workspace is a C-FFI binding — `hypernext-store` calls
+`sqlite3_auto_extension` (sqlite-vec), `hypernext-keychain` calls keyring (native
+keychain), `hypernext-protocol` opens a real `rusqlite::Connection` in every
+adapter test. Miri can only interpret Rust; it cannot execute the SQLite C
+library, so `cargo +nightly miri test` fails with `unsupported operation:
+can't call foreign function sqlite3_auto_extension` (explicitly "not a bug in the
+program"). Hypernext currently has **no pure-Rust `unsafe`** for Miri to verify.
+
+The safety-critical logic that Miri would have covered (sqlite-vec bounds,
+TOFU cert comparison, Titan limits) is already handled by **Kani** (below), the
+other half of layer-3 deep verification. Re-enable the Miri job when a crate
+gains pure-Rust `unsafe` that Miri can interpret.
 
 ### Kani
 

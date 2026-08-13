@@ -37,8 +37,8 @@ pub mod verify;
 
 pub use error::PgpError;
 pub use lookup::{KeyLookup, KeySource, ResolvedKey};
-pub use tofu::{apply_tofu, TofuStore};
+pub use tofu::{TofuStore, apply_tofu};
 pub use verify::{
-    extract_clearsign_blocks, extract_signature_link, verify_clearsign, verify_detached,
-    ClearsignBlock, Verification,
+    ClearsignBlock, Verification, extract_clearsign_blocks, extract_signature_link,
+    verify_clearsign, verify_detached,
 };

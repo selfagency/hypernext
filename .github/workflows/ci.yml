@@ -6,13 +6,13 @@
 #     -> xvfb-run.
 #   - macos-latest: build (release) only, via cargo-auditable to embed the
 #     dependency tree in the binary (post-deploy audit).
-#   - Scheduled (nightly): Miri (UB in unsafe code) and Kani (formal
-#     verification) — both 10-50x slow, so NOT on every commit. They run on
-#     `schedule` (cron) + `workflow_dispatch` only.
+#   - Scheduled (nightly): Kani (formal verification) — 10-50x slow, so NOT on
+#     every commit. It runs on `schedule` (cron) + `workflow_dispatch` only.
+#     (Miri was part of this tier but is DISABLED — see the Kani job comment.)
 #
-# Coverage threshold starts at 30% (Phase 1 has little code) and ratchets up
-# each phase (see docs/references/0005-tdd-discipline.md).
-#
+# Coverage threshold ratchets up each phase (ADR 0005/0005-tdd-discipline):
+# Phase 1 30% -> Phase 3 65% (aggregate; GTK-display + macOS-untestable code
+# caveats documented in static-analysis.md / ADR 0005).
 # Full static-analysis tool stack documented in docs/references/static-analysis.md.
 
 name: CI
@@ -22,8 +22,8 @@ on:
     branches: [main]
   pull_request:
   schedule:
-    - cron: "0 3 * * *" # nightly: Miri + Kani only
-  workflow_dispatch: # manual trigger: Miri + Kani
+    - cron: "0 3 * * *" # nightly: Kani only (Miri disabled)
+  workflow_dispatch: # manual trigger: Kani only (Miri disabled)
 
 env:
   CARGO_TERM_COLOR: always
@@ -43,7 +43,7 @@ jobs:
       - name: Install GTK dev libs (clippy compiles gtk4-sys)
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-4-dev
+          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev
       - name: Install rumdl (markdown formatter for rumdl-fmt hook)
         uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
         with:
@@ -63,31 +63,73 @@ jobs:
       - name: Install GTK + xvfb
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-4-dev xvfb
+          sudo apt-get install -y libgtk-4-dev xvfb libwebkitgtk-6.0-dev
       - name: cargo test --workspace
         run: xvfb-run -a cargo test --workspace
 
-  coverage:
-    name: Coverage (tarpaulin)
+  # MSRV gate: pin the declared MSRV (1.93, see AGENTS.md) and assert the whole
+  # workspace compiles at that floor. Catches code that drifts above MSRV (e.g.
+  # edition-2024 or new std APIs) before main CI on latest-stable does.
+  msrv:
+    name: MSRV check (1.93)
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@7c8d7d138f5c09cef361f8214cf96882cd029cdb # 1.93
+        with:
+          toolchain: 1.93
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - name: Install GTK dev libs (check compiles gtk4-sys)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev
+      - name: cargo check --workspace at MSRV
+        run: cargo check --workspace
+
+  coverage:
+    name: Coverage (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Testable crates: no display needed; gated at 80% per ADR 0005
+          # (measured aggregate ~90%). Uploaded to Codacy.
+          - name: testable
+            pkgs: -p hypernext-core -p hypernext-keychain -p hypernext-pgp -p hypernext-protocol -p hypernext-store -p hypernext-http
+            fail-under: 80
+            outdir: coverage-testable
+            lcov: coverage-testable/lcov.info
+            upload: true
+          # Display-gated GUI crates (app/ui/webmode): their GTK/webkit coverage
+          # needs a real display (tests #[ignore]d in CI), so gate low at 20% -
+          # only catches gross regressions, not the known display gap. Runs on a
+          # separate runner so it parallelizes with the testable group.
+          - name: gui
+            pkgs: -p hypernext-app -p hypernext-ui -p hypernext-webmode
+            fail-under: 20
+            outdir: coverage-gui
+            lcov: coverage-gui/lcov.info
+            upload: false
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
       - name: Install GTK + xvfb (tarpaulin compiles workspace; smoke test needs display)
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-4-dev xvfb
+          sudo apt-get install -y libgtk-4-dev xvfb libwebkitgtk-6.0-dev
       - name: Install cargo-tarpaulin
         uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
         with:
           tool: cargo-tarpaulin
-      - name: cargo tarpaulin --workspace --out lcov --fail-under 30
-        run: xvfb-run -a cargo tarpaulin --workspace --out lcov --fail-under 30
-      - name: Upload coverage to Codacy
+      - name: cargo tarpaulin ${{ matrix.pkgs }} --out lcov --fail-under ${{ matrix.fail-under }}
+        run: xvfb-run -a cargo tarpaulin ${{ matrix.pkgs }} --out lcov --output-dir ${{ matrix.outdir }} --fail-under ${{ matrix.fail-under }}
+      - name: Upload coverage to Codacy (testable group)
+        if: matrix.upload
         uses: codacy/codacy-coverage-reporter-action@89d6c85cfafaec52c72b6c5e8b2878d33104c699 # v1.3.0
         with:
           project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
-          coverage-reports: lcov.info
+          coverage-reports: ${{ matrix.lcov }}
 
   deny:
     name: Deny (licenses + advisories)
@@ -119,33 +161,18 @@ jobs:
       - name: cargo audit --deny warnings
         run: cargo audit --deny warnings --ignore RUSTSEC-2023-0071 --ignore RUSTSEC-2025-0141 --ignore RUSTSEC-2024-0320
 
-  # Layer 3 — UB detection in unsafe code. 10-50x slow, so nightly + manual only.
-  miri:
-    name: Miri (UB in unsafe code)
-    runs-on: ubuntu-latest
-    # Nightly + manual only; never on push/PR (too slow).
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: dtolnay/rust-toolchain@7c8d7d138f5c09cef361f8214cf96882cd029cdb # nightly
-        with:
-          components: miri
-      - name: Install GTK dev libs (miri compiles gtk4-sys)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-4-dev
-      # Miri on crates with unsafe code: store (sqlite-vec), keychain (keyring),
-      # protocol (adapters). -p runs each; xvfb not needed (no UI in these).
-      - name: cargo miri test (store, keychain, protocol)
-        run: |
-          cargo miri setup
-          cargo +nightly miri test -p hypernext-store
-          cargo +nightly miri test -p hypernext-keychain
-          cargo +nightly miri test -p hypernext-protocol
-
   # Layer 3 — formal verification of safety-critical functions.
   # Nightly + manual only. Targets what exists now (store, protocol); hypernext-pgp
   # is covered when Phase 2 task p2-t7 lands it.
+  #
+  # NOTE: Miri (UB detection) is DISABLED. Every test in crates with unsafe
+  # (hypernext-store sqlite-vec, hypernext-keychain keyring, hypernext-protocol
+  # adapters) opens a real C SQLite/keychain connection, which Miri cannot
+  # execute (`sqlite3_auto_extension` -> "unsupported operation", not a code
+  # bug). Hypernext currently has no pure-Rust `unsafe` for Miri to verify — all
+  # unsafe is C-FFI bindings. Kani above covers the safety-critical logic
+  # (sqlite-vec bounds, TOFU, Titan limits). Re-enable the Miri job when pure-
+  # Rust `unsafe` code exists. See docs/references/static-analysis.md.
   kani:
     name: Kani (formal verification)
     runs-on: ubuntu-latest

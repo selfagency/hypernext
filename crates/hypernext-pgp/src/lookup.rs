@@ -70,23 +70,23 @@ pub fn resolve_key(
     };
 
     // 2. finger:// address.
-    if let Some(address) = url.strip_prefix("finger://") {
-        if let Some(key) = lookup.lookup_finger(address)? {
-            return Ok(Some(ResolvedKey {
-                key,
-                source: KeySource::Finger,
-            }));
-        }
+    if let Some(address) = url.strip_prefix("finger://")
+        && let Some(key) = lookup.lookup_finger(address)?
+    {
+        return Ok(Some(ResolvedKey {
+            key,
+            source: KeySource::Finger,
+        }));
     }
 
     // 3. keys.openpgp.org by email (extracted from a mailto: or the page URL).
-    if let Some(email) = extract_email(url) {
-        if let Some(key) = lookup.lookup_by_email(&email)? {
-            return Ok(Some(ResolvedKey {
-                key,
-                source: KeySource::KeysOpenpgpOrg,
-            }));
-        }
+    if let Some(email) = extract_email(url)
+        && let Some(key) = lookup.lookup_by_email(&email)?
+    {
+        return Ok(Some(ResolvedKey {
+            key,
+            source: KeySource::KeysOpenpgpOrg,
+        }));
     }
 
     // 4. None.
@@ -110,8 +110,8 @@ mod tests {
 
     use pgp::composed::{KeyType, SecretKeyParamsBuilder};
     use pgp::crypto::hash::HashAlgorithm;
-    use rand::rngs::StdRng;
     use rand::SeedableRng;
+    use rand::rngs::StdRng;
     use smallvec::smallvec;
 
     struct NoopLookup;

@@ -109,14 +109,14 @@ Stage Summary:
 
 ## Consequences
 
-**Positive**
+### Positive
 
 - Conventional, predictable git workflow
 - Pre-commit hooks catch issues before they hit CI
 - `cargo-deny` blocks license/advisory drift
 - Worklog provides AI-agent accountability
 
-**Negative / accepted costs**
+### Negative / accepted costs
 
 - No gitbutler's parallel-branch workflow — but the Wails version's `but` workflow was itself a pain point
 - Pre-commit hook adds ~10 seconds per commit; acceptable

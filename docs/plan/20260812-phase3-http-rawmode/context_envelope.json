@@ -1,0 +1,56 @@
+{
+  "plan_id": "20260812-phase3-http-rawmode",
+  "objective": "Phase 3 HTTP Reader Mode & Raw Mode Webview",
+  "complexity": "HIGH",
+  "date": "2026-08-12",
+  "tech_stack": {
+    "app": "Rust + relm4 + gtk4 (native shell, NOT webview-based except raw-mode tabs)",
+    "async": "tokio exclusively",
+    "http": "reqwest (0.13 - per-request redirect removed; Client-level redirect policy only)",
+    "html_readability": "legible crate (Rust Readability.js port); scraper/html5ever; comrak for markdown; feed-rs for feeds (Phase 1.1)",
+    "adblock": "Brave adblock crate (EasyList+EasyPrivacy bundled at build time)",
+    "webview": "platform native: macOS WKWebView (objc2-web-kit), Linux webkit6, Windows webview2-com — ONLY raw-mode tabs (ADR 0002)",
+    "storage": "rusqlite + refinery (+ sqlite-vec)",
+    "security": "keyring (keychain only), hypernext-pgp verify-before-extract (Phase 2)"
+  },
+  "architecture_snapshot": {
+    "new_crates": ["hypernext-http (policy/client/extract/adblock)", "hypernext-webmode (raw_widget + WebMode)"],
+    "http_adapter": "3.7 adds HttpAdapter to hypernext-protocol dispatcher as the prefix-less http/https default (handoff h1); WebFinger keeps https only for it/.well-known/webfinger via path sub-routing (longest-prefix-wins)",
+    "raw_vs_reader": "Dispatcher::fetch resolves WebMode per origin; Reader -> fetch_and_extract -> PageDoc; Raw -> Block::Raw { mime: application/x-webview } placeholder that the UI renders via RawWebView, not ReaderView",
+    "reader_render": "hypernext-ui reader_view.render_page_doc(doc) calls Phase 2 document_view::render_blocks + metadata header + featured-image dedup"
+  },
+  "high_risk": {
+    "macos_webview_spike": "WKWebView does NOT natively integrate with GTK4. SPIKE in p3-t4 MUST pick: (a) GtkSocket embed native NSView, (b) wry wrapping WKWebView in gtk::Widget, or (c) separate native window for raw mode (worse UX). Document in ADR 0002 with fallback decision BEFORE production code. Fallbacks: separate window (ships, worse) or drop raw mode to 1.1 (scope cut)."
+  },
+  "constraints": [
+    "Webview exists ONLY in raw-mode tabs (invariant #10). Never introduce webviews elsewhere; app shell is GTK4 native.",
+    "SSRF at HTTP layer (invariant #8): EVERY outbound http request (incl. redirect hops) through FetchPolicy::check_url - resolved-IP check defeats DNS rebinding. reqwest 0.13: no per-request redirect, use Client-level Policy::custom that calls check_url per hop + surface 3xx as final_url for Dispatcher re-vet (Phase 2 pattern).",
+    "PGP verify BEFORE extraction (invariant #6): raw bytes verified before legible HTML extraction/markdown parse/rendering. Enforced by tracing-hook order test.",
+    "Incognito forces Reader mode (no raw mode in incognito); incognito enforced at FetchContext, not UI.",
+    "Ad-filter never applied in incognito; makelist rules bundled at build time (never runtime download).",
+    "Explicit user confirmation for downloads / new-window / irreversible side effects (invariant #7) - never auto-accept.",
+    "tokio exclusively, thiserror for libs, anyhow for app, no unwrap() in non-test code.",
+    "Every external crate must pass docs/references/library-lookup-protocol.md before being added (legible, scraper, comrak, adblock, objc2-web-kit, webkit6, etc.).",
+    "macOS-first (1.0 target); Linux/Windows webview conditional builds (#[cfg(target_os=...)]) but macOS path must be proven via SPIKE first.",
+    "Coverage >=65% overall (phase 3 exit), >=80% per new crate (ADR 0005)."
+  ],
+  "handoff_to_phase_3": [
+    "h1: register prefix-less http/https default adapter (p3-t7)",
+    "h2: promote spike_textview to production + link TextTag activate -> navigator (p3-t6)",
+    "h3: per-protocol fixture widget-tree render tests (p3-t6)",
+    "h4: GtkTextTag CSS for promoted render path (p3-t6)"
+  ],
+  "phase3_handoff": {
+    "spike_textview": "crates/hypernext-ui spike_textview (GtkTextView + child anchors) from Phase 2 text-selection spike - promotes to production in p3-t6",
+    "reqwest_013_note": "No per-request redirect in reqwest 0.13; no-follow is Client-level. WebFinger already uses Client::builder().redirect(Policy::none()) + surfaces 3xx final_url (Phase 2 pattern to reuse)."
+  },
+  "plan_summary": "7 tasks / 4 waves. Wave 1: p3-t1 hypernext-http core (SSRF/size/redirects). Wave 2: p3-t2 readability extract. Wave 3: p3-t3 adblock + p3-t4 raw webview SPIKE (highest risk) + p3-t5 web mode toggle. Wave 4: p3-t6 reader render pipeline (h2/h3/h4) + p3-t7 HTTP adapter (h1, Block::Webview, raw-mode adblock, PGP-before-extract). HIGH complexity due to macOS webview SPIKE + security boundaries. Post-review: Block::Webview variant (not magic-string); raw-mode adblock owned by p3-t7; socks5 + feed-rs deferred (YAGNI).",
+  "plan_review": {
+    "wave_fix": "p3-t3 moved to wave 3 (was same-wave dep on p3-t2)",
+    "block_webview": "Block::Raw{mime:application/x-webview} magic-string REJECTED -> add Block::Webview{url} variant in hypernext-core (p3-t7)",
+    "raw_adblock_owner": "raw-mode adblock resource intercept owned by p3-t7 (has p3-t3 engine + p3-t4 webview)",
+    "coverage_gate_t4": "p3-t4 (hypernext-webmode) gets >=80% per-crate coverage (Linux webkit6 CI-testable; macOS local-only)",
+    "deferred": ["socks5/Tor feature (Phase 5)", "real feed-rs dep (Phase 1.1 - use feed::deferred marker)"],
+    "macos_ci_caveat": "macOS webview (1.0 target) CI-untestable (macos job build-only, test ubuntu/xvfb) - validated locally; SPIKE ADR decision is the manual gate"
+  }
+}

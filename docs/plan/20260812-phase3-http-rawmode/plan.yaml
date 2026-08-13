@@ -1,0 +1,109 @@
+plan_id: 20260812-phase3-http-rawmode
+objective: "Phase 3 HTTP Reader Mode & Raw Mode Webview: hypernext-http crate (SSRF policy, HTML readability extraction, ad filtering), raw-mode webview (macOS GTK4 SPIKE), web mode toggle + per-origin persistence, reader-view rendering pipeline, HTTP adapter in dispatcher with PGP-before-extract boundary"
+complexity: HIGH
+source_doc: docs/phases/03-http-reader-and-raw-mode.md
+created: "2026-08-12"
+revised: "2026-08-12 (post-review #1+critic: fix wave ordering t3; Block::Webview vs magic-string; ownership raw-mode adblock -> t7; add coverage gate to t4; fixtures 10+; defer socks5+feed-rs; macOS CI-testability caveat)"
+
+# phase-2 -> phase-3 handoff carries
+handoff_to_phase_3:
+  - { id: h1, desc: "Register prefix-less http/https default adapter (p3-t7)", target: p3-t7 }
+  - { id: h2, desc: "Promote spike_textview to production + link TextTag activate -> navigator", target: p3-t6 }
+  - { id: h3, desc: "Per-protocol fixture widget-tree render tests", target: p3-t6 }
+  - { id: h4, desc: "GtkTextTag CSS for promoted render path", target: p3-t6 }
+
+crate_map:
+  hypernext-http: "3.1 policy.rs + client.rs; 3.2 extract.rs; 3.3 adblock.rs. DEPENDS on hypernext-core (Block/PageDoc/Metadata) + hypernext-pgp; MUST NOT depend on hypernext-protocol (avoids protocol->http cycle)."
+  hypernext-webmode: "3.4 raw_widget.rs (platform-conditional webview). GTK-facing only. DEPENDS on hypernext-core + hypernext-http (adblock engine for raw-mode intercept)."
+  WebMode: "3.5 WebMode enum + resolve_mode/set_mode_pref: PURE DOMAIN -> lives in hypernext-core (no GTK), alongside Block/PageDoc. NOT co-located with GTK webview code."
+
+# Wave 3 carries the single biggest technical risk of Phase 3: macOS WKWebView +
+# GTK4 SPIKE (p3-t4). SPIKE first, produces a documented ADR 0002 decision with
+# fallback (separate window / drop raw to 1.1). NOTE: macOS webview code cannot
+# run in CI (macos job is build-only; test job is ubuntu/xvfb) - the SPIKE and
+# raw webview are validated LOCALLY on macOS only; CI covers Linux webkit6.
+
+tasks:
+  - id: p3-t1
+    title: "hypernext-http crate core: FetchPolicy + client (SSRF, size, redirects)"
+    wave: 1
+    agent: gem-implementer
+    status: pending
+    deps: []
+    conflicts_with: []
+    source: "phase-doc 3.1"
+    acceptance: "hypernext-http with policy.rs (check_url: http/https only, RFC1918/loopback/link-local + DNS-rebinding via resolved-IP check) + client.rs (build_client: custom Client-level redirect Policy::custom calling check_url per hop - reqwest 0.13 has no per-request redirect; timeout; bounded streaming size reader (no ReadAll overflow)). Do NOT add socks5/Tor feature now (Phase 5 Confidential need) - YAGNI. TDD gate: unit (scheme/private-IP/DNS-rebind/redirect-hop) + wiremock integration (100MB->SizeLimitExceeded at 10MB, 301->127.0.0.1 blocked, 6 chained redirects -> 6th fails). >=80% coverage on the crate."
+
+  - id: p3-t2
+    title: "HTML parsing + readability extraction (legible/scraper/comrak) in extract.rs"
+    wave: 2
+    agent: gem-implementer
+    status: pending
+    deps: [p3-t1]
+    conflicts_with: []
+    source: "phase-doc 3.2"
+    acceptance: "extract.rs fetch_and_extract pipeline: GET -> raw bytes -> PGP verify (hypernext-pgp) BEFORE extraction -> content-type detect -> legible::extract for HTML / comrak for markdown / FEED: route to a documented feed::deferred marker (real feed-rs is Phase 1.1 - do NOT add feed-rs dep now) / text-plain preformatted / Block::Raw binary -> Vec<Block> + Metadata (meta/JSON-LD/OG/Twitter/microformats) + DebugInfo. TDD gate: >=10 fixture HTML files (simple-article, article-with-ads, feed, markdown.html, empty-body, missing-metadata, microformats h-card, JSON-LD + >=2 more edge cases) + wiremock integrations (real article, 5MB size limit, redirect final_url). PGP-verify-before-extract order enforced. >=80% coverage."
+
+  - id: p3-t3
+    title: "Ad filtering (adblock crate, EasyList+EasyPrivacy bundled)"
+    wave: 3
+    agent: gem-implementer
+    status: pending
+    deps: [p3-t2]
+    conflicts_with: []
+    source: "phase-doc 3.3"
+    acceptance: "adblock.rs AdblockEngine (Bundled EasyList+EasyPrivacy, build-time not runtime download) + should_block + cosmetic_rules_for, applied in extract.rs before legible. FilterListSource enum + per-origin toggle (settings) + never in incognito. TDD gate: tracker block true/false, EasyList empty edge, cosmetic selectors; wiremock: doubleclick img not requested, ad-banner div removed from PageDoc. >=80% coverage."
+
+  - id: p3-t4
+    title: "Raw-mode webview widget + macOS WKWebView/GTK4 SPIKE (ADR 0002)"
+    wave: 3
+    agent: gem-implementer
+    status: pending
+    deps: [p3-t1]
+    conflicts_with: []
+    source: "phase-doc 3.4"
+    acceptance: "SPIKE FIRST (time-boxed): decide + document macOS WKWebView+GTK4 integration in docs/references/0002-browser-engine-survey.md (GtkSocket / wry / separate-window fallback) + record the chosen approach + explicit fallback decision (Fallback A separate window, or Fallback B drop raw to 1.1). NOTE: macOS webview is validated LOCALLY on macOS only (CI test job is ubuntu/xvfb, macos job is build-only) - document a manual macOS test checklist; do not claim CI coverage for the macOS path. Then raw_widget.rs platform-conditional RawWebView (macOS objc2-web-kit via chosen approach; Linux webkit6; Windows webview2-com) with load_url, set_policy (WebviewPolicy incognito-safe defaults: scripts/storage/popups/downloads/cross-origin), navigation/decide_policy/create wiring (block popups->new tab, downloads need user confirmation). Raw-mode ADBLOCK resource interception is owned by p3-t7 (needs p3-t3's engine) - NOT here. TDD gate: WebviewPolicy::default incognito-safe, RawWebView::new (display-required, xvfb-run on CI/Linux). >=80% coverage on the crate (AUX: Linux webkit6 path is CI-testable; macOS path local-only)."
+
+  - id: p3-t5
+    title: "Web mode toggle + per-origin persistence (WebMode in hypernext-core)"
+    wave: 3
+    agent: gem-implementer
+    status: pending
+    deps: []
+    conflicts_with: []
+    source: "phase-doc 3.5 (FR-8 semantics from bean-v1-prd)"
+    acceptance: "WebMode enum (Reader/Raw) + resolve_mode(url,store) default Reader + set_mode_pref(url,mode,store) in settings key webmode.<origin> + incognito forces Reader (no raw mode in incognito, documented) - all in hypernext-core (pure domain, no GTK). NOTE: if SPIKE p3-t4 picks Fallback B (drop raw to 1.1), this toggle's Raw path is deferred with it - scope Raw path conditionally on SPIKE outcome. Settings UI control deferred to Phase 4. TDD gate: unknown origin->Reader; set then resolve->Raw; persists across DB re-open; incognito forces Reader; set Reader clears pref row. >=80% coverage on the WebMode domain module."
+
+  - id: p3-t6
+    title: "Reader-mode rendering pipeline (reader_view.rs) + Phase 2 handoffs h2/h3/h4"
+    wave: 4
+    agent: gem-implementer
+    status: pending
+    deps: [p3-t2, p3-t3]
+    conflicts_with: []
+    source: "phase-doc 3.6 + phase-2 handoffs"
+    acceptance: "hypernext-ui reader_view.rs render_page_doc(doc)->gtk::Widget: document_view::render_blocks + metadata header (title/author/date/PGP shield/share/read-state) + featured-image dedup + favicon in location bar. Fold in h2 (promote spike_textview to production + link TextTag activate->navigator), h3 (per-protocol fixture widget-tree render tests), h4 (GtkTextTag CSS). Renders Block::Webview (new hypernext-core variant, from p3-t7) if present -> signals raw rendering (dispatch to RawWebView). TDD gate: fixture PageDoc widget tree, featured-image dedup, empty-metadata no-panic."
+
+  - id: p3-t7
+    title: "HTTP adapter in dispatcher + Block::Webview + PGP-before-extract + raw-mode adblock"
+    wave: 4
+    agent: gem-implementer
+    status: pending
+    deps: [p3-t2, p3-t3, p3-t4, p3-t5]
+    conflicts_with: []
+    source: "phase-doc 3.7 + phase-2 handoff h1"
+    acceptance: "ADD Block::Webview { url } variant to hypernext-core (NOT a magic-string Block::Raw{mime:application/x-webview} - rejected pattern). hypernext-protocol/src/adapters/http.rs HttpAdapter: fetch resolves mode (Reader->fetch_and_extract, Raw->Block::Webview placeholder), register in default_dispatcher as the prefix-less http/https default (handoff h1 unblocks ordinary fetch). PGP verify BEFORE extract enforced (unit test asserts call order via tracing hook; raw mode documented exempt - webview contents neither extracted nor trusted). Raw-mode ADBLOCK resource interception: webview decide_policy resource requests checked against p3-t3's AdblockEngine, matched tracker -> Reject (owns exit-criterion-3 raw-mode leg). TDD gate: Dispatcher::fetch(https) returns PageDoc with blocks; PGP-signed HTML verified (PgpInfo), tampered -> PgpInvalid; webmode=Raw -> Block::Webview; raw-mode tracker intercepted -> Reject."
+
+# Phase 3 -> Phase 4 exit criteria (phase-doc section 4)
+exit_criteria:
+  - "hypernext-http fetches HTTPS with SSRF + size + redirect limits"
+  - "legible extraction correct for >=10 fixture HTML files"
+  - "ad filter blocks trackers in reader (cosmetic) + raw (resource intercept, owned by p3-t7)"
+  - "raw-mode webview works on macOS OR a documented fallback is in place (SPIKE ADR). NOTE: macOS path CI-untestable (build-only job); validated locally."
+  - "web mode toggle persists per-origin; incognito forces reader"
+  - "PGP verification runs before extraction in the Reader path (tracing hook); Raw mode documented exempt"
+  - "Dispatcher::fetch(https://...) returns a renderable PageDoc"
+  - "cargo test --workspace passes with >=65% overall coverage (macOS-only code may be under-covered; CI cannot run it - caveat explicit)"
+  - "cargo clippy --workspace -- -D warnings clean"
+  - "no --no-verify in git history"
+  - "worklog.md up to date"

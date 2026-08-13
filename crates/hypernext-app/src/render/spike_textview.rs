@@ -148,6 +148,15 @@ fn push_block(block: &Block, out: &mut Vec<TextEntry>) {
                 });
             }
         }
+        Block::Webview { .. } => {
+            // Raw-mode webview is hosted by the raw-mode tab (p3-t6), never by
+            // this native text renderer (invariant #10).
+            out.push(TextEntry {
+                text: Cow::Borrowed(""),
+                tags: vec![],
+                anchor: Some(ChildAnchor::Unsupported),
+            });
+        }
     }
 }
 
@@ -308,9 +317,11 @@ mod tests {
         let entries = doc_to_entries(&blocks);
         // A separator contributes an anchor, proving widget fallback coexists
         // with selectable text in the same stream.
-        assert!(entries
-            .iter()
-            .any(|e| e.anchor == Some(ChildAnchor::Separator)));
+        assert!(
+            entries
+                .iter()
+                .any(|e| e.anchor == Some(ChildAnchor::Separator))
+        );
         // Heading carries its level tag.
         assert!(entries.contains(&TextEntry {
             text: Cow::Owned("Title".into()),

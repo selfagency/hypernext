@@ -85,7 +85,7 @@ These boundaries are enforced by `cargo-deny` configuration that forbids certain
 
 ## Consequences
 
-**Positive**
+### Positive
 
 - Simpler architecture; fewer moving parts
 - One language, one type system, one error model
@@ -93,7 +93,7 @@ These boundaries are enforced by `cargo-deny` configuration that forbids certain
 - Faster development for new features
 - Easier testing — no mock bindings, just mock the trait
 
-**Negative / accepted costs**
+### Negative / accepted costs
 
 - All contributors need Rust proficiency
 - Slower hot reload than Vite (but acceptable)

@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use hypernext_core::Block;
 use hypernext_protocol::{DictAdapter, FetchContext, FetchPolicy, Protocol};
-use rcgen::{generate_simple_self_signed, CertifiedKey};
+use rcgen::{CertifiedKey, generate_simple_self_signed};
 use rustls::pki_types::PrivateKeyDer;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;

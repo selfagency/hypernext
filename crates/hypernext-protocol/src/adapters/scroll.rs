@@ -25,7 +25,7 @@ use async_trait::async_trait;
 use hypernext_core::{Block, HypernextError, PageDoc, Span, SpanRun, SpanStyle};
 use url::Url;
 
-use crate::adapters::tcp_helper::{first_heading, span, TcpProtocolHelper};
+use crate::adapters::tcp_helper::{TcpProtocolHelper, first_heading, span};
 use crate::dispatcher::{Capabilities, FetchContext, Protocol};
 
 /// Scroll's well-known port.
@@ -413,10 +413,11 @@ mod tests {
                 ),
             )
             .unwrap();
-        assert!(doc
-            .blocks
-            .iter()
-            .any(|b| matches!(b, Block::List { items, .. } if items.len() == 2)));
+        assert!(
+            doc.blocks
+                .iter()
+                .any(|b| matches!(b, Block::List { items, .. } if items.len() == 2))
+        );
         assert!(doc.blocks.iter().any(|b| matches!(b, Block::Quote(_))));
         assert!(doc
             .blocks
@@ -603,7 +604,7 @@ mod tests {
         assert!(caps.supports_fetch);
         assert!(caps.needs_tls);
         assert!(caps.needs_tofu);
-        let defaulted = ScrollAdapter::default();
+        let defaulted = ScrollAdapter;
         assert_eq!(defaulted.scheme(), "scroll");
     }
 

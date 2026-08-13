@@ -21,7 +21,7 @@ use async_trait::async_trait;
 use hypernext_core::{Block, HypernextError, PageDoc, Span, SpanRun, SpanStyle};
 use url::Url;
 
-use crate::adapters::tcp_helper::{first_heading, span, TcpProtocolHelper};
+use crate::adapters::tcp_helper::{TcpProtocolHelper, first_heading, span};
 use crate::dispatcher::{Capabilities, FetchContext, Protocol};
 
 /// Text's well-known plain-TCP port (the spec names it Mercury).
@@ -352,7 +352,7 @@ mod tests {
         assert_eq!(adapter.scheme(), "text");
         assert!(adapter.capabilities().supports_fetch);
         assert!(!adapter.capabilities().needs_tls);
-        let defaulted = TextAdapter::default();
+        let defaulted = TextAdapter;
         assert_eq!(defaulted.scheme(), "text");
     }
 

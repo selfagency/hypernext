@@ -38,6 +38,9 @@ tokio-util = { workspace = true }
 # HTTP client reference in FetchContext
 reqwest = { workspace = true }
 
+# HTTP fetch/extract + adblock (p3-t1/t3); one-way protocol -> http dep
+hypernext-http = { workspace = true }
+
 # Keychain + store access in FetchContext
 hypernext-keychain = { workspace = true }
 hypernext-store = { workspace = true }
@@ -55,3 +58,5 @@ comrak = { workspace = true }
 pretty_assertions = { workspace = true }
 rcgen = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "io-util", "net"] }
+# In-process HTTP mock server for http-adapter integration tests
+wiremock = { workspace = true }

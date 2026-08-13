@@ -18,11 +18,11 @@
 
 use async_trait::async_trait;
 use hypernext_core::{Block, HypernextError, PageDoc};
-use nex_protocol::{fetch, parse_listing, ClientError, FetchOptions};
+use nex_protocol::{ClientError, FetchOptions, fetch, parse_listing};
 use url::Url;
 
 use crate::adapters::gemini::gemtext_to_blocks;
-use crate::adapters::tcp_helper::{first_heading, span, TcpProtocolHelper};
+use crate::adapters::tcp_helper::{TcpProtocolHelper, first_heading, span};
 use crate::dispatcher::{Capabilities, FetchContext, Protocol};
 
 /// Nex's default port.
@@ -207,9 +207,11 @@ mod tests {
         let base = url("nex://example.com/page.gmi");
         let body = "# Title\n\nBody.\n";
         let blocks = parse_body(body.as_bytes(), &base);
-        assert!(blocks
-            .iter()
-            .any(|b| matches!(b, Block::Heading { level: 1, text, .. } if text == "Title")));
+        assert!(
+            blocks
+                .iter()
+                .any(|b| matches!(b, Block::Heading { level: 1, text, .. } if text == "Title"))
+        );
         assert!(blocks.iter().any(|b| matches!(b, Block::Paragraph(_))));
     }
 

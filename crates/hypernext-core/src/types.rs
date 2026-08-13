@@ -81,6 +81,13 @@ pub enum Block {
         mime: String,
         bytes: Vec<u8>,
     },
+    /// Raw-mode HTTP placeholder: the origin document should be rendered by
+    /// the raw-mode platform webview, not the native GTK shell (invariant #10).
+    /// The UI recognizes this block and switches the tab to [`RawWebView`]
+    /// (p3-t6); the webview is the only place HTML/script is ever executed.
+    Webview {
+        url: Url,
+    },
 }
 
 /// A run of styled text.

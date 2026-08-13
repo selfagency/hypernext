@@ -498,7 +498,7 @@ mod tests {
         // The exchange caps the read; a body larger than the limit errors.
         let adapter = MoleratAdapter::new();
         let u = url("molerat://example.com/");
-        let big = vec![b'x'; 100];
+        let big = [b'x'; 100];
         // handle_response itself does not enforce size (the exchange does);
         // this checks the policy wiring path used by `fetch`.
         assert!(big.len() > 10);

@@ -8,8 +8,8 @@
 
 use pgp::composed::CleartextSignedMessage;
 use pgp::types::Password;
-use rand::rngs::StdRng;
 use rand::SeedableRng;
+use rand::rngs::StdRng;
 use tracing::Subscriber;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::{Layer, Registry};

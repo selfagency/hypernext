@@ -364,10 +364,10 @@ impl Dispatcher {
         }
 
         // A recognized scheme means it is already an absolute URL.
-        if let Ok(url) = Url::parse(&candidate) {
-            if RECOGNIZED_SCHEMES.contains(&url.scheme()) {
-                return Ok(url);
-            }
+        if let Ok(url) = Url::parse(&candidate)
+            && RECOGNIZED_SCHEMES.contains(&url.scheme())
+        {
+            return Ok(url);
         }
 
         // Otherwise treat it as a host reference with the default scheme.
@@ -547,8 +547,10 @@ mod tests {
             scheme: "https",
             final_url: url("gemini://example.com/"),
         }));
-        let mut policy = FetchPolicy::default();
-        policy.max_redirects = 5;
+        let policy = FetchPolicy {
+            max_redirects: 5,
+            ..FetchPolicy::default()
+        };
         let c = ctx(&policy);
         let err = d
             .fetch(&url("gemini://example.com/"), &c)

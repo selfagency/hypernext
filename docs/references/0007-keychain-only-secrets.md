@@ -56,14 +56,14 @@ These secrets must never be stored in plaintext. The Wails version had a hard-wo
 
 ## Consequences
 
-**Positive**
+### Positive
 
 - Secrets cannot leak to SQLite, logs, or debug views because there is no path that carries them there
 - OS-managed access control (macOS Keychain Access prompts, Windows Credential Manager, Linux Secret Service)
 - Auditable: a user can open Keychain Access.app and see exactly what Hypernext has stored
 - GDPR Art. 5/6/9 compliance is trivially satisfied — secrets are local, encrypted at rest by the OS, never transmitted
 
-**Negative / accepted costs**
+### Negative / accepted costs
 
 - macOS keychain prompts on first use (annoying but correct). User must authorize once per secret.
 - CI testing requires `security unlock-keychain` or a test keychain — documented in `docs/references/keychain-testing.md`

@@ -25,7 +25,7 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
-use gemini_protocol::client::{parse_response, ClientError, Response, Status};
+use gemini_protocol::client::{ClientError, Response, Status, parse_response};
 use gemini_protocol::gemtext::GemLine;
 use hypernext_core::{
     Block, DebugInfo, HttpRequestDebug, HttpResponseDebug, HypernextError, Metadata, PageDoc, Span,
@@ -82,10 +82,10 @@ impl GeminiAdapter {
 
         // Clean first contact: pin the fingerprint and store the leaf DER
         // (synchronous, after the awaits complete).
-        if pinned.is_none() {
-            if let Some(seen) = seen.lock().unwrap().take() {
-                tofu::store_pin(&vetted.host, seen.fingerprint, &seen.der, ctx)?;
-            }
+        if pinned.is_none()
+            && let Some(seen) = seen.lock().unwrap().take()
+        {
+            tofu::store_pin(&vetted.host, seen.fingerprint, &seen.der, ctx)?;
         }
 
         let exchange = exchange_capped(url, &mut stream, policy.max_response_size);
@@ -242,15 +242,15 @@ async fn tofu_connect(
             Ok(tls) => Ok(tls),
             Err(e) => {
                 let observed = seen.lock().unwrap().clone();
-                if let (Some(pinned), Some(observed)) = (pinned, observed) {
-                    if pinned != observed.fingerprint {
-                        return Err(HypernextError::TofuCertChanged(format!(
-                            "certificate for {} changed: pinned {}, saw {}",
-                            vetted.host,
-                            tofu::hex(&pinned),
-                            tofu::hex(&observed.fingerprint)
-                        )));
-                    }
+                if let (Some(pinned), Some(observed)) = (pinned, observed)
+                    && pinned != observed.fingerprint
+                {
+                    return Err(HypernextError::TofuCertChanged(format!(
+                        "certificate for {} changed: pinned {}, saw {}",
+                        vetted.host,
+                        tofu::hex(&pinned),
+                        tofu::hex(&observed.fingerprint)
+                    )));
                 }
                 Err(HypernextError::Network(format!("tls handshake: {e}")))
             }
@@ -635,13 +635,17 @@ mod tests {
     fn markdown_parses_to_blocks() {
         let base = url("gemini://example.com/");
         let blocks = markdown_to_blocks("# Hi\n\nSome **bold** text.\n\n- a\n- b\n", &base);
-        assert!(blocks
-            .iter()
-            .any(|b| matches!(b, Block::Heading { level: 1, text, .. } if text == "Hi")));
+        assert!(
+            blocks
+                .iter()
+                .any(|b| matches!(b, Block::Heading { level: 1, text, .. } if text == "Hi"))
+        );
         assert!(blocks.iter().any(|b| matches!(b, Block::Paragraph(_))));
-        assert!(blocks
-            .iter()
-            .any(|b| matches!(b, Block::List { ordered: false, items, .. } if items.len() == 2)));
+        assert!(
+            blocks.iter().any(
+                |b| matches!(b, Block::List { ordered: false, items, .. } if items.len() == 2)
+            )
+        );
     }
 
     #[test]

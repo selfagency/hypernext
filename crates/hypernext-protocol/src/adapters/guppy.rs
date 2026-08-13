@@ -23,7 +23,7 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
-use guppy_protocol::{ClientError, FetchOptions, GuppyResponse, GUPPY_PORT};
+use guppy_protocol::{ClientError, FetchOptions, GUPPY_PORT, GuppyResponse};
 use hypernext_core::{
     Block, DebugInfo, HttpRequestDebug, HypernextError, Metadata, PageDoc, Span, SpanRun, SpanStyle,
 };

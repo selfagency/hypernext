@@ -16,11 +16,11 @@
 //! `FetchPolicy::max_response_size`.
 
 use async_trait::async_trait;
-use gopher_protocol::{fetch, parse_menu, ClientError, GopherKind, Response};
+use gopher_protocol::{ClientError, GopherKind, Response, fetch, parse_menu};
 use hypernext_core::{Block, HypernextError, PageDoc};
 use url::Url;
 
-use crate::adapters::tcp_helper::{first_heading, span, TcpProtocolHelper};
+use crate::adapters::tcp_helper::{TcpProtocolHelper, first_heading, span};
 use crate::dispatcher::{Capabilities, FetchContext, Protocol};
 
 /// Gopher's well-known port (RFC 1436).

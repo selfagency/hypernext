@@ -9,12 +9,14 @@ members = [
     "crates/hypernext-testutil",
     "crates/hypernext-protocol",
     "crates/hypernext-pgp",
+    "crates/hypernext-http",
+    "crates/hypernext-webmode",
 ]
 
 [workspace.package]
 version = "0.1.0"
-edition = "2021"
-rust-version = "1.83"
+edition = "2024"
+rust-version = "1.93"
 license = "MIT"
 authors = ["Hypernext maintainers"]
 
@@ -41,8 +43,13 @@ refinery = { version = "0.9", features = ["rusqlite"] }
 sqlite-vec = "0.1"
 
 # UI (ADR 0001)
-relm4 = "0.9"
-gtk4 = "0.9"
+# 0.11 targets gtk4 0.11; bumped together. webkit6 0.6 needs gtk4 0.11 (see ADR 0002),
+# and relm4 0.11 is the matching release. See worklog for the approved MSRV/edition contract change.
+# gtk4 v4_10 feature: webkit6 0.6.1 references gtk::Accessible (gir @implements), which gtk4
+# 0.11.4 gates behind the v4_10 feature; declaring it is required for the Linux webkit6
+# backend to build (bare "0.11" enables zero GTK-version features).
+relm4 = "0.11"
+gtk4 = { version = "0.11", features = ["v4_10"] }
 
 # Keychain (ADR 0007)
 keyring = "4"
@@ -87,14 +94,34 @@ titanite = "0.3.2"
 
 # Internal workspace crates (path deps for From-impl propagation)
 hypernext-core = { path = "crates/hypernext-core" }
+hypernext-http = { path = "crates/hypernext-http", version = "0.1.0" }
 hypernext-store = { path = "crates/hypernext-store" }
 hypernext-keychain = { path = "crates/hypernext-keychain" }
+hypernext-webmode = { path = "crates/hypernext-webmode" }
+
+# Raw-mode webview platform bindings (phase 3, p3-t4; ADR 0002 SPIKE).
+# Target-gated in hypernext-webmode's Cargo.toml; only the current platform's
+# binding is built. webkit6 0.6 requires gtk4 0.11, which the workspace now pins
+# (Linux webkit6 raw-webview backend enabled; see ADR 0002). Windows webview2-com
+# is the post-1.0 target; macOS uses objc2 WKWebView (Fallback A).
+webkit6 = "0.6"
+objc2 = { version = "0.6", default-features = false }
+objc2-foundation = { version = "0.3", features = [
+    "NSString", "NSURL", "NSURLRequest", "NSGeometry", "NSObject", "NSArray",
+] }
+objc2-app-kit = { version = "0.3", features = ["NSWindow", "NSView", "NSApplication"] }
+objc2-web-kit = { version = "0.3", features = [
+    "WKWebView", "WKWebViewConfiguration", "WKNavigationDelegate", "WKUIDelegate",
+    "WKNavigationAction", "WKWindowFeatures", "WKWebpagePreferences",
+] }
+webview2-com = "0.39"
 
 # Testing (dev-deps)
 pretty_assertions = "1"
 rstest = "0.26"
 mockall = "0.15"
 wiremock = "0.6"
+tempfile = "3"
 
 # TLS (gemini adapter + integration test server)
 rustls = "0.23"
@@ -104,3 +131,15 @@ rcgen = "0.13"
 
 # Markdown parsing (text/markdown bodies)
 comrak = "0.54"
+
+# Ad filtering (p3-t3; Brave adblock-rust, audited in protocol-crate-audit.md)
+# License: MPL-2.0 (Brave adblock-rust) -- MPL-2.0 is on the allowed list.
+adblock = "0.13"
+# CSS selector matching for cosmetic filtering (shared html5ever with scraper/legible)
+# HTML readability extraction (p3-t2; legible v0.5.1 Rust Readability.js port)
+# API: legible::parse(&str, Option<&str>, Option<Options>) -> Result<Article, legible::Error>
+legible = "0.5"
+# HTML querying for metadata/microformats (ISC; shares html5ever 0.39 with legible)
+scraper = { version = "0.27", default-features = false }
+# Internal workspace crate (path dep for From-impl propagation)
+hypernext-pgp = { path = "crates/hypernext-pgp" }

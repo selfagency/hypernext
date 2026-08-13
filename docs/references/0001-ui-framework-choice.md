@@ -87,7 +87,7 @@ Tauri 2 uses wry → platform webview, same as Dioxus desktop. The webview-as-ap
 
 ## Consequences
 
-**Positive**
+### Positive
 
 - Native widgets: no webview overhead for the 90% of UI that doesn't need HTML rendering
 - Mature widget set: `Notebook`, `ListBox`, `ColumnView`, `Popover`, `EntryCompletion`, `ShortcutController` all standard
@@ -96,7 +96,7 @@ Tauri 2 uses wry → platform webview, same as Dioxus desktop. The webview-as-ap
 - Strong AI training data: GTK4-rs is well-documented and widely used; Relm4 less so but well-documented
 - No IPC, no bindings, no TypeScript type sync — direct Rust calls from UI to protocol/storage crates
 
-**Negative / accepted costs**
+### Negative / accepted costs
 
 - macOS/Windows require bundling the GTK4 runtime (~30MB overhead in the binary)
 - macOS look-and-feel is "GTK4 on macOS" not native AppKit (e.g., no native macOS menu bar by default — GTK4 has its own menu bar)

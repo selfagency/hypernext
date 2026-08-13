@@ -209,14 +209,14 @@ pub(crate) async fn tls_connect(
                 Ok(tls) => tls,
                 Err(e) => {
                     let seen = seen.lock().unwrap().clone();
-                    if let (Some(pinned), Some(seen)) = (pinned, seen) {
-                        if pinned != seen.fingerprint {
-                            return Err(HypernextError::TofuCertChanged(format!(
-                                "certificate for {host} changed: pinned {}, saw {}",
-                                hex(&pinned),
-                                hex(&seen.fingerprint)
-                            )));
-                        }
+                    if let (Some(pinned), Some(seen)) = (pinned, seen)
+                        && pinned != seen.fingerprint
+                    {
+                        return Err(HypernextError::TofuCertChanged(format!(
+                            "certificate for {host} changed: pinned {}, saw {}",
+                            hex(&pinned),
+                            hex(&seen.fingerprint)
+                        )));
                     }
                     return Err(HypernextError::Network(format!("tls handshake: {e}")));
                 }
@@ -225,10 +225,10 @@ pub(crate) async fn tls_connect(
     };
 
     // Clean first contact: pin the fingerprint and store the leaf DER.
-    if pinned.is_none() {
-        if let Some(seen) = seen.lock().unwrap().take() {
-            store_pin(host, seen.fingerprint, &seen.der, ctx)?;
-        }
+    if pinned.is_none()
+        && let Some(seen) = seen.lock().unwrap().take()
+    {
+        store_pin(host, seen.fingerprint, &seen.der, ctx)?;
     }
     Ok(stream)
 }

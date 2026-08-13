@@ -91,7 +91,9 @@ mod tests {
     #[test]
     fn rust_log_debug_enables_debug_events() {
         let _guard = ENV_LOCK.lock().unwrap();
-        std::env::set_var("RUST_LOG", "debug");
+        // edition-2024: std::env::set_var is safe-only on the main thread, so
+        // on other threads it is unsafe; test-only, serialized by ENV_LOCK.
+        unsafe { std::env::set_var("RUST_LOG", "debug") };
         let subscriber = tracing_subscriber::fmt()
             .with_env_filter(env_filter())
             .finish();
@@ -104,7 +106,8 @@ mod tests {
     #[test]
     fn default_filter_is_info_not_debug() {
         let _guard = ENV_LOCK.lock().unwrap();
-        std::env::remove_var("RUST_LOG");
+        // edition-2024: std::env::remove_var is unsafe off the main thread.
+        unsafe { std::env::remove_var("RUST_LOG") };
         let subscriber = tracing_subscriber::fmt()
             .with_env_filter(env_filter())
             .finish();

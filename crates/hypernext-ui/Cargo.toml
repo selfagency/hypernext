@@ -7,3 +7,15 @@ license.workspace = true
 authors.workspace = true
 
 [dependencies]
+# Native GTK4 widgets (ADR 0001) — reader-mode document renderer (p3-t6)
+gtk4 = { workspace = true }
+# Domain model: PageDoc, Block, Metadata, Span (contract types)
+hypernext-core = { workspace = true }
+# URL parsing + de-dup comparison for featured images / link targets
+url = { workspace = true }
+# Diagnostics
+tracing = { workspace = true }
+
+[dev-dependencies]
+# Date formatting in metadata-header tests (p3-t6)
+chrono = { workspace = true }

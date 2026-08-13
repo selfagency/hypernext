@@ -13,7 +13,7 @@ use std::sync::{Arc, Mutex};
 
 use hypernext_core::{Block, Span, SpanRun};
 use hypernext_protocol::{Dispatcher, FetchContext, FetchPolicy, GeminiAdapter};
-use rcgen::{generate_simple_self_signed, CertifiedKey};
+use rcgen::{CertifiedKey, generate_simple_self_signed};
 use rustls::pki_types::PrivateKeyDer;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;

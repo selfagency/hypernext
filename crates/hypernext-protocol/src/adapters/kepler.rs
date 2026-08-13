@@ -317,10 +317,11 @@ mod tests {
         let doc = adapter
             .handle_response(&u, &success("text/markdown", b"# Hi\n\nSome text.\n"))
             .unwrap();
-        assert!(doc
-            .blocks
-            .iter()
-            .any(|b| matches!(b, Block::Heading { level: 1, text, .. } if text == "Hi")));
+        assert!(
+            doc.blocks
+                .iter()
+                .any(|b| matches!(b, Block::Heading { level: 1, text, .. } if text == "Hi"))
+        );
     }
 
     #[test]

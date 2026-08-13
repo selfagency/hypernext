@@ -60,7 +60,7 @@ Requirements:
 
 ## Consequences
 
-**Positive**
+### Positive
 
 - Single storage stack: rusqlite + refinery + sqlite-vec, all mature
 - `bundled` SQLite eliminates system version issues
@@ -68,7 +68,7 @@ Requirements:
 - WAL mode enables concurrent reads during writes (important for the protocol dispatcher writing while the UI reads)
 - No async pollution — storage layer is sync, called from async via `tokio::task::spawn_blocking` for potentially-slow operations
 
-**Negative / accepted costs**
+### Negative / accepted costs
 
 - `spawn_blocking` is required for long-running SQLite operations to avoid blocking the tokio runtime. Documented in `hypernext-store::Store::spawn_query`.
 - Migrations are forward-only (refinery doesn't support down migrations). Document as a known constraint.
