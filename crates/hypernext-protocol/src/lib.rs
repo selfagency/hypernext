@@ -14,6 +14,6 @@ pub use adapters::{
     TitanAdapter, WebFingerAdapter,
 };
 pub use dispatcher::{
-    Capabilities, Dispatcher, FetchContext, FetchPolicy, Protocol, PublishPayload, PublishResult,
-    DEFAULT_SCHEME, RECOGNIZED_SCHEMES, SCHEME_HINTS,
+    Capabilities, DEFAULT_SCHEME, Dispatcher, FetchContext, FetchPolicy, Protocol, PublishPayload,
+    PublishResult, RECOGNIZED_SCHEMES, SCHEME_HINTS,
 };

@@ -67,6 +67,25 @@ jobs:
       - name: cargo test --workspace
         run: xvfb-run -a cargo test --workspace
 
+  # MSRV gate: pin the declared MSRV (1.93, see AGENTS.md) and assert the whole
+  # workspace compiles at that floor. Catches code that drifts above MSRV (e.g.
+  # edition-2024 or new std APIs) before main CI on latest-stable does.
+  msrv:
+    name: MSRV check (1.93)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@7c8d7d138f5c09cef361f8214cf96882cd029cdb # 1.93
+        with:
+          toolchain: 1.93
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - name: Install GTK dev libs (check compiles gtk4-sys)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev
+      - name: cargo check --workspace at MSRV
+        run: cargo check --workspace
+
   coverage:
     name: Coverage (tarpaulin)
     runs-on: ubuntu-latest

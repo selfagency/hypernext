@@ -18,9 +18,7 @@ url = { workspace = true }
 # Each binding is verified via docs/references/library-lookup-protocol.md and
 # pinned in the workspace [workspace.dependencies] block. See the ADR 0002
 # SPIKE section for the macOS embedding decision (separate native window;
-# GTK4 has no foreign-view embedding slot for an NSView) and for why the
-# Linux webkit6 backend is deferred (webkit6 0.6 needs gtk4 0.11; Hypernext
-# pins gtk4 0.9).
+# GTK4 has no foreign-view embedding slot for an NSView).
 
 # macOS: WKWebView via objc2-web-kit. SPIKE (ADR 0002) chose Fallback A --
 # a separate native WKWebView window, because GTK4 removed GtkSocket and
@@ -38,8 +36,10 @@ objc2-foundation = { workspace = true }
 [target.'cfg(target_os = "windows")'.dependencies]
 webview2-com = { workspace = true }
 
-# Linux: DEFERRED. webkit6 0.6 requires gtk4 0.11 but Hypernext pins gtk4 0.9
-# (see ADR 0002 SPIKE + phase-doc 3.4). No webkit6 dep is declared yet; the
-# RawWebViewImpl cfg arm for Linux resolves to a documented placeholder that
-# will be wired to webkit6 when the workspace upgrades gtk4 to 0.11.
+# Linux: WebKitGTK 6.0 via the webkit6 crate (requires gtk4 0.11, which the
+# workspace now pins). The webkit6::WebView IS a gtk4::Widget, so it embeds
+# in-tab natively. This is the CI-testable raw-webview path.
+[target.'cfg(target_os = "linux")'.dependencies]
+webkit6 = { workspace = true }
+
 [dev-dependencies]

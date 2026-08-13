@@ -42,9 +42,9 @@ pub struct Startup {
 ///
 /// Returns an error if any step fails; the caller should abort startup.
 pub fn startup() -> anyhow::Result<Startup> {
-    let data_dir = resolve_data_dir().with_context(|| {
-        "no usable data directory: HOME is not set and HYPERNEXT_DATA_DIR is unset"
-    })?;
+    let data_dir = resolve_data_dir().with_context(
+        || "no usable data directory: HOME is not set and HYPERNEXT_DATA_DIR is unset",
+    )?;
 
     // Create the data dir if missing (macOS: ~/Library/Application Support/Hypernext).
     std::fs::create_dir_all(&data_dir)
@@ -63,10 +63,10 @@ pub fn startup() -> anyhow::Result<Startup> {
 /// Resolve the data directory: `HYPERNEXT_DATA_DIR` if set, else
 /// `<home>/Library/Application Support/Hypernext` on macOS (via `dirs`).
 fn resolve_data_dir() -> Option<PathBuf> {
-    if let Ok(dir) = std::env::var("HYPERNEXT_DATA_DIR") {
-        if !dir.is_empty() {
-            return Some(PathBuf::from(dir));
-        }
+    if let Ok(dir) = std::env::var("HYPERNEXT_DATA_DIR")
+        && !dir.is_empty()
+    {
+        return Some(PathBuf::from(dir));
     }
     let base = dirs::data_dir()?; // macOS: ~/Library/Application Support
     Some(base.join("Hypernext"))
@@ -146,7 +146,8 @@ mod tests {
         std::fs::create_dir_all(&base).unwrap();
 
         // Point the data dir at a fresh temp location.
-        std::env::set_var("HYPERNEXT_DATA_DIR", &data);
+        // edition-2024: std::env::set_var is unsafe off the main thread.
+        unsafe { std::env::set_var("HYPERNEXT_DATA_DIR", &data) };
 
         // Install the in-memory keychain mock before startup so the probe read
         // never hits the real keychain (ADR 0007).

@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 
 use hypernext_core::Block;
 use hypernext_protocol::{FetchContext, FetchPolicy, Protocol, ScrollAdapter};
-use rcgen::{generate_simple_self_signed, CertifiedKey};
+use rcgen::{CertifiedKey, generate_simple_self_signed};
 use rustls::pki_types::PrivateKeyDer;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
@@ -128,10 +128,11 @@ async fn scroll_server_serves_lists_fixture() {
 
     let doc = adapter.fetch(&url, &c).await.unwrap();
     server.await.unwrap();
-    assert!(doc
-        .blocks
-        .iter()
-        .any(|b| matches!(b, Block::List { items, .. } if items.len() == 4)));
+    assert!(
+        doc.blocks
+            .iter()
+            .any(|b| matches!(b, Block::List { items, .. } if items.len() == 4))
+    );
     assert!(doc.blocks.iter().any(|b| matches!(b, Block::Quote(_))));
 }
 

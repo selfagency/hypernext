@@ -17,11 +17,11 @@
 
 use async_trait::async_trait;
 use hypernext_core::{Block, HypernextError, PageDoc};
-use spartan_protocol::{fetch, ClientError, FetchOptions, Response, Status};
+use spartan_protocol::{ClientError, FetchOptions, Response, Status, fetch};
 use url::Url;
 
 use crate::adapters::gemini::gemtext_to_blocks;
-use crate::adapters::tcp_helper::{first_heading, span, TcpProtocolHelper};
+use crate::adapters::tcp_helper::{TcpProtocolHelper, first_heading, span};
 use crate::dispatcher::{Capabilities, FetchContext, Protocol};
 
 /// Spartan's default port.
@@ -174,10 +174,11 @@ mod tests {
             )
             .unwrap();
         assert_eq!(doc.title.as_deref(), Some("Hi"));
-        assert!(doc
-            .blocks
-            .iter()
-            .any(|b| matches!(b, Block::Heading { level: 1, text, .. } if text == "Hi")));
+        assert!(
+            doc.blocks
+                .iter()
+                .any(|b| matches!(b, Block::Heading { level: 1, text, .. } if text == "Hi"))
+        );
         assert!(doc.blocks.iter().any(|b| matches!(b, Block::Paragraph(_))));
     }
 

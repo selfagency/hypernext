@@ -90,20 +90,28 @@ pub fn check_url_with_resolver(
         return Ok(());
     }
 
-    let host = url.host_str().ok_or_else(|| Error::SsrfBlocked {
-        url: url.clone(),
-        reason: "host missing".into(),
-    })?;
-
     // If the host is already an IP literal, use it directly (no DNS needed).
-    let ips: Vec<IpAddr> = match host.parse::<IpAddr>() {
-        Ok(ip) => vec![ip],
-        Err(_) => resolver.resolve(host)?,
+    // Match on `url.host()` (not `host_str()`, which returns bracketed IPv6
+    // like "[::1]" that fails `IpAddr` parsing) so IPv6 literals — loopback,
+    // link-local, ULA, v4-mapped — are classified as private and blocked.
+    // Without this, an IPv6-literal URL bypasses the SSRF check by falling
+    // through to a DNS lookup of the bracketed string (which never returns a
+    // blocked private address).
+    let ips: Vec<IpAddr> = match url.host() {
+        Some(url::Host::Ipv4(v4)) => vec![IpAddr::V4(v4)],
+        Some(url::Host::Ipv6(v6)) => vec![IpAddr::V6(v6)],
+        Some(url::Host::Domain(domain)) => resolver.resolve(domain)?,
+        None => {
+            return Err(Error::SsrfBlocked {
+                url: url.clone(),
+                reason: "host missing".into(),
+            });
+        }
     };
 
     if ips.is_empty() {
         return Err(Error::Dns {
-            host: host.to_string(),
+            host: url.host_str().unwrap_or_default().to_string(),
             source: std::io::Error::new(std::io::ErrorKind::NotFound, "no addresses resolved"),
         });
     }
@@ -338,10 +346,22 @@ mod tests {
 
     #[test]
     fn missing_host_blocked() {
-        // A URL with no host (e.g. "http:///x") cannot be validated.
-        let pol = FetchPolicy::default();
+        // A URL with no host cannot be fetched. `url` 2.5 rejects genuinely
+        // hostless forms ("http://", "http://:80/x") at parse time, so the
+        // SSRF intent ("must have a verifiable host") is enforced by rejection
+        // before `check_url` is ever reached.
+        assert!(
+            Url::parse("http://").is_err(),
+            "hostless http must fail to parse"
+        );
+        assert!(
+            Url::parse("http://:80/x").is_err(),
+            "hostless http:port must fail to parse"
+        );
+        // url 2.5's lenient parser turns "http:///x" into a domain host "x"
+        // (it is resolved like any domain, never silently treated as hostless).
         let u = Url::parse("http:///x").unwrap();
-        assert!(is_ssrf_blocked(check_url(&u, &pol)));
+        assert_ne!(u.host_str(), Some(""), "parser must not report empty host");
     }
 
     #[test]

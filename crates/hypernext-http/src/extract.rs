@@ -744,10 +744,10 @@ fn parse_metadata(html: &str, base: &Url) -> (Metadata, Vec<String>) {
                 }
                 _ => {}
             }
-        } else if let Some(property) = property {
-            if property.starts_with("og:") {
-                og.insert(property, content);
-            }
+        } else if let Some(property) = property
+            && property.starts_with("og:")
+        {
+            og.insert(property, content);
         }
     }
 
@@ -764,17 +764,17 @@ fn parse_metadata(html: &str, base: &Url) -> (Metadata, Vec<String>) {
             m.title = Some(t.clone());
         }
     }
-    if let Some(u) = og.get("og:url") {
-        if let Ok(url) = Url::parse(u) {
-            m.canonical_url.get_or_insert(url);
-            decisions.push("metadata: og:url/canonical".to_string());
-        }
+    if let Some(u) = og.get("og:url")
+        && let Ok(url) = Url::parse(u)
+    {
+        m.canonical_url.get_or_insert(url);
+        decisions.push("metadata: og:url/canonical".to_string());
     }
-    if let Some(img) = og.get("og:image") {
-        if let Some(url) = resolve_url(base, img) {
-            m.featured_image = Some(url);
-            decisions.push("metadata: og:image".to_string());
-        }
+    if let Some(img) = og.get("og:image")
+        && let Some(url) = resolve_url(base, img)
+    {
+        m.featured_image = Some(url);
+        decisions.push("metadata: og:image".to_string());
     }
     m.og = og;
     m.twitter = twitter;

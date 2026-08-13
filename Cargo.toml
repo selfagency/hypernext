@@ -15,8 +15,8 @@ members = [
 
 [workspace.package]
 version = "0.1.0"
-edition = "2021"
-rust-version = "1.83"
+edition = "2024"
+rust-version = "1.93"
 license = "MIT"
 authors = ["Hypernext maintainers"]
 
@@ -43,8 +43,10 @@ refinery = { version = "0.9", features = ["rusqlite"] }
 sqlite-vec = "0.1"
 
 # UI (ADR 0001)
-relm4 = "0.9"
-gtk4 = "0.9"
+# 0.11 targets gtk4 0.11; bumped together. webkit6 0.6 needs gtk4 0.11 (see ADR 0002),
+# and relm4 0.11 is the matching release. See worklog for the approved MSRV/edition contract change.
+relm4 = "0.11"
+gtk4 = "0.11"
 
 # Keychain (ADR 0007)
 keyring = "4"
@@ -96,9 +98,10 @@ hypernext-webmode = { path = "crates/hypernext-webmode" }
 
 # Raw-mode webview platform bindings (phase 3, p3-t4; ADR 0002 SPIKE).
 # Target-gated in hypernext-webmode's Cargo.toml; only the current platform's
-# binding is built. (gtk4 is declared above for the UI stack.)
-# NOTE: webkit6 0.6 needs gtk4 0.11 (conflicts with pinned gtk4 0.9), so the
-# Linux webkit6 backend is deferred and NOT declared here (see ADR 0002).
+# binding is built. webkit6 0.6 requires gtk4 0.11, which the workspace now pins
+# (Linux webkit6 raw-webview backend enabled; see ADR 0002). Windows webview2-com
+# is the post-1.0 target; macOS uses objc2 WKWebView (Fallback A).
+webkit6 = "0.6"
 objc2 = { version = "0.6", default-features = false }
 objc2-foundation = { version = "0.3", features = [
     "NSString", "NSURL", "NSURLRequest", "NSGeometry", "NSObject", "NSArray",

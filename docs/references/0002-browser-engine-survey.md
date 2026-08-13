@@ -114,15 +114,19 @@ in-window options named in the phase doc are both impossible:
   hosts a placeholder widget and the window is positioned alongside it (Phase 4).
   Worse UX than in-tab, but ships raw mode in 1.0 (avoids Fallback B's scope cut).
 
-### Second finding: Linux webkit6 is blocked by the gtk4 version pin
+### Second finding: Linux webkit6 was blocked by the gtk4 version pin (resolved)
 
-A second, independent spike finding blocks the Linux embedded widget for now:
-**`webkit6` 0.6.x requires gtk4 0.11** (`gtk = "^0.11"`), while Hypernext pins
-**gtk4 0.9**. Cargo forbids two `gtk4-sys` copies in one graph (both link
-`gtk-4`), so `webkit6` cannot be added without upgrading the whole workspace to
-gtk4 0.11 (relm4-compatible upgrade). Until that maintainer-owned upgrade lands,
-`hypernext-webmode` ships a gtk4-only placeholder on Linux; the `webkit6::WebView`
-embeeds directly once gtk4 0.11 is adopted.
+A second spike finding initially blocked the Linux embedded widget:
+**`webkit6` 0.6.x requires gtk4 0.11** (`gtk = "^0.11"`), while Hypernext pinned
+gtk4 0.9. Cargo forbids two `gtk4-sys` copies in one graph (both link `gtk-4`), so
+`webkit6` could not be added while the workspace pinned gtk4 0.9.
+
+**Resolved** in the gtk4/relm4 0.11 + MSRV 1.93 + edition 2024 workspace upgrade
+(plan 20260812-phase3-http-rawmode; an approved MSRV/edition contract change —
+see worklog). The workspace now pins gtk4 0.11 and relm4 0.11, so `webkit6 0.6`
+is enabled: `hypernext-webmode` declares it as the Linux raw-webview backend and
+`RawWebViewLinux` hosts a real `webkit6::WebView` (which is a `gtk4::Widget`) in-
+tab.
 
 ### Manual macOS test checklist (validated locally, not in CI)
 
@@ -148,7 +152,8 @@ job is ubuntu/xvfb). Manual verification on a macOS host:
   `NSURL::URLWithString`, `NSURLRequest::requestWithURL`, `NSWindow::new(mtm)`,
   `NSWindowStyleMask::{Titled,Closable,Resizable,Miniaturizable}`.
   Feature-gated per-class; pinned in workspace `[workspace.dependencies]`.
-- **webkit6 0.6.x** — gtk4 0.11 conflict (above); deferred. License MIT.
+- **webkit6 0.6.x** — Linux WebKitGTK backend; requires gtk4 0.11, now pinned
+  (resolved above). License MIT. Enabled in `hypernext-webmode` (Linux target).
 - **wry** — rejected for macOS embedding (Linux-only `build_gtk`); not added.
 - **webview2-com 0.39** — Windows-only; post-1.0 target; pinned in workspace.
 

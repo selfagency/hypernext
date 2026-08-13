@@ -9,7 +9,7 @@
 //! against the bundle, and the element-stripping via `extract_doc_filtered`.
 
 use hypernext_http::adblock::RequestType;
-use hypernext_http::{check_url, strip_matching, AdblockEngine, FetchPolicy};
+use hypernext_http::{AdblockEngine, FetchPolicy, check_url, strip_matching};
 use url::Url;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};

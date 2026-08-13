@@ -1,55 +1,87 @@
-//! Linux backend for [`RawWebView`] — DEFERRED.
+//! Linux backend for [`RawWebView`] — WebKitGTK 6.0 via the `webkit6` crate.
 //!
-//! WebKitGTK 6.0 is the correct GTK4-era engine, but its Rust binding
-//! `webkit6` 0.6 requires gtk4 **0.11** (`gtk = ^0.11`), while Hypernext pins
-//! gtk4 **0.9**. Only one `gtk4-sys` may link `gtk-4`, so `webkit6` cannot be
-//! added to this graph without upgrading the whole workspace to gtk4 0.11.
-//! See the ADR 0002 SPIKE section and the phase-doc 3.4 correction.
+//! WebKitGTK 6.0 is the GTK4-era engine. Unlike macOS (where GTK4 cannot host a
+//! foreign NSView, so a separate native window is used) the `webkit6::WebView`
+//! **is** a `gtk4::Widget`, so it embeds in-tab natively — no separate window
+//! needed. This is the CI-testable raw-webview path (runs under xvfb-run).
 //!
-//! Until that upgrade lands (a maintainer-owned, cross-cutting change), this
-//! module provides a GTK4-only placeholder so `RawWebView` still yields a
-//! [`gtk4::Widget`] on Linux. The `TODO(gtk4-0.11)` marks the seam where the
-//! `webkit6::WebView` embeds directly as the widget.
+//! `webkit6` 0.6 requires gtk4 0.11 (see ADR 0002). The workspace now pins
+//! gtk4 0.11, so this backend is fully wired. Capabilities from
+//! [`WebviewPolicy`] map onto `WebKitSettings` (scripts/storage) and the
+//! `create` signal (popups).
 
 use gtk4::prelude::*;
+// webkit6's prelude brings in WebViewExt (load_uri, connect_create) and
+// SettingsExt (set_enable_*), which are not part of gtk4's prelude.
 use url::Url;
+use webkit6::prelude::*;
 
 use super::policy::WebviewPolicy;
 
-/// Linux raw-mode view. Placeholder until the workspace upgrades to gtk4 0.11
-/// (see module docs); then `self.webview: webkit6::WebView` and
-/// `widget()` returns `webview.upcast::<gtk4::Widget>()`.
+/// Linux raw-mode view: a live `webkit6::WebView` hosted as a GTK widget.
 pub struct RawWebViewLinux {
-    widget: gtk4::Widget,
+    webview: webkit6::WebView,
+    /// The WebKitSettings the webview was built with; reused by `set_policy`.
+    settings: webkit6::Settings,
+    /// Current policy (retained so `set_policy` can diff / re-apply; dead
+    /// until a future use reads it, matching `RawWebViewMacos`'s convention).
+    #[allow(dead_code)]
+    policy: WebviewPolicy,
 }
 
 impl RawWebViewLinux {
-    /// Create the placeholder widget with `policy`.
-    pub fn new(_policy: WebviewPolicy) -> Self {
-        let placeholder = gtk4::DrawingArea::builder()
-            .hexpand(true)
-            .vexpand(true)
-            .build();
-        // TODO(gtk4-0.11): construct `webkit6::WebView::builder()...build()` and
-        // store it; the WebKitGTK WebView is itself a gtk4::Widget, so in-tab
-        // embedding works natively on Linux (no separate window needed).
-        Self {
-            widget: placeholder.upcast::<gtk4::Widget>(),
-        }
+    /// Build a `webkit6::WebView` with `policy` applied.
+    pub fn new(policy: WebviewPolicy) -> Self {
+        // Start from the policy's capability switches; popups are denied at the
+        // `create` signal (below). Scripts/storage follow the policy.
+        let settings = webkit6::Settings::new();
+        let mut this = Self {
+            webview: webkit6::WebView::builder().settings(&settings).build(),
+            settings,
+            policy: WebviewPolicy::incognito(),
+        };
+        // The default WebKit `create` action would spawn a new window for
+        // target=_blank. Raw-mode denies that unless `allow_popups` is set
+        // (it stays false in every shipped policy today; Phase 4 will wire a
+        // navigator to host the new webview when enabled).
+        this.webview.connect_create(|_view, _action| None);
+        this.apply_policy(&policy);
+        this.policy = policy;
+        this
     }
 
-    /// The GTK widget to place in the tab.
+    /// The GTK widget to place in the tab (the webview itself).
     pub fn widget(&self) -> gtk4::Widget {
-        self.widget.clone()
+        self.webview.clone().upcast::<gtk4::Widget>()
     }
 
-    /// Navigate to `url` (no-op until the webkit6 backend is wired).
-    pub fn load_url(&self, _url: &Url) {
-        // TODO(gtk4-0.11): self.webview.load_uri(url.as_str()).
+    /// Navigate to `url`.
+    pub fn load_url(&self, url: &Url) {
+        self.webview.load_uri(url.as_str());
     }
 
-    /// Apply `policy` (no-op until the webkit6 backend is wired).
-    pub fn set_policy(&mut self, _policy: &WebviewPolicy) {
-        // TODO(gtk4-0.11): WebKitSettings enable-javascript / popups toggles.
+    /// (Re-)apply a webview policy to the WebKit settings.
+    pub fn set_policy(&mut self, policy: &WebviewPolicy) {
+        self.apply_policy(policy);
+        self.policy = policy.clone();
+    }
+
+    fn apply_policy(&self, policy: &WebviewPolicy) {
+        // Scripts: `enable-javascript` maps directly to `allow_scripts`.
+        self.settings.set_enable_javascript(policy.allow_scripts);
+        // Storage: WebKitGTK separates local storage from IndexedDB/WebSQL
+        // ("HTML5 database"). Binary sites distinguish local storage from
+        // database storage; gate both on `allow_storage`. `null` prefix +
+        // `false` keeps cross-origin storage isolated (CORS stays strict; the
+        // policy has no cross-origin knob mapped to a WebKit setting here).
+        self.settings
+            .set_enable_html5_local_storage(policy.allow_storage);
+        self.settings
+            .set_enable_html5_database(policy.allow_storage);
+        // Popups are denied unconditionally by the `create` handler wired in
+        // `new`; `allow_popups` is reserved for Phase 4 when a navigator can
+        // host the new webview. Downloads (user-confirmation gating) and CORS
+        // are policy fields enforced at the UI/HTTP layers (invariants), not
+        // WebKit settings.
     }
 }

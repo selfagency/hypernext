@@ -308,9 +308,11 @@ mod tests {
         let entries = doc_to_entries(&blocks);
         // A separator contributes an anchor, proving widget fallback coexists
         // with selectable text in the same stream.
-        assert!(entries
-            .iter()
-            .any(|e| e.anchor == Some(ChildAnchor::Separator)));
+        assert!(
+            entries
+                .iter()
+                .any(|e| e.anchor == Some(ChildAnchor::Separator))
+        );
         // Heading carries its level tag.
         assert!(entries.contains(&TextEntry {
             text: Cow::Owned("Title".into()),

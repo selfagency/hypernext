@@ -176,10 +176,10 @@ pub fn verify_clearsign(bytes: &[u8], key: &SignedPublicKey) -> Result<Verificat
         .map_err(|e| PgpError::Parse(format!("clearsign parse: {e}")))?;
 
     let issuers = msg.signatures().first().map(|s| s.issuer_fingerprint());
-    if let Some(issuer) = issuers.and_then(|v| v.into_iter().next()) {
-        if !fingerprints_match(issuer, key) {
-            return Ok(Verification::Unverified);
-        }
+    if let Some(issuer) = issuers.and_then(|v| v.into_iter().next())
+        && !fingerprints_match(issuer, key)
+    {
+        return Ok(Verification::Unverified);
     }
 
     match msg.verify(key) {
@@ -212,10 +212,10 @@ pub fn verify_detached(
     let (detached, _headers) = DetachedSignature::from_string(sig_text)
         .map_err(|e| PgpError::Parse(format!("detached signature parse: {e}")))?;
 
-    if let Some(issuer) = detached.signature.issuer_fingerprint().into_iter().next() {
-        if !fingerprints_match(issuer, key) {
-            return Ok(Verification::Unverified);
-        }
+    if let Some(issuer) = detached.signature.issuer_fingerprint().into_iter().next()
+        && !fingerprints_match(issuer, key)
+    {
+        return Ok(Verification::Unverified);
     }
 
     match detached.verify(key, payload) {

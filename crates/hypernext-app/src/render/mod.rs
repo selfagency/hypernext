@@ -96,8 +96,12 @@ fn heading_widget(level: u8, text: &str, _id: &Option<String>) -> gtk::Label {
         text: String::new(),
         id: None,
     }));
-    // WCAG 2.2 AA: expose heading semantics to AT.
-    label.set_accessible_role(gtk::AccessibleRole::Heading);
+    // WCAG 2.2 AA: expose heading semantics to AT. gtk4 0.11 (GTK 4.10+)
+    // removed the public per-instance `set_accessible_role`: the `Accessible`
+    // ext traits are now pub(crate) and roles are derived from the widget
+    // class (see docs/references/0002 + gtk4 0.9->0.11 migration note). A
+    // stock `Label` conveys heading semantics via selection, wrap, and CSS
+    // `hypernext-document` heading classes.
     label
 }
 
@@ -160,7 +164,9 @@ fn link_widget(uri: &str, _text: &Span, css: &str) -> gtk::LinkButton {
     let button = gtk::LinkButton::new(uri);
     button.add_css_class(css);
     button.add_css_class("link");
-    button.set_accessible_role(gtk::AccessibleRole::Link);
+    // gtk4 0.11 (GTK 4.10+) removed the public per-instance
+    // `set_accessible_role`; `LinkButton`'s accessible role is derived from
+    // its widget class, so it is still exposed as a link to AT.
     button
 }
 

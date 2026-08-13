@@ -10,10 +10,10 @@ pub mod error;
 pub mod extract;
 pub mod policy;
 
-pub use adblock::{strip_matching, AdblockEngine, FilterListSource};
-pub use client::{build_client, fetch_body, BoundedReader};
+pub use adblock::{AdblockEngine, FilterListSource, strip_matching};
+pub use client::{BoundedReader, build_client, fetch_body};
 pub use error::Error;
 pub use extract::{
     extract_doc, extract_doc_filtered, fetch_and_extract, fetch_and_extract_filtered,
 };
-pub use policy::{check_url, check_url_with_resolver, FetchPolicy, SystemDns};
+pub use policy::{FetchPolicy, SystemDns, check_url, check_url_with_resolver};

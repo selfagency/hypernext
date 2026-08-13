@@ -89,10 +89,11 @@ async fn nex_document_parses_as_gemtext() {
 
     let doc = adapter.fetch(&url, &c).await.unwrap();
     assert_eq!(doc.title.as_deref(), Some("Title"));
-    assert!(doc
-        .blocks
-        .iter()
-        .any(|b| matches!(b, Block::Heading { level: 1, text, .. } if text == "Title")));
+    assert!(
+        doc.blocks
+            .iter()
+            .any(|b| matches!(b, Block::Heading { level: 1, text, .. } if text == "Title"))
+    );
     assert!(doc.blocks.iter().any(|b| matches!(b, Block::Paragraph(_))));
     assert!(doc.blocks.iter().any(|b| matches!(b, Block::Link { .. })));
 }
@@ -108,10 +109,11 @@ async fn nex_malformed_arrow_is_text_not_link() {
 
     let doc = adapter.fetch(&url, &c).await.unwrap();
     // "=> " and "=>about.txt" are text; only "=> /valid.txt" is a link.
-    assert!(doc
-        .blocks
-        .iter()
-        .any(|b| matches!(b, Block::Link { url, .. } if url.as_str().ends_with("/valid.txt"))));
+    assert!(
+        doc.blocks
+            .iter()
+            .any(|b| matches!(b, Block::Link { url, .. } if url.as_str().ends_with("/valid.txt")))
+    );
 }
 
 #[tokio::test]

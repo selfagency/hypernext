@@ -386,7 +386,7 @@ mod tests {
     #[test]
     fn default_and_protocol_trait_methods() {
         // Exercises Default::default(), scheme(), path_prefix() and capabilities().
-        let adapter = WebFingerAdapter::default();
+        let adapter = WebFingerAdapter;
         assert_eq!(adapter.scheme(), "https");
         assert_eq!(adapter.path_prefix(), Some(WELL_KNOWN_PATH));
         let caps = adapter.capabilities();

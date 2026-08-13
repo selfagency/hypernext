@@ -1,7 +1,7 @@
 //! Integration tests for the Guppy adapter (p2-t5d): an in-process UDP guppy
 //! server (using the crate's own `serve`) answering with fixture bodies.
 
-use guppy_protocol::{serve, GuppyResponse, ServerConfig};
+use guppy_protocol::{GuppyResponse, ServerConfig, serve};
 use hypernext_core::Block;
 use hypernext_protocol::{FetchContext, FetchPolicy, GuppyAdapter, Protocol};
 use tokio::net::UdpSocket;

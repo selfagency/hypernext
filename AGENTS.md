@@ -12,7 +12,7 @@
 
 **Stack:**
 
-- Rust 1.83+ (stable, MSRV enforced via CI)
+- Rust 1.93+ (stable, MSRV enforced via CI; raised 1.83->1.93 in the gtk4/relm4 0.11 upgrade — approved contract change, see worklog)
 - Relm4 + GTK4 (native UI; **not** webview-based shell)
 - tokio (exclusive async runtime — ADR 0008)
 - rusqlite + refinery + sqlite-vec (storage — ADR 0004)

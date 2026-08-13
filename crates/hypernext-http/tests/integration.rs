@@ -6,7 +6,7 @@
 //! block enabled and the initial request issued directly (no initial
 //! `check_url`), so only the redirect closure enforces the block.
 
-use hypernext_http::{build_client, fetch_body, FetchPolicy};
+use hypernext_http::{FetchPolicy, build_client, fetch_body};
 use std::time::Duration;
 use url::Url;
 use wiremock::matchers::{method, path};

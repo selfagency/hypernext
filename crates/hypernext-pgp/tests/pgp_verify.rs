@@ -2,14 +2,14 @@
 //! verification, TOFU key rotation, the Pouya Code inline HTML-comment pattern,
 //! and the critical verify-before-extract boundary (ethics B-09).
 
-use hypernext_pgp::tofu::{apply_tofu, TofuStore};
-use hypernext_pgp::{verify_clearsign, verify_detached, Verification};
+use hypernext_pgp::tofu::{TofuStore, apply_tofu};
+use hypernext_pgp::{Verification, verify_clearsign, verify_detached};
 use pgp::composed::{CleartextSignedMessage, KeyType, SecretKeyParamsBuilder, SignedPublicKey};
 use pgp::crypto::hash::HashAlgorithm;
 use pgp::types::KeyDetails;
 use pgp::types::Password;
-use rand::rngs::StdRng;
 use rand::SeedableRng;
+use rand::rngs::StdRng;
 use smallvec::smallvec;
 use std::collections::HashMap;
 

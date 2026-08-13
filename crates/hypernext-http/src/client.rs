@@ -5,13 +5,13 @@ use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use reqwest::redirect;
 use reqwest::Client;
+use reqwest::redirect;
 use tokio::io::{AsyncRead, ReadBuf};
 use url::Url;
 
 use crate::error::Error;
-use crate::policy::{check_url, FetchPolicy};
+use crate::policy::{FetchPolicy, check_url};
 
 /// Build a [`reqwest::Client`] whose redirect policy validates each hop with
 /// `check_url` (SSRF + scheme + redirect limit). The client applies
@@ -219,10 +219,11 @@ mod tests {
         let mut reader = BoundedReader::new(Cursor::new(data), 0);
         let mut out = Vec::new();
         let err = tokio::io::copy(&mut reader, &mut out).await.unwrap_err();
-        assert!(err
-            .get_ref()
-            .and_then(|e| e.downcast_ref::<Error>())
-            .is_some());
+        assert!(
+            err.get_ref()
+                .and_then(|e| e.downcast_ref::<Error>())
+                .is_some()
+        );
         assert!(out.is_empty());
     }
 }

@@ -21,9 +21,9 @@
 
 use gtk4::prelude::*;
 use objc2::rc::Retained;
-use objc2::{msg_send, MainThreadMarker, MainThreadOnly};
+use objc2::{MainThreadMarker, MainThreadOnly, msg_send};
 use objc2_app_kit::{NSApplication, NSAutoresizingMaskOptions, NSWindow, NSWindowStyleMask};
-use objc2_foundation::{NSPoint, NSRect, NSSize, NSString, NSURLRequest, NSURL};
+use objc2_foundation::{NSPoint, NSRect, NSSize, NSString, NSURL, NSURLRequest};
 use objc2_web_kit::{WKWebView, WKWebViewConfiguration};
 use url::Url;
 
